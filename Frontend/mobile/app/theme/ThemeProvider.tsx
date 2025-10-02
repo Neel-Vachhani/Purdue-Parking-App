@@ -8,16 +8,9 @@ export const ThemeContext = createContext(lightTheme);
 
 // This component wraps our entire app and provides the theme to all child components
 export default function ThemeProvider({ children }: React.PropsWithChildren) {
-  // Check if the user's phone is set to light or dark mode
-  const systemTheme = useColorScheme(); // Returns "light" or "dark"
-  
-  // Choose which theme to use based on the user's phone settings
-  let currentTheme;
-  if (systemTheme === "dark") {
-    currentTheme = darkTheme;
-  } else {
-    currentTheme = lightTheme; // Default to light theme if we can't detect
-  }
+  // For now, we're building dark mode only - ignore system settings
+  // Later we can add a toggle in settings to let users choose
+  const currentTheme = darkTheme;
   
   // Provide the theme to all child components
   return (
