@@ -1,11 +1,12 @@
 import redis
+from decouple import config
 
 r = redis.Redis(
-    host='redis-15115.crce197.us-east-2-1.ec2.redns.redis-cloud.com',
-    port=15115,
+    host=config('REDIS_HOST'),
+    port=config('REDIS_PORT'),
     decode_responses=True,
-    username="default",
-    password="lWARPY3AGchoeY6xuijbCzWkPnO1eW7u",
+    username=config('REDIS_USERNAME'),
+    password=config('REDIS_PASSWORD'),
 )
 
 success = r.set('foo', 'testing, testing, 123')
