@@ -1,9 +1,9 @@
-from django.contrib.postgres.fields import ArrayField
-from location_field.models.plain import PlainLocationField
+# from django.contrib.postgres.fields import ArrayField
+# from location_field.models.plain import PlainLocationField
 from django.db import models
 
 # Create your models here.
-
+'''
 
 class User(models.Model):
     parking_passes = {
@@ -64,3 +64,9 @@ class CampusEvent(models.Model):
 
 class Camera(models.Model):
     id = models.AutoField(primary_key=True)
+'''
+
+
+class Item(models.Model):
+    name = models.CharField(max_length=50)
+    created = models.DateTimeField(auto_now_add=True)

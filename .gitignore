@@ -1,3 +1,5 @@
 doc/*
 
 .venv/
+
+db.sqlite3

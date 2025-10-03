@@ -37,7 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'location_field.apps.DefaultConfig'
+    'location_field.apps.DefaultConfig',
+    'rest_framework',
+    'boiler_park_backend'
 ]
 
 MIDDLEWARE = [
