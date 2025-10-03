@@ -1,0 +1,6 @@
+# Backend Python dependencies (minimal)
+Django>=4.2
+djangorestframework
+python-dotenv
+redis
+# Add other dependencies your project needs here
