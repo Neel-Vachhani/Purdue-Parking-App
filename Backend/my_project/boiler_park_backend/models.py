@@ -3,6 +3,23 @@
 from django.db import models
 
 # Create your models here.
+
+
+class User(models.Model):
+    parking_passes = {
+        "A": "A",
+        "B": "B",
+        "C": "C",
+        "Res": "Resident"
+    }
+
+    id = models.AutoField(primary_key=True)
+    email = models.EmailField()
+    parking_pass = models.CharField(
+        max_length=5, choices=parking_passes, blank=True, null=True)
+    events = models.CharField()
+
+
 '''
 
 class User(models.Model):
