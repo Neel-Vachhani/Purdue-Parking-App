@@ -6,6 +6,7 @@ from django.db import models
 
 
 class User(models.Model):
+
     parking_passes = {
         "A": "A",
         "B": "B",
@@ -14,10 +15,12 @@ class User(models.Model):
     }
 
     id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=45)
     email = models.EmailField()
+    password = models.CharField(max_length=100)
     parking_pass = models.CharField(
         max_length=5, choices=parking_passes, blank=True, null=True)
-    events = models.CharField()
+    # events = models.CharField()
 
 
 '''
@@ -86,4 +89,5 @@ class Camera(models.Model):
 
 class Item(models.Model):
     name = models.CharField(max_length=50)
+    password = models.CharField(max_length=100)
     created = models.DateTimeField(auto_now_add=True)
