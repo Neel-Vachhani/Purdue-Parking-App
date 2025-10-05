@@ -1,6 +1,7 @@
 import redis
 from decouple import config
 
+# Initialization of Redis connection using Secrets stored in .env file
 r = redis.Redis(
     host=config('REDIS_HOST'),
     port=config('REDIS_PORT'),
