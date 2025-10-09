@@ -1,11 +1,12 @@
 import React from "react";
 import ThemedView from "../../components/ThemedView";
-import ThemedText from "../../components/ThemedText";
+import ParkingMap from "../../components/map/ParkingMap";
+import { INITIAL_REGION } from "../../constants/map";
 
 export default function ParkingMapScreen() {
   return (
-    <ThemedView style={{ alignItems: "center", justifyContent: "center" }}>
-      <ThemedText style={{ fontSize: 18 }}>Parking Map Screen</ThemedText>
+    <ThemedView>
+      <ParkingMap initialRegion={INITIAL_REGION} />
     </ThemedView>
   );
 }
