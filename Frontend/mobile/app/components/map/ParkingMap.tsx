@@ -25,7 +25,7 @@ export default function ParkingMap({ initialRegion }: ParkingMapProps) {
         showsUserLocation
         showsCompass
         moveOnMarkerPress={false}
-        mapPadding={{ top: 0, right: 0, bottom: 24, left: 0 }}
+        mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
       />
       <Pressable
         accessibilityRole="button"
