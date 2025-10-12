@@ -23,19 +23,17 @@ try:
 except:
     config = lambda k, default=None: os.getenv(k, default)
 
-REDIS_HOST = config("REDIS_HOST")
-REDIS_PORT = int(config("REDIS_PORT"))
-REDIS_PASSWORD = config("REDIS_PASSWORD")
-REDIS_DB = int(config("REDIS_DB"))
 PUBSUB_PATTERN = "__keyspace@0__:*"
 INTERESTING_EVENTS = {"set", "incr", "incrby", "decr", "decrby", "del"}
 
 channel_layer = get_channel_layer()
-r = redis.Redis(host=REDIS_HOST, 
-                port=REDIS_PORT, 
-                db=REDIS_DB, 
-                password=REDIS_PASSWORD, 
-                decode_responses=True)
+r = redis.Redis(
+    host=config('REDIS_HOST'),
+    port=config('REDIS_PORT'),
+    decode_responses=True,
+    username=config('REDIS_USERNAME'),
+    password=config('REDIS_PASSWORD'),
+)
 pubsub = r.pubsub(ignore_subscribe_messages=True)
 pubsub.psubscribe(PUBSUB_PATTERN)
 
