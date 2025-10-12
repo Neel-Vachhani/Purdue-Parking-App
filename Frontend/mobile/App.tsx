@@ -5,6 +5,7 @@ import BottomBar from "./app/components/BottomBar";
 import ParkingListScreen from "./app/screens/Parking/ParkingListScreen";
 import ParkingMapScreen from "./app/screens/Parking/ParkingMapScreen";
 import SettingsScreen from "./app/screens/Settings/SettingsScreen";
+import ParkingWS from "./app/components/ParkingWS";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
@@ -28,6 +29,7 @@ export default function App() {
         <ThemedView style={{ flex: 1 }}>
           <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
             <ThemedView style={{ flex: 1 }}>{renderTab()}</ThemedView>
+            <ParkingWS />
           </SafeAreaView>
           <BottomBar active={tab} onChange={setTab} />
         </ThemedView>

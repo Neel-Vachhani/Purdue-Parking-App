@@ -27,6 +27,16 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+REDIS_URL = config("REDIS_URL")
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_URL],
+        },
+    },
+}
+
 
 # Application definition
 
@@ -39,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'location_field.apps.DefaultConfig',
     'rest_framework',
+    "channels",
     'boiler_park_backend'
 ]
 
@@ -70,7 +81,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'my_project.wsgi.application'
-
+ASGI_APPLICATION = "my_project.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
