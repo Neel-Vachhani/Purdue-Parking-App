@@ -7,11 +7,13 @@ import ParkingMapScreen from "./app/screens/Parking/ParkingMapScreen";
 import SettingsScreen from "./app/screens/Settings/SettingsScreen";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { ThemeContext } from "./app/theme/ThemeProvider";
 
 type TabKey = "list" | "map" | "settings";
 
 export default function App() {
   const [tab, setTab] = React.useState<TabKey>("list");
+  const theme = React.useContext(ThemeContext);
 
   function renderTab() {
     switch (tab) {
@@ -24,7 +26,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
         <ThemedView style={{ flex: 1 }}>
           <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
             <ThemedView style={{ flex: 1 }}>{renderTab()}</ThemedView>
