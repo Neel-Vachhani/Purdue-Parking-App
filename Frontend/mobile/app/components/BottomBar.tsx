@@ -21,11 +21,11 @@ export default function BottomBar({ active, onChange }: Props) {
   const insets = useSafeAreaInsets();
   
   return (
-    // Main container for the bottom tab bar
+    // Bottom navigation bar: themed, inset-aware, minimal
     <View style={{ 
       flexDirection: "row", 
       borderTopWidth: 1, 
-      borderColor: "#ddd",
+      borderColor: theme.border,
       backgroundColor: theme.bg, // Match app background
       paddingBottom: Math.max(8, insets.bottom), // Respect bottom inset
       paddingTop: 8,

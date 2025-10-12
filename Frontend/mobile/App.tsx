@@ -27,6 +27,7 @@ export default function App() {
     <ThemeProvider>
       <SafeAreaProvider>
         <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
+        {/* App layout: content respects top safe area; bottom bar overlays flush */}
         <ThemedView style={{ flex: 1 }}>
           <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
             <ThemedView style={{ flex: 1 }}>{renderTab()}</ThemedView>

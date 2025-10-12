@@ -8,6 +8,7 @@ export default function SettingsScreen() {
   const theme = React.useContext(ThemeContext);
   const isDark = theme.mode === "dark";
   return (
+    // Settings is the entry point for user-facing theme control
     <ThemedView style={{ padding: 20, gap: 16 }}>
       <ThemedText style={{ fontSize: 22, fontWeight: "700" }}>Settings</ThemedText>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
