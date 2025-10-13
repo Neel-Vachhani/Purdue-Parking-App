@@ -7,6 +7,15 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "expo": {
+      "scheme": "boilerpark",
+      "ios": {
+        "bundleIdentifier": "com.team6.boilerpark"
+      },
+      "android": {
+        "package": "com.team6.boilerpark"
+      }
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
