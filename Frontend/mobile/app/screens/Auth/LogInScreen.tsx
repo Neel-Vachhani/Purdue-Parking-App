@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import AuthInput from '../../components/AuthInput';
 
-export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
+interface LoginScreenProps {
+    onLogin: () => void;
+    onRequestSignup: () => void;
+}
+
+export default function LoginScreen({ onLogin, onRequestSignup }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -29,6 +34,10 @@ export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
       {/* User gets loged once "Log in" button is pressed. Later we will need to authenticate user has an account and used correct password */}
       <TouchableOpacity style={styles.button} onPress={onLogin}>
         <Text style={styles.buttonText}>Log In</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.button} onPress={onRequestSignup}>
+        <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
     </View>
   );

@@ -6,28 +6,35 @@ import ParkingListScreen from "./app/screens/Parking/ParkingListScreen";
 import ParkingMapScreen from "./app/screens/Parking/ParkingMapScreen";
 import SettingsScreen from "./app/screens/Settings/SettingsScreen";
 import LoginScreen from "./app/screens/Auth/LogInScreen";
+import SignupScreen from "./app/screens/Auth/SignUpScreen";
 
 type TabKey = "list" | "map" | "settings";
 
 export default function App() {
-  // When the app is first rendered, the user will not be logged in
-  // But setIsLoggedIn can be called to change whether the user is logged in
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  type AuthModeKey = "signup" | "login" | null;
+  
+  // Default to login screen
+  const [authMode, setAuthMode] = React.useState<AuthModeKey>("login");
 
   function renderScreen() {
     // If user is not logged in, render the login screen
     // Once the user is logged in, set isLoggedIn to true
-    if (!isLoggedIn) {
-      return <LoginScreen onLogin={() => setIsLoggedIn(true)}/>;
+    switch(authMode) {
+      case "login": return (
+        < LoginScreen 
+          onLogin={() => setAuthMode(null) }
+          onRequestSignup={() => setAuthMode("signup")}
+        />
+      );
+      case "signup": return <SignupScreen onSignup={() => { setAuthMode("login"); } } />;
+      case null: // If the user is already logged in, just render the page with tabs
+        return (
+          <>
+            <ThemedView style={{ flex: 1 }}>{renderTab()}</ThemedView>
+            <BottomBar active={tab} onChange={setTab} />
+          </>
+        );
     }
-
-    // If the user is already logged in, just render the page with tabs
-    return (
-      <>
-        <ThemedView style={{ flex: 1 }}>{renderTab()}</ThemedView>
-        <BottomBar active={tab} onChange={setTab} />
-      </>
-    );
   }
 
   const [tab, setTab] = React.useState<TabKey>("list");
