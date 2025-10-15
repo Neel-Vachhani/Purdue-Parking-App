@@ -1,32 +1,30 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import AuthInput from '../../components/AuthInput';
 
 export default function LoginScreen({ onLogin }: { onLogin: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    console.log('Email:', email);
-    console.log('Password:', password);
-  };
+//   const handleLogin = () => {
+//     console.log('Email:', email);
+//     console.log('Password:', password);
+//   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Log In</Text>
-      <TextInput
-        style={styles.input}
+      <AuthInput
         placeholder="Email"
-        placeholderTextColor="#aaa"
         value={email}
         onChangeText={setEmail}
       />
-      <TextInput
-        style={styles.input}
+      <AuthInput
         placeholder="Password"
-        placeholderTextColor="#aaa"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
+        secure
       />
       {/* User gets loged once "Log in" button is pressed. Later we will need to authenticate user has an account and used correct password */}
       <TouchableOpacity style={styles.button} onPress={onLogin}>
