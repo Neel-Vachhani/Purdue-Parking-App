@@ -5,12 +5,12 @@ import { ThemeContext } from "../theme/ThemeProvider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Define what tabs we have in our app
-type TabKey = "list" | "map" | "settings";
+type TabKey = "garages" | "map" | "settings";
 type Props = { active: TabKey; onChange: (key: TabKey) => void };
 
 // Labels for each tab that users will see
 const TAB_LABELS: Record<TabKey, string> = {
-  list: "List",
+  garages: "Garages",
   map: "Map", 
   settings: "Settings",
 };

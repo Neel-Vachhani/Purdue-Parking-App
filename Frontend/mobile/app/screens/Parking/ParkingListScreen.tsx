@@ -1,8 +1,11 @@
 import React, { useState } from "react";
+import { View } from "react-native";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
+import { ThemeContext } from "../../theme/ThemeProvider";
 
 export default function ParkingListScreen() {
+  const theme = React.useContext(ThemeContext);
   const [parkingLots, setParkingLots] = useState([
     {
       id: 1,
@@ -68,16 +71,16 @@ export default function ParkingListScreen() {
   });
 
   return (
-    <ThemedView style={{ flex: 1, backgroundColor: "#000000", paddingHorizontal: 24, paddingTop: 60, paddingBottom: 24 }}>
+    <ThemedView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60, paddingBottom: 24 }}>
       <ThemedText style={{ fontSize: 24, fontWeight: "bold", marginBottom: 24 }}>
-        Parking Lots
+        Parking Garages
       </ThemedText>
 
       {parkingLots.map((lot) => (
         <ThemedView
           key={lot.id}
           style={{
-            backgroundColor: "#111827",
+            backgroundColor: theme.mode === "dark" ? "#111827" : "#f9fafb",
             borderRadius: 12,
             padding: 16,
             borderWidth: 2,
@@ -90,10 +93,10 @@ export default function ParkingListScreen() {
               <ThemedText style={{ fontSize: 18, fontWeight: "600" }}>
                 {lot.name}
               </ThemedText>
-              <ThemedText style={{ fontSize: 16, color: "#60a5fa" }}>ⓘ</ThemedText>
+              <ThemedText style={{ fontSize: 16, color: theme.primary }}>ⓘ</ThemedText>
             </ThemedView>
             <ThemedText
-              style={{ fontSize: 20, color: lot.isFavorite ? "#facc15" : "#6b7280" }}
+              style={{ fontSize: 20, color: lot.isFavorite ? "#facc15" : (theme.mode === "dark" ? "#6b7280" : "#9ca3af") }}
               onPress={() => toggleFavorite(lot.id)}
             >
               {lot.isFavorite ? "★" : "☆"}
@@ -101,10 +104,10 @@ export default function ParkingListScreen() {
           </ThemedView>
 
           <ThemedView>
-            <ThemedText style={{ fontSize: 14, color: "#9ca3af", marginBottom: 8 }}>
+            <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280", marginBottom: 8 }}>
               {lot.available}/{lot.capacity}
             </ThemedText>
-            <ThemedView style={{ width: "100%", height: 12, backgroundColor: "#374151", borderRadius: 6, overflow: "hidden" }}>
+            <ThemedView style={{ width: "100%", height: 12, backgroundColor: theme.mode === "dark" ? "#374151" : "#e5e7eb", borderRadius: 6, overflow: "hidden" }}>
               <ThemedView
                 style={{
                   height: "100%",
@@ -118,7 +121,7 @@ export default function ParkingListScreen() {
         </ThemedView>
       ))}
 
-      <ThemedText style={{ fontSize: 14, color: "#9ca3af", textAlign: "center", marginTop: 24 }}>
+      <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280", textAlign: "center", marginTop: 24 }}>
         Last Updated: {currentTime}
       </ThemedText>
     </ThemedView>

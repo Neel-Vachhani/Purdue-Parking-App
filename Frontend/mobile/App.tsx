@@ -9,15 +9,15 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { ThemeContext } from "./app/theme/ThemeProvider";
 
-type TabKey = "list" | "map" | "settings";
+type TabKey = "garages" | "map" | "settings";
 
 export default function App() {
-  const [tab, setTab] = React.useState<TabKey>("list");
+  const [tab, setTab] = React.useState<TabKey>("garages");
   const theme = React.useContext(ThemeContext);
 
   function renderTab() {
     switch (tab) {
-      case "list": return <ParkingListScreen />;
+      case "garages": return <ParkingListScreen />;
       case "map": return <ParkingMapScreen />;
       case "settings": return <SettingsScreen />;
     }
