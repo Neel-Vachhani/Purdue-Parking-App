@@ -2,7 +2,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-export function AppleButton() {
+export default function AppleButton() {
   if (Platform.OS !== "ios") return null;
   const signIn = async () => {
     const cred = await AppleAuthentication.signInAsync({
