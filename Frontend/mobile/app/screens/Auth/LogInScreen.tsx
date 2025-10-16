@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import AuthInput from '../../components/AuthInput';
+import ThemedView from "../../components/ThemedView";
+import ThemedText from "../../components/ThemedText";
 
 interface LoginScreenProps {
     onLogin: () => void;
@@ -17,8 +19,8 @@ export default function LoginScreen({ onLogin, onRequestSignup }: LoginScreenPro
 //   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Log In</Text>
+    <ThemedView style={styles.container}>
+      <ThemedText style={styles.title}>Log In</ThemedText>
       <AuthInput
         placeholder="Email"
         value={email}
@@ -39,7 +41,7 @@ export default function LoginScreen({ onLogin, onRequestSignup }: LoginScreenPro
       <TouchableOpacity style={styles.button} onPress={onRequestSignup}>
         <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
-    </View>
+    </ThemedView>
   );
 }
 
