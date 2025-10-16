@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from firebase_admin import initialize_app
 from decouple import config
 from pathlib import Path
 
@@ -21,7 +22,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = config('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -39,7 +40,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'location_field.apps.DefaultConfig',
     'rest_framework',
-    'boiler_park_backend'
+    'boiler_park_backend',
+    "fcm_django",
+
 ]
 
 MIDDLEWARE = [
@@ -77,11 +80,32 @@ WSGI_APPLICATION = 'my_project.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'postgres',
+        'USER': 'postgres.fbrnehbhztosbgbhxzlg',
+        'PASSWORD': 'bOAQiXTsuAWL4ico',
+        'HOST': 'aws-1-us-east-2.pooler.supabase.com',
+        'PORT': '6543'
     }
 }
 
+
+FIREBASE_APP = initialize_app()
+
+FCM_DJANGO_SETTINGS = {
+    # an instance of firebase_admin.App to be used as default for all fcm-django requests
+    # default: None (the default Firebase app)
+    "DEFAULT_FIREBASE_APP": None,
+    # default: _('FCM Django')
+    "APP_VERBOSE_NAME": "[string for AppConfig's verbose_name]",
+    # true if you want to have only one active device per registered user at a time
+    # default: False
+    "ONE_DEVICE_PER_USER": False,
+    # devices to which notifications cannot be sent,
+    # are deleted upon receiving error response from FCM
+    # default: False
+    "DELETE_INACTIVE_DEVICES": False,
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
