@@ -35,3 +35,9 @@ def sign_up(request):
                     parking_pass=parking_pass)
         user.save()
     return Response((serializer.data, hashed_pass))
+
+@api_view(['POST'])
+def accept_notification_token(request):
+    token = request.data["token"]
+    # save token to database
+    return Response("Token received")
