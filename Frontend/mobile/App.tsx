@@ -1,40 +1,49 @@
+// app/_layout.tsx
 import React from "react";
-import ThemeProvider from "./app/theme/ThemeProvider";
-import ThemedView from "./app/components/ThemedView";
-import BottomBar from "./app/components/BottomBar";
-import ParkingListScreen from "./app/screens/Parking/ParkingListScreen";
-import ParkingMapScreen from "./app/screens/Parking/ParkingMapScreen";
-import SettingsScreen from "./app/screens/Settings/SettingsScreen";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
-import { ThemeContext } from "./app/theme/ThemeProvider";
+import { Stack, router, usePathname } from "expo-router";
+import { ActivityIndicator, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import * as SecureStore from "expo-secure-store";
 
-type TabKey = "garages" | "map" | "settings";
+WebBrowser.maybeCompleteAuthSession();
 
-export default function App() {
-  const [tab, setTab] = React.useState<TabKey>("garages");
-  const theme = React.useContext(ThemeContext);
+export default function RootLayout() {
+  const [checking, setChecking] = React.useState(true);
+  const pathname = usePathname();
 
-  function renderTab() {
-    switch (tab) {
-      case "garages": return <ParkingListScreen />;
-      case "map": return <ParkingMapScreen />;
-      case "settings": return <SettingsScreen />;
-    }
+  React.useEffect(() => {
+    (async () => {
+      // Consider a real backend session; for now accept either Google or Apple presence
+      const google = await SecureStore.getItemAsync("googleTokens");
+      const apple  = await SecureStore.getItemAsync("appleIdentity");
+      const isAuthed = !!google || !!apple;
+
+      // If not authenticated, keep the user on login
+      if (!isAuthed && !pathname.startsWith("/(auth)")) {
+        router.replace("/(auth)/login");
+      }
+      // If authenticated and still on login, go home
+      if (isAuthed && pathname.startsWith("/(auth)")) {
+        router.replace("/");
+      }
+      setChecking(false);
+    })();
+  }, [pathname]);
+
+  if (checking) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
   }
 
   return (
-    <ThemeProvider>
-      <SafeAreaProvider>
-        <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
-        {/* App layout: content respects top safe area; bottom bar overlays flush */}
-        <ThemedView style={{ flex: 1 }}>
-          <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-            <ThemedView style={{ flex: 1 }}>{renderTab()}</ThemedView>
-          </SafeAreaView>
-          <BottomBar active={tab} onChange={setTab} />
-        </ThemedView>
-      </SafeAreaProvider>
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      {/* Public auth group */}
+      <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
+      {/* Private app screens */}
+      <Stack.Screen name="index" options={{ headerShown: true, title: "Home" }} />
+    </Stack>
   );
 }
