@@ -146,8 +146,8 @@ export default function GarageList({
 }
 
 function getColors(pct: number) {
-  if (pct >= 0.8) return { border: "#f91e1eff", fill: "#f91e1eff" };      // red (full)
-  if (pct >= 0.65) return { border: "#ff7f1eff", fill: "#ff7f1eff" };      // orange/red
-  if (pct >= 0.25) return { border: "#e0c542", fill: "#cbb538" };      // yellow
-  return { border: "#41c463", fill: "#41c463" };                       // green
+  if (pct >= 0.8) return { border: "#f91e1eff", fill: "#f91e1eff" };
+  if (pct >= 0.65) return { border: "#ff7f1eff", fill: "#ff7f1eff" };
+  if (pct >= 0.25) return { border: "#e0c542", fill: "#cbb538" };
+  return { border: "#41c463", fill: "#41c463" };
 }
