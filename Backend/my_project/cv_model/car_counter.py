@@ -141,6 +141,7 @@ if __name__ == "__main__":
         video_path="Backend/my_project/cv_model/Videos/cars.mp4",
         yolo_weights="Yolo-Weights/yolov8n.pt",
         mask_path="Backend/my_project/cv_model/mask.png",
-        graphics_path="Backend/my_project/cv_model/graphics.png"
+        graphics_path="Backend/my_project/cv_model/graphics.png",
+        emptyCapacity=150
     )
     counter.run()
