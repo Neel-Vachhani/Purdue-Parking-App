@@ -17,8 +17,8 @@ export default function ThemedText(props: TextProps) {
       {...props} 
       style={[
         { 
-          color: theme.text,  // Use theme text color (black in light mode, white in dark mode)
-          fontSize: 16        // Default font size - you can override this with your own style
+          color: theme.text,
+          fontSize: 16
         }, 
         props.style
       ]} 

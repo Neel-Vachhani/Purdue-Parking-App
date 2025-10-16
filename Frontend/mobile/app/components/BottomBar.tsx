@@ -1,15 +1,16 @@
 import React from "react";
-import { View, Pressable } from "react-native";
+import { View, Pressable, Platform } from "react-native";
 import ThemedText from "./ThemedText";
 import { ThemeContext } from "../theme/ThemeProvider";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Define what tabs we have in our app
-type TabKey = "list" | "map" | "settings";
+type TabKey = "garages" | "map" | "settings";
 type Props = { active: TabKey; onChange: (key: TabKey) => void };
 
 // Labels for each tab that users will see
 const TAB_LABELS: Record<TabKey, string> = {
-  list: "List",
+  garages: "Garages",
   map: "Map", 
   settings: "Settings",
 };
@@ -17,16 +18,22 @@ const TAB_LABELS: Record<TabKey, string> = {
 
 export default function BottomBar({ active, onChange }: Props) {
   const theme = React.useContext(ThemeContext);
+  const insets = useSafeAreaInsets();
   
   return (
-    // Main container for the bottom tab bar
+    // Bottom navigation bar: themed, inset-aware, minimal
     <View style={{ 
       flexDirection: "row", 
       borderTopWidth: 1, 
-      borderColor: "#ddd",
+      borderColor: theme.border,
       backgroundColor: theme.bg, // Match app background
-      paddingBottom: 8, // Extra space for modern phones
-      paddingTop: 8
+      paddingBottom: Math.max(8, insets.bottom), // Respect bottom inset
+      paddingTop: 8,
+      shadowColor: "#000",
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: -2 },
+      elevation: 6, // Android shadow
     }}>
       {(Object.keys(TAB_LABELS) as TabKey[]).map((key) => {
         const isActive = key === active;
