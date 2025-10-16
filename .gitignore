@@ -16,3 +16,7 @@ test.ics
 venv/
 
 .DS_Store
+
+# Expo
+.expo/
+.expo-shared/
