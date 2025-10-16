@@ -9,10 +9,12 @@ export default function Home() {
     router.replace("/(auth)/login");
   };
 
+
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
       <Text>Home</Text>
       <Button title="Sign out" onPress={signOut} />
+      <Button title="List View" onPress={() => router.replace("/list")} />
     </View>
   );
 }
