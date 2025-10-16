@@ -59,7 +59,7 @@ export default function App() {
         setExpoPushToken(token);
 
         // Send token to Django backend as token object JSON string
-        await fetch("https://your-django-server.com/api/register-token/", {
+        await fetch("http://127.0.0.1:8000/notification_token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token: token }),
@@ -77,14 +77,18 @@ export default function App() {
       case "login": 
         return (
           < LoginScreen 
-            onLogin={() => setAuthMode(null) }
+            onLogin={ () => setAuthMode(null) }
             onRequestSignup={() => setAuthMode("signup")}
           />
         );
       case "signup":
         return (
           <SignupScreen
-              onSignup={() => { setAuthMode("login"); } }
+              onSignup= {
+                async () => {
+                    setAuthMode("login");
+                } 
+              }
           />
         );
       case null: // If the user is already logged in, just render the page with tabs

@@ -1,11 +1,46 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { createUserAccount } from '../../utils/api';
 import AuthInput from '../../components/AuthInput';
 
+// Function to render the sign-up screen
 export default function SignupScreen({ onSignup }: { onSignup: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm_password, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Processing create account request from user (after user presses "Sign Up" button)
+  const handleSignup = async () => {
+    // If user leaves a text field blank
+    if (!email || !password || !confirm_password) {
+      setError('Please fill in all fields.');
+      return;
+    }
+
+    // If passwords don't match
+    if (password !== confirm_password) {
+      setError('Passwords do not match. Try again.');
+      return;
+    }
+
+    // Execution falls to here -> entered creditials were valid
+    // Start loading account creation
+    setLoading(true);
+    setError('');
+
+    try {
+      // Sends user information to the backend
+      await createUserAccount(email, password);
+      // Notify parent component (App.tsx) that user has successfully signed up (route to Log In screen)
+      onSignup();
+    } catch (err) {
+      setError('Account creation failed.');
+    } finally {
+      setLoading(false);
+    }
+  };  
 
   return (
     <View style={styles.container}>
@@ -29,13 +64,22 @@ export default function SignupScreen({ onSignup }: { onSignup: () => void }) {
         onChangeText={setConfirmPassword}
         secure
       />
-      {/* User gets loged once "Log in" button is pressed. Later we will need to authenticate user has an account and used correct password */}
-      <TouchableOpacity style={styles.button} onPress={onSignup}>
-        <Text style={styles.buttonText}>Sign Up</Text>
+
+      {error ? <Text style={{ color: 'red', marginBottom: 10 }}>{error}</Text> : null}
+
+      <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={loading}>
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Sign Up</Text>
+        )}        
       </TouchableOpacity>
     </View>
   );
 }
+
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -70,4 +114,8 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
   },
+  error: {
+    color: '#ff6b6b',
+    marginBottom: 10,
+  }
 });
