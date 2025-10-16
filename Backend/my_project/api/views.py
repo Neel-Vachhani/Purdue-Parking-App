@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view
 from boiler_park_backend.models import Item, User
 from .serializers import ItemSerializer, UserSerializer
 import bcrypt
+import services
 
 
 @api_view(['GET'])
@@ -35,3 +36,10 @@ def sign_up(request):
                     parking_pass=parking_pass)
         user.save()
     return Response((serializer.data, hashed_pass))
+
+
+@api_view(['POST'])
+def accept_ical_file(request):
+    calendar = request.data["calendar"]
+    output = services.open_file_calendar(calendar)
+    return Response(output)
