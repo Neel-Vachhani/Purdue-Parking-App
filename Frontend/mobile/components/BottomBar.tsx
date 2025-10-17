@@ -19,6 +19,7 @@ const TAB_LABELS: Record<TabKey, string> = {
 export default function BottomBar({ active, onChange }: Props) {
   const theme = React.useContext(ThemeContext);
   const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
   
   return (
     // Bottom navigation bar: themed, inset-aware, minimal
