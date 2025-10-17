@@ -10,9 +10,11 @@ import { icsToJson } from "ics-to-json";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
+import { ClassEvent } from "../../components/CalenderView";
 
 interface Props {
   onLogout: () => void;
+  setUserEvents: React.Dispatch<React.SetStateAction<ClassEvent[]>>; // setter for events
 }
 
 type Frequency = "realtime" | "daily" | "weekly";
@@ -35,7 +37,7 @@ const DEFAULT_PREFS: NotifPrefs = {
 
 const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:8000" : "http://localhost:8000";
 
-export default function SettingsScreen({ onLogout }: Props) {
+export default function SettingsScreen({ onLogout, setUserEvents }: Props) {
   const theme = React.useContext(ThemeContext);
   const isDark = theme.mode === "dark";
 
@@ -106,7 +108,17 @@ export default function SettingsScreen({ onLogout }: Props) {
       // NOTE: if this is local dev and you're on Android emulator, use 10.0.2.2 instead of localhost
       await axios.post(`${API_BASE.replace(":8000", ":7500")}/test/`, jsonData);
 
-      Alert.alert("Calendar selected", `${file.name}`);
+      // Convert JSON to ClassEvent[]
+      const events: ClassEvent[] = jsonData.map((e: any, i: number) => ({
+        id: e.uid || `${i}`,
+        course: e.summary || "Untitled",
+        time: `${e.start} - ${e.end}`,
+        location: e.location || "Unknown",
+        type: "lecture", // fallback; adjust as needed
+      }));
+
+      setUserEvents(events);
+      Alert.alert("Calendar selected", `${file.name} uploaded.`);
     } catch (e: any) {
       Alert.alert("Picker error", e?.message ?? "Unknown error");
     }
@@ -216,7 +228,6 @@ export default function SettingsScreen({ onLogout }: Props) {
         <Button title="Upload calendar (.ics)" onPress={pickCalendar} />
       </View>
 
-      {/* Logout */}
       <View style={{ marginTop: 16 }}>
         <Button title="Log Out" color="#e53935" onPress={handleLogout} />
       </View>

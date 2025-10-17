@@ -1,12 +1,10 @@
-// components/CalendarView.tsx
 import * as React from "react";
 import { View, Text, FlatList, StyleSheet } from "react-native";
 import { ThemeContext } from "../theme/ThemeProvider";
 
-// Strict type definitions
-type EventType = "lecture" | "lab" | "discussion";
+export type EventType = "lecture" | "lab" | "discussion";
 
-interface ClassEvent {
+export interface ClassEvent {
   id: string;
   course: string;
   time: string;
@@ -18,46 +16,6 @@ interface CalendarViewProps {
   data?: ClassEvent[];
 }
 
-// Default data with proper typing
-const SAMPLE_SCHEDULE: ClassEvent[] = [
-  { 
-    id: "1", 
-    course: "CS 18200 - Foundations Of Computer Science", 
-    time: "08:30 - 09:45", 
-    location: "HAMP 101", 
-    type: "lecture" 
-  },
-  { 
-    id: "2", 
-    course: "CS 24000 - Programming In C", 
-    time: "10:00 - 11:15", 
-    location: "UNIV 203", 
-    type: "lecture" 
-  },
-  { 
-    id: "3", 
-    course: "CS 24000 - Programming In C Lab", 
-    time: "11:30 - 12:45", 
-    location: "ENGR 110", 
-    type: "lab" 
-  },
-  { 
-    id: "4", 
-    course: "MA 26100 - Multivariate Calculus", 
-    time: "13:00 - 13:50", 
-    location: "STEW 310", 
-    type: "lecture" 
-  },
-  { 
-    id: "5", 
-    course: "PHYS 22000 - General Physics", 
-    time: "14:00 - 14:50", 
-    location: "UNIV 204", 
-    type: "discussion" 
-  },
-];
-
-// Color mapping with fallbacks
 const COLOR_MAP: Record<EventType | "default", string> = {
   lecture: "#4aa3ff",
   lab: "#22c55e",
@@ -65,7 +23,6 @@ const COLOR_MAP: Record<EventType | "default", string> = {
   default: "#6b7280",
 };
 
-// Styles extracted for better performance and maintenance
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -84,11 +41,8 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    elevation: 3, // For Android shadow
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   courseText: {
     fontSize: 18,
@@ -131,11 +85,8 @@ export default function CalendarView({ data = SAMPLE_SCHEDULE }: CalendarViewPro
   const locationColor = theme.mode === "dark" ? "#9ca3af" : "#6b7280";
   const emptyColor = theme.mode === "dark" ? "#9ca3af" : "#6b7280";
 
-  const getBorderColor = React.useCallback((type?: EventType): string => {
-    if (type && type in COLOR_MAP) {
-      return COLOR_MAP[type];
-    }
-    return COLOR_MAP.default;
+  const getBorderColor = React.useCallback((type?: EventType) => {
+    return type && type in COLOR_MAP ? COLOR_MAP[type] : COLOR_MAP.default;
   }, []);
 
   const renderItem = React.useCallback(({ item }: { item: ClassEvent }) => {
@@ -161,9 +112,7 @@ export default function CalendarView({ data = SAMPLE_SCHEDULE }: CalendarViewPro
     );
   }, [getBorderColor]);
 
-  const keyExtractor = React.useCallback((item: ClassEvent): string => {
-    return item.id || `event-${Math.random().toString(36).substr(2, 9)}`;
-  }, []);
+  const keyExtractor = React.useCallback((item: ClassEvent) => item.id, []);
 
   const renderEmptyState = React.useCallback((): React.JSX.Element => {
     return (
@@ -193,11 +142,4 @@ export default function CalendarView({ data = SAMPLE_SCHEDULE }: CalendarViewPro
       />
     </View>
   );
-}
-
-// Keep the original function for backward compatibility if needed elsewhere
-export function getColors(type?: EventType): { border: string } {
-  return {
-    border: type && type in COLOR_MAP ? COLOR_MAP[type] : COLOR_MAP.default
-  };
 }
