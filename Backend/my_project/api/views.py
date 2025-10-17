@@ -5,11 +5,14 @@ import bcrypt
 import redis
 from decouple import config
 from redis.exceptions import RedisError
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.response import Response
 from rest_framework import status, serializers
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from boiler_park_backend.models import Item, User
 from .serializers import ItemSerializer, UserSerializer
-from rest_framework.response import Response
+from .services import verify_apple_identity, issue_session_token
+import jwt
 
 
 
@@ -88,8 +91,64 @@ def get_parking_availability(request):
             {"detail": "Unexpected error while building parking availability response."},
             status=500,
         )
-import bcrypt
-from . import services
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def apple_sign_in(request):
+    print(">>> Apple endpoint hit")
+    print("Headers:", dict(request.headers))
+    print("Body:", request.data)
+
+    identity_token = request.data.get("identity_token")
+    if not identity_token:
+        return Response({"detail": "identity_token is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        payload = verify_apple_identity(identity_token)
+    except jwt.ExpiredSignatureError:
+        return Response({"detail": "Apple token expired"}, status=400)
+    except jwt.InvalidTokenError as e:
+        return Response({"detail": f"Invalid Apple token: {e}"}, status=400)
+
+    apple_sub = payload.get("sub")
+    if not apple_sub:
+        return Response({"detail": "Missing sub in Apple token"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Use Apple 'sub' as fallback email
+    provided_email = request.data.get("email") or payload.get("email")
+    if not provided_email:
+        provided_email = f"{apple_sub}@apple.local"   # 👈 store sub in the email field
+
+    full_name = request.data.get("full_name") or {}
+    first_name = full_name.get("givenName") or ""
+    last_name = full_name.get("familyName") or ""
+
+    # Find or create user by this derived email
+    user = User.objects.filter(email__iexact=provided_email).first()
+    if not user:
+      user = User(
+        email= provided_email if provided_email else f"apple_{apple_sub[:16]}",
+        name= f"apple_{apple_sub[:16]}",
+        password="abc",  
+        parking_pass="a",
+      )
+      user.save()
+
+    token = issue_session_token(user)
+
+    return Response(
+        {
+            "token": token if isinstance(token, str) else token.get("access", token),
+            "user": {
+                "id": user.id,
+                "email": getattr(user, "email", None),
+                "first_name": getattr(user, "first_name", ""),
+                "last_name": getattr(user, "last_name", ""),
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 

@@ -97,22 +97,34 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
     }
   }
   async function handleApple() {
-    try {
-      const cred = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      // TODO: send cred.identityToken (+ pushToken) to backend
-      await SecureStore.setItemAsync("sessionToken", cred.user ?? "apple_user");
-      onAuthed();
-    } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED") {
-        Alert.alert("Apple Sign-In failed", e?.message ?? "Unknown error");
-      }
+  try {
+    const cred = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+
+    // Send token + user info to backend for verification and session creation
+    const res = await axios.post(`${API_BASE}/apple/`, {
+      identity_token: cred.identityToken,  // JWT from Apple
+      user: cred.user,                     // Apple user ID
+      full_name: cred.fullName ?? null,    // optional
+      email: cred.email ?? null,           // optional
+      push_token: pushToken ?? null,
+    });
+
+    const { token, user } = res.data || {};
+    await SecureStore.setItemAsync("sessionToken", token ?? "apple_ios");
+    if (user) await SecureStore.setItemAsync("user", JSON.stringify(user));
+
+    onAuthed(); // continue to main app
+  } catch (e: any) {
+    if (e?.code !== "ERR_CANCELED") {
+      Alert.alert("Apple Sign-In failed", e?.message ?? "Unknown error");
     }
   }
+}
 
   // ---------- Google OAuth (expo-auth-session) ----------
   const isExpoGo = Constants.executionEnvironment === "storeClient";

@@ -7,6 +7,7 @@ import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
 import { icsToJson } from "ics-to-json";
 import { ClassEvent } from "../../components/CalenderView";
+import axios from "axios";
 
 interface Props {
   onLogout: () => void;
