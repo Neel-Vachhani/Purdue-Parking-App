@@ -62,12 +62,12 @@ export default function App() {
         // save this push token in expoPushToken (local variable)
         setExpoPushToken(token);
 
-        // Send token to Django backend as token object JSON string
-        await fetch("http://127.0.0.1:8000/notification_token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: token }),
-        });
+        // // Send token to Django backend as token object JSON string
+        // await fetch("http://127.0.0.1:8000/notification_token", {
+        //   method: "POST",
+        //   headers: { "Content-Type": "application/json" },
+        //   body: JSON.stringify({ token: token }),
+        // });
       }
     };
 
@@ -88,6 +88,7 @@ export default function App() {
       case "signup":
         return (
           <SignupScreen
+              pushToken={expoPushToken}
               onSignup= {
                 async () => {
                     setAuthMode("login");

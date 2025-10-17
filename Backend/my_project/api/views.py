@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from boiler_park_backend.models import Item, User
 from .serializers import ItemSerializer, UserSerializer
 import bcrypt
-import services
+from . import services
 
 
 @api_view(['GET'])
@@ -44,7 +44,34 @@ def accept_notification_token(request):
     return Response("Token received")
 
 @api_view(['POST'])
+def log_in(request):
+    serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        email = serializer.validated_data['email']
+        password = serializer.validated_data['password']
+        entered_password = User.objects.get(email=email).password
+        pass_bytes = entered_password.encode('utf-8')
+        salt = bcrypt.gensalt()
+        hashed_pass = bcrypt.hashpw(pass_bytes, salt)
+        result = bcrypt.checkpw(pass_bytes, hashed_pass)
+        if result:
+            return Response("Login successful")
+        else:
+            return Response("Login failed")
+
+
+@api_view(['POST'])
 def accept_ical_file(request):
     calendar = request.data["calendar"]
     output = services.open_file_calendar(calendar)
     return Response(output)
+
+
+@api_view(['POST'])
+def accept_notification_token(request):
+    username = request.data["username"]
+    token = request.data["token"]
+    user = User.objects.get(name=username)
+    user.notification_token = token
+    user.save()
+    return Response("Token received")

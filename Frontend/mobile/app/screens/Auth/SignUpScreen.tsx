@@ -3,8 +3,13 @@ import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'rea
 import { createUserAccount } from '../../utils/api';
 import AuthInput from '../../components/AuthInput';
 
+interface SignupScreenProps {
+  onSignup: () => void;
+  pushToken: string | null;
+}
+
 // Function to render the sign-up screen
-export default function SignupScreen({ onSignup }: { onSignup: () => void }) {
+export default function SignupScreen({ onSignup, pushToken }: SignupScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm_password, setConfirmPassword] = useState('');
@@ -33,6 +38,19 @@ export default function SignupScreen({ onSignup }: { onSignup: () => void }) {
     try {
       // Sends user information to the backend
       await createUserAccount(email, password);
+
+      // If we have a push token, send it to the backend
+      if (pushToken) {
+        await fetch("http://127.0.0.1:2523/notification_token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: email,
+            token: pushToken
+          }),
+        });
+      }
+
       // Notify parent component (App.tsx) that user has successfully signed up (route to Log In screen)
       onSignup();
     } catch (err) {
