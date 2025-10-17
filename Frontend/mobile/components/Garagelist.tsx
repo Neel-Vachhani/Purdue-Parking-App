@@ -16,8 +16,6 @@ type Garage = {
   lng?: number;
 };
 
-const theme = React.useContext(ThemeContext);
-
 const INITIAL_GARAGES: Garage[] = [
   { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true },
   { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true },
@@ -70,6 +68,7 @@ export default function GarageList({
   onToggleFavorite?: (g: Garage) => void;
   onOpenInMaps?: (g: Garage) => void;
 }) {
+  const theme = React.useContext(ThemeContext);
   const [garages, setGarages] = React.useState<Garage[]>(data);
   const [lastUpdated, setLastUpdated] = React.useState<string>(() =>
     new Date().toLocaleString("en-US", {

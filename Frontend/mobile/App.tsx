@@ -15,7 +15,6 @@ import GarageList from "./components/Garagelist";
 import Calendar from "./screens/Calender/Calender";
 import AuthScreen from "./screens/Auth/AuthScreen";
 
-import { ClassEvent } from "./components/CalenderView";
 
 // Tab type
 type TabKey = "garages" | "map" | "settings" | "calendar";
@@ -25,9 +24,6 @@ export default function App() {
   const [expoPushToken, setExpoPushToken] = React.useState<string | null>(null);
   const [booting, setBooting] = React.useState(true);
   const [isAuthed, setIsAuthed] = React.useState(false);
-
-  // User-specific calendar events
-  const [userEvents, setUserEvents] = React.useState<ClassEvent[]>([]);
 
   React.useEffect(() => {
     (async () => {
