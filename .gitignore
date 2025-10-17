@@ -13,3 +13,6 @@ __pycache__
 .vscode
 
 test.ics
+venv/
+
+.DS_Store
