@@ -69,7 +69,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
         const res = await axios.post(`${API_BASE}/signup/`, {
           email,
           password,
-          name: email.split("@")[0],
+          name: email,
           push_token: pushToken ?? null,
         });
         // Expecting { token, user }
