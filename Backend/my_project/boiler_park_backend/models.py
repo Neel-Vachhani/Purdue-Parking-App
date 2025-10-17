@@ -20,6 +20,8 @@ class User(models.Model):
     password = models.CharField(max_length=100)
     parking_pass = models.CharField(
         max_length=5, choices=parking_passes, blank=True, null=True)
+    notification_token = models.CharField(
+        max_length=255, blank=True, null=True)
     # events = models.CharField()
 
 
