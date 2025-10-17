@@ -1,0 +1,13 @@
+# Backend Python dependencies (minimal)
+Django>=4.2
+djangorestframework
+python-dotenv
+redis
+firebase-admin
+channels
+channels-redis
+daphne
+bcrypt
+django-location-field
+python-decouple
+# Add other dependencies your project needs here
