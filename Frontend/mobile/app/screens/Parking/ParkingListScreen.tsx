@@ -1,49 +1,161 @@
-import React, { useState } from "react";
+import Constants from "expo-constants";
+import React, { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
 
+type ParkingLot = {
+  id: number;
+  name: string;
+  capacity: number;
+  available: number;
+  isFavorite: boolean;
+};
+
+type ApiLot = Pick<ParkingLot, "id" | "name"> &
+  Partial<Pick<ParkingLot, "available" | "capacity">>;
+
+const INITIAL_PARKING_LOTS: ParkingLot[] = [
+  {
+    id: 1,
+    name: "Harrison Garage",
+    capacity: 800,
+    available: 560,
+    isFavorite: false,
+  },
+  {
+    id: 2,
+    name: "Grant Street Garage",
+    capacity: 648,
+    available: 118,
+    isFavorite: false,
+  },
+  {
+    id: 3,
+    name: "University Street Garage",
+    capacity: 826,
+    available: 406,
+    isFavorite: false,
+  },
+  {
+    id: 4,
+    name: "Northwestern Garage",
+    capacity: 434,
+    available: 2,
+    isFavorite: false,
+  },
+  {
+    id: 5,
+    name: "DS/AI Lot",
+    capacity: 178,
+    available: 32,
+    isFavorite: false,
+  },
+];
+
+const AVAILABILITY_ENDPOINT = "/parking/availability/";
+
+const getApiBaseUrl = (): string => {
+  const extraFromConfig = Constants.expoConfig?.extra as
+    | { apiBaseUrl?: string }
+    | undefined;
+  const manifest = Constants.manifest as
+    | { extra?: { apiBaseUrl?: string }; debuggerHost?: string }
+    | null;
+  const extraFromManifest = manifest?.extra;
+
+  const override = extraFromConfig?.apiBaseUrl || extraFromManifest?.apiBaseUrl;
+  if (override) {
+    return override.replace(/\/$/, "");
+  }
+
+  let host = "localhost";
+
+  if (Platform.OS === "android") {
+    host = "10.0.2.2";
+  } else {
+    const debuggerHost = Constants.expoConfig?.hostUri || manifest?.debuggerHost;
+    if (debuggerHost) {
+      host = debuggerHost.split(":")[0];
+    }
+  }
+
+  return `http://${host}:8000`;
+};
+
 export default function ParkingListScreen() {
-  const [parkingLots, setParkingLots] = useState([
-    {
-      id: 1,
-      name: "Harrison Garage",
-      capacity: 800,
-      available: 560,
-      isFavorite: false,
-    },
-    {
-      id: 2,
-      name: "Grant Street Garage",
-      capacity: 648,
-      available: 118,
-      isFavorite: false,
-    },
-    {
-      id: 3,
-      name: "University Street Garage",
-      capacity: 826,
-      available: 406,
-      isFavorite: false,
-    },
-    {
-      id: 4,
-      name: "Northwestern Garage",
-      capacity: 434,
-      available: 2,
-      isFavorite: false,
-    },
-    {
-      id: 5,
-      name: "DS/AI Lot",
-      capacity: 178,
-      available: 32,
-      isFavorite: false,
-    },
-  ]);
+  const [parkingLots, setParkingLots] = useState<ParkingLot[]>(
+    INITIAL_PARKING_LOTS
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAvailability = async () => {
+      try {
+        const response = await fetch(
+          `${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`
+        );
+
+        if (!response.ok) {
+          console.error(
+            "Failed to fetch parking availability:",
+            response.status
+          );
+          return;
+        }
+
+        const payload: { lots?: ApiLot[] } = await response.json();
+        const lots = Array.isArray(payload?.lots) ? payload.lots : undefined;
+        if (!lots || lots.length === 0) {
+          return;
+        }
+
+        const updatesById = new Map<number, ApiLot>();
+        lots.forEach((lot) => updatesById.set(lot.id, lot));
+
+        if (!isMounted) {
+          return;
+        }
+
+        setParkingLots((prev) =>
+          prev.map((lot) => {
+            const update =
+              updatesById.get(lot.id) ||
+              lots.find((item) => item.name === lot.name);
+
+            if (!update) {
+              return lot;
+            }
+
+            return {
+              ...lot,
+              capacity:
+                typeof update.capacity === "number"
+                  ? update.capacity
+                  : lot.capacity,
+              available:
+                typeof update.available === "number"
+                  ? update.available
+                  : lot.available,
+            };
+          })
+        );
+      } catch (error) {
+        console.error("Failed to load parking availability", error);
+      }
+    };
+
+    loadAvailability();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const toggleFavorite = (id: number) => {
-    setParkingLots(
-      parkingLots.map((lot) =>
+    setParkingLots((prevLots) =>
+      prevLots.map((lot) =>
         lot.id === id ? { ...lot, isFavorite: !lot.isFavorite } : lot
       )
     );

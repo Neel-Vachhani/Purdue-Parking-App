@@ -59,6 +59,8 @@ def read_value(redis_client, key: str):
         logger.exception("Error reading %s: %s", key, e)
     return None
 
+last_sent = {}
+
 try:
     while True:
         msg = pubsub.get_message(timeout=0.1)
@@ -82,6 +84,12 @@ try:
         
         value = read_value(r, key)
         lot = key_to_lot(key)
+
+        previous = last_sent.get(key)
+        if previous and previous.get("value") == value and previous.get("event") == event:
+            continue
+
+        last_sent[key] = {"value": value, "event": event}
         
         payload = {"lot": lot, "value": value, "key": key, "event": event}
         logger.info("Forwarding %s -> %s", key, payload)
