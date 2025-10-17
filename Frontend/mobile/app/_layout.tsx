@@ -1,46 +1,41 @@
-// app/_layout.tsx
 import React from "react";
-import { Slot, router, usePathname } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
-import * as SecureStore from "expo-secure-store";
+import ThemeProvider, { ThemeContext } from "../theme/ThemeProvider";
+import GarageList from "../components/Garagelist";
+import ParkingMapScreen from "../screens/Parking/ParkingMapScreen";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import ThemedView from "../components/ThemedView";
-import ThemeProvider from "../theme/ThemeProvider";
+import { StatusBar } from "expo-status-bar";
+import BottomBar from "../components/BottomBar";
+import SettingsScreen from "../screens/Settings/SettingsScreen";
 
 
-WebBrowser.maybeCompleteAuthSession();
+type TabKey = "garages" | "map" | "settings";
 
-export default function RootLayout() {
-  const [checking, setChecking] = React.useState(true);
-  const pathname = usePathname();
+export default function App() {
+  const [tab, setTab] = React.useState<TabKey>("garages");
+  const theme = React.useContext(ThemeContext);
 
-  React.useEffect(() => {
-    (async () => {
-      const google = await SecureStore.getItemAsync("googleTokens");
-      const apple  = await SecureStore.getItemAsync("appleIdentity");
-      const isAuthed = !!google || !!apple;
-
-      if (!isAuthed && !pathname.startsWith("/(auth)")) {
-        router.replace("/(auth)/login");
-      } else if (isAuthed && pathname.startsWith("/(auth)")) {
-        router.replace("/(tabs)/list");
-      }
-      setChecking(false);
-    })();
-  }, [pathname]);
-
-  if (checking) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
+  function renderTab() {
+    switch (tab) {
+      case "garages": return <GarageList />;
+      case "map": return <ParkingMapScreen />;
+      case "settings": return <SettingsScreen />;
+    }
   }
+
   return (
     <ThemeProvider>
-      <ThemedView style={{ flex: 1 }}>
-        <Slot />
-      </ThemedView>
+      <SafeAreaProvider>
+        <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
+        {/* App layout: content respects top safe area; bottom bar overlays flush */}
+        <ThemedView style={{ flex: 1 }}>
+          <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+            <ThemedView style={{ flex: 1 }}>{renderTab()}</ThemedView>
+          </SafeAreaView>
+          <BottomBar active={tab} onChange={setTab} />
+        </ThemedView>
+      </SafeAreaProvider>
     </ThemeProvider>
   );
 }
+
