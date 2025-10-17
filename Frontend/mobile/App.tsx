@@ -3,18 +3,18 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 
-import ThemeProvider from "./app/theme/ThemeProvider";
-import ThemedView from "./app/components/ThemedView";
-import BottomBar from "./app/components/BottomBar";
-import ParkingListScreen from "./app/screens/Parking/ParkingListScreen";
-import ParkingMapScreen from "./app/screens/Parking/ParkingMapScreen";
-import SettingsScreen from "./app/screens/Settings/SettingsScreen";
+import ThemeProvider from "./theme/ThemeProvider";
+import ThemedView from "./components/ThemedView";
+import BottomBar from "./components/BottomBar";
+import ParkingMapScreen from "./screens/Parking/ParkingMapScreen";
+import SettingsScreen from "./screens/Settings/SettingsScreen";
 import LoginScreen from "./app/screens/Auth/LoginScreen";
 import SignupScreen from "./app/screens/Auth/SignUpScreen";
 
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { ThemeContext } from "./app/theme/ThemeProvider";
+import { ThemeContext } from "./theme/ThemeProvider";
+import GarageList from "./components/Garagelist";
 
 type TabKey = "garages" | "map" | "settings";
 type AuthModeKey = "signup" | "login" | null;
@@ -117,7 +117,7 @@ export default function App() {
   // Function to render the correct tab screen
   function renderTab() {
     switch (tab) {
-      case "garages": return <ParkingListScreen />;
+      case "garages": return <GarageList />;
       case "map": return <ParkingMapScreen />;
       case "settings": return <SettingsScreen />;
     }

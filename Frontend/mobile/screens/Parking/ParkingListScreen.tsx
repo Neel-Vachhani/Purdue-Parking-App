@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { View } from "react-native";
+import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
-import { ThemeContext } from "../../theme/ThemeProvider";
 
 export default function ParkingListScreen() {
   const theme = React.useContext(ThemeContext);
