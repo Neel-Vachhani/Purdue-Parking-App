@@ -10,6 +10,17 @@ import AuthInput from "../../components/AuthInput";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
 
+
+import axios from "axios";
+
+// platform-safe base URL:
+// - iOS Simulator: http://localhost:7500
+// - Android Emulator: http://10.0.2.2:7500
+// - Physical device: use your laptop's LAN IP, e.g., http://192.168.1.23:7500
+const API_BASE =
+  Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+
+
 WebBrowser.maybeCompleteAuthSession();
 
 interface Props {
@@ -23,7 +34,6 @@ const discovery = {
   revocationEndpoint: "https://oauth2.googleapis.com/revoke",
 };
 
-// TODO: replace with YOUR real client IDs
 const GOOGLE_CLIENT_ID_WEB =
   "254023418229-bst7ahhn0aa5201jjd9ft40abma89l27.apps.googleusercontent.com";
 const GOOGLE_CLIENT_ID_IOS =
@@ -35,13 +45,56 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  async function handlePrimary() {
-    // TODO: call your backend with { email, password, pushToken, mode }
-    await SecureStore.setItemAsync("sessionToken", "ok");
+  const saveSessionAndContinue = async (token: string, user?: any) => {
+    await SecureStore.setItemAsync("sessionToken", token);
+    if (user) {
+      await SecureStore.setItemAsync("user", JSON.stringify(user));
+    }
     onAuthed();
-  }
+  };
 
+ async function handlePrimary() {
+    if (submitting) return;
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Missing info", "Please enter both email and password.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      if (mode === "signup") {
+        const res = await axios.post(`${API_BASE}/auth/signup/`, {
+          email,
+          password,
+          push_token: pushToken ?? null,
+        });
+        // Expecting { token, user }
+        const { token, user } = res.data || {};
+        await saveSessionAndContinue(token ?? "ok", user);
+        return;
+      }
+
+      // login
+      const res = await axios.post(`${API_BASE}/auth/login/`, {
+        email,
+        password,
+      });
+      const { token, user } = res.data || {};
+      await saveSessionAndContinue(token ?? "ok", user);
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.detail ||
+        e?.response?.data?.message ||
+        e?.message ||
+        (mode === "signup" ? "Signup failed" : "Login failed");
+      Alert.alert(mode === "signup" ? "Signup error" : "Login error", String(msg));
+    } finally {
+      setSubmitting(false);
+    }
+  }
   async function handleApple() {
     try {
       const cred = await AppleAuthentication.signInAsync({
