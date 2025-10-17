@@ -15,5 +15,6 @@
     "components",
     "theme",
     "global.d.ts"
-  ]
+  ],
+  "extends": "expo/tsconfig.base"
 }

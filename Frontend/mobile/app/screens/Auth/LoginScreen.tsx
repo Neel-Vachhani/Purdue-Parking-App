@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import AuthInput from '../../components/AuthInput';
-import ThemedView from "../../components/ThemedView";
-import ThemedText from "../../components/ThemedText";
+import ThemedView from '../../../components/ThemedView';
+import ThemedText from '../../../components/ThemedText';
+import AuthInput from '../../../components/AuthInput';
+
 
 interface LoginScreenProps {
     onLogin: () => void;
