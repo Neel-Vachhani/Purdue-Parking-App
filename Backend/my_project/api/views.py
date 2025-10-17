@@ -39,6 +39,23 @@ def sign_up(request):
 
 
 @api_view(['POST'])
+def log_in(request):
+    serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        email = serializer.validated_data['email']
+        password = serializer.validated_data['password']
+        entered_password = User.objects.get(email=email).password
+        pass_bytes = entered_password.encode('utf-8')
+        salt = bcrypt.gensalt()
+        hashed_pass = bcrypt.hashpw(pass_bytes, salt)
+        result = bcrypt.checkpw(pass_bytes, hashed_pass)
+        if result:
+            return Response("Login successful")
+        else:
+            return Response("Login failed")
+
+
+@api_view(['POST'])
 def accept_ical_file(request):
     calendar = request.data["calendar"]
     output = services.open_file_calendar(calendar)

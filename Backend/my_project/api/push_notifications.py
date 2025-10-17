@@ -1,28 +1,71 @@
-from os import path
-from fcm_django.api.rest_framework import FCMDeviceAuthorizedViewSet
-from datetime import datetime, timedelta
+from exponent_server_sdk import (
+    DeviceNotRegisteredError,
+    PushClient,
+    PushMessage,
+    PushServerError,
+    PushTicketError,
+)
+import os
+import requests
+from requests.exceptions import ConnectionError, HTTPError
+import rollbar
 
-from firebase_admin.messaging import Message, Notification
-from fcm_django.models import FCMDevice
+'''
+# Optionally providing an access token within a session if you have enabled push security
+session = requests.Session()
+session.headers.update(
+    {
+        "Authorization": f"Bearer {os.getenv('EXPO_TOKEN')}",
+        "accept": "application/json",
+        "accept-encoding": "gzip, deflate",
+        "content-type": "application/json",
+    }
+)
+'''
+# Basic arguments. You should extend this function with the push features you
+# want to use, or simply pass in a `PushMessage` object.
 
-urlpatterns = [
-    # Only allow creation of devices by authenticated users
-    path('devices', FCMDeviceAuthorizedViewSet.as_view(
-        {'post': 'create'}), name='create_fcm_device'),
-    # ...
-]
 
+def send_push_message(token, message, extra=None):
+    try:
+        response = PushClient(session=session).publish(
+            PushMessage(to=token,
+                        body=message,
+                        data=extra))
+    except PushServerError as exc:
+        # Encountered some likely formatting/validation error.
+        rollbar.report_exc_info(
+            extra_data={
+                'token': token,
+                'message': message,
+                'extra': extra,
+                'errors': exc.errors,
+                'response_data': exc.response_data,
+            })
+        raise
+    except (ConnectionError, HTTPError) as exc:
+        # Encountered some Connection or HTTP error - retry a few times in
+        # case it is transient.
+        rollbar.report_exc_info(
+            extra_data={'token': token, 'message': message, 'extra': extra})
+        raise self.retry(exc=exc)
 
-def parking_pass_push_notifications(sale_date):
-    # You can still use .filter() or any methods that return QuerySet (from the chain)
-    devices = FCMDevice.objects.all()
-    if datetime.now() < (sale_date - timedelta(days=7)):
-        devices.send_message(Message(
-            notification=Notification(
-                title="Parking Passes On Sale Soon", body="Parking Passes will go on sale on {sale_date}. Get yours through the Purdue Parking Portal"),
-        ))
-    if datetime.now() == (sale_date):
-        devices.send_message(Message(
-            notification=Notification(
-                title="Parking Passes On Sale", body="Parking Passes have gone on sale. Get yours through the Purdue Parking Portal"),
-        ))
+    try:
+        # We got a response back, but we don't know whether it's an error yet.
+        # This call raises errors so we can handle them with normal exception
+        # flows.
+        response.validate_response()
+    except DeviceNotRegisteredError:
+        # Mark the push token as inactive
+        from notifications.models import PushToken
+        PushToken.objects.filter(token=token).update(active=False)
+    except PushTicketError as exc:
+        # Encountered some other per-notification error.
+        rollbar.report_exc_info(
+            extra_data={
+                'token': token,
+                'message': message,
+                'extra': extra,
+                'push_response': exc.push_response._asdict(),
+            })
+        raise self.retry(exc=exc)
