@@ -37,11 +37,21 @@ export default function SettingsScreen({ onLogout }: Props) {
         return;
       }
 
+      const response = await fetch(file.uri);
+      const icsText = await response.text();
+      const jsonData = icsToJson(icsText);
+      console.log(jsonData);
+      axios.post("http://localhost:7500/test/", jsonData)
+
       Alert.alert("Calendar selected", `${file.name}`);
     } catch (e: any) {
       Alert.alert("Picker error", e?.message ?? "Unknown error");
     }
   };
+
+
+
+
 
   const handleLogout = async () => {
     try {
