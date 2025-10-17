@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
-import { createUserAccount } from '../../utils/api';
-import AuthInput from '../../../components/AuthInput';
+import { createUserAccount } from '../../app/utils/api';
+import AuthInput from '../../components/AuthInput';
 
 interface SignupScreenProps {
   onSignup: () => void;
