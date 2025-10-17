@@ -35,13 +35,15 @@ def sign_up(request):
         user = User(email=email, password=hashed_pass, name=name,
                     parking_pass=parking_pass)
         user.save()
-    return Response((serializer.data, hashed_pass))
+    return Response("Sign up successful")
+
 
 @api_view(['POST'])
 def accept_notification_token(request):
     token = request.data["token"]
     # save token to database
     return Response("Token received")
+
 
 @api_view(['POST'])
 def log_in(request):
@@ -65,6 +67,12 @@ def accept_ical_file(request):
     calendar = request.data["calendar"]
     output = services.open_file_calendar(calendar)
     return Response(output)
+
+
+@api_view(['POST'])
+def test(request):
+    print(request.data)
+    return Response(request.data)
 
 
 @api_view(['POST'])

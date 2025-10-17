@@ -6,6 +6,11 @@ import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
 
+import { icsToJson } from 'ics-to-json';
+import { json } from "stream/consumers";
+import axios from "axios";
+
+
 export default function SettingsScreen() {
   const theme = React.useContext(ThemeContext);
   const isDark = theme.mode === "dark";
@@ -37,6 +42,16 @@ export default function SettingsScreen() {
 
       // TODO: upload file.uri to your backend or parse locally
       // file.uri, file.name, file.size, file.mimeType are available
+      const response = await fetch(file.uri);
+      const icsText = await response.text();
+      const jsonData = icsToJson(icsText);
+      console.log(jsonData);
+      axios.post("http://localhost:7500/test/", jsonData)
+
+    // Get ICS text however you like, example below
+    // Make sure you have the right CORS settings if needed
+
+  
       Alert.alert("Calendar selected", `${file.name}`);
     } catch (e: any) {
       Alert.alert("Picker error", e?.message ?? "Unknown error");
