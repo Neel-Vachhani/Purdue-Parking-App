@@ -40,6 +40,7 @@ export default function GoogleButton() {
     discovery
   );
 
+<<<<<<< HEAD
 
 React.useEffect(() => {
   (async () => {
@@ -63,6 +64,28 @@ React.useEffect(() => {
     }
   })();
 }, [response]);
+=======
+  React.useEffect(() => {
+    (async () => {
+      if (response?.type === "success" && response.params.code) {
+        const tokenRes = await AuthSession.exchangeCodeAsync(
+          {
+            code: response.params.code,
+            clientId: Platform.select({
+              ios: GOOGLE_CLIENT_ID_IOS,
+              android: GOOGLE_CLIENT_ID_ANDROID,
+            })!,
+            redirectUri,
+            // PKCE:
+            extraParams: { code_verifier: request?.codeVerifier ?? "" },
+          },
+          discovery
+        );
+        await SecureStore.setItemAsync("googleTokens", JSON.stringify(tokenRes));
+      }
+    })();
+  }, [response]);
+>>>>>>> 759985c89d44daba8bd44ba868bc33b079965acd
 
   return <Button title="Continue with Google" disabled={!request} onPress={() => promptAsync()} />;
 }

@@ -4,6 +4,7 @@ import { Stack, router, usePathname } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
+import ThemeProvider from "./theme/ThemeProvider";
 
 WebBrowser.maybeCompleteAuthSession();
 
