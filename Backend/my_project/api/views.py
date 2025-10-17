@@ -9,6 +9,8 @@ from rest_framework.decorators import api_view
 from rest_framework import status, serializers
 from boiler_park_backend.models import Item, User
 from .serializers import ItemSerializer, UserSerializer
+from rest_framework.response import Response
+
 
 
 logger = logging.getLogger(__name__)
