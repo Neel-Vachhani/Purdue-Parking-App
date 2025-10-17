@@ -5,8 +5,6 @@ import * as DocumentPicker from "expo-document-picker";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
-import { ThemeContext } from "../../theme/ThemeProvider";
-import * as DocumentPicker from "expo-document-picker";
 
 export default function SettingsScreen() {
   const theme = React.useContext(ThemeContext);
