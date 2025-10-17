@@ -58,7 +58,7 @@ export default function App() {
         <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
           {tab === "garages" && <GarageList />}
           {tab === "map" && <ParkingMapScreen />}
-          {tab === "settings" && <SettingsScreen />}
+          {tab === "settings" && <SettingsScreen onLogout={() => setIsAuthed(false)} />}
         </SafeAreaView>
         <BottomBar active={tab} onChange={setTab} />
       </ThemedView>

@@ -1,26 +1,28 @@
-// screens/Settings/SettingsScreen.tsx
 import React from "react";
 import { View, Switch, Alert, Button } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
+import * as SecureStore from "expo-secure-store";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
 
-export default function SettingsScreen() {
+interface Props {
+  onLogout: () => void;
+}
+
+export default function SettingsScreen({ onLogout }: Props) {
   const theme = React.useContext(ThemeContext);
   const isDark = theme.mode === "dark";
 
   const pickCalendar = async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({
-        // Try MIME first, then fall back to extension filter
         type: ["text/calendar", ".ics"],
         multiple: false,
         copyToCacheDirectory: true,
       });
 
       if (res.canceled) return;
-
       const file = res.assets?.[0];
       if (!file) return;
 
@@ -35,11 +37,20 @@ export default function SettingsScreen() {
         return;
       }
 
-      // TODO: upload file.uri to your backend or parse locally
-      // file.uri, file.name, file.size, file.mimeType are available
       Alert.alert("Calendar selected", `${file.name}`);
     } catch (e: any) {
       Alert.alert("Picker error", e?.message ?? "Unknown error");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await SecureStore.deleteItemAsync("sessionToken");
+      await SecureStore.deleteItemAsync("user");
+      Alert.alert("Logged out", "Your session has been cleared.");
+      onLogout(); // 👈 triggers authMode("login") in App.tsx
+    } catch (e: any) {
+      Alert.alert("Logout failed", e?.message ?? "Unknown error");
     }
   };
 
@@ -47,6 +58,7 @@ export default function SettingsScreen() {
     <ThemedView style={{ padding: 20, gap: 16 }}>
       <ThemedText style={{ fontSize: 22, fontWeight: "700" }}>Settings</ThemedText>
 
+      {/* Dark mode toggle */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <ThemedText style={{ fontSize: 16 }}>Dark Mode</ThemedText>
         <Switch
@@ -60,6 +72,11 @@ export default function SettingsScreen() {
       {/* Calendar upload */}
       <View style={{ marginTop: 8 }}>
         <Button title="Upload calendar (.ics)" onPress={pickCalendar} />
+      </View>
+
+      {/* Logout */}
+      <View style={{ marginTop: 16 }}>
+        <Button title="Log Out" color="#e53935" onPress={handleLogout} />
       </View>
     </ThemedView>
   );
