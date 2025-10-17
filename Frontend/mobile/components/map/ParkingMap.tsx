@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
-import MapView, { Region } from "react-native-maps";
+import MapView, { Region, MapViewProps } from "react-native-maps";
 import { INITIAL_REGION, MIN_ZOOM_LEVEL, MAX_ZOOM_LEVEL } from "../../constants/map";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../../theme/ThemeProvider";
@@ -8,12 +8,12 @@ import { ThemeContext } from "../../theme/ThemeProvider";
 // Public props for the reusable map component.
 // - initialRegion: allow callers to override where the camera starts.
 // Future stories can extend this interface (e.g., markers, onMarkerPress).
-export type ParkingMapProps = {
-  initialRegion?: Region;
-};
+interface ParkingMapProps extends MapViewProps {
+  children?: React.ReactNode;
+}
 
 // Renders a themed, full-bleed map with sane defaults for Boiler Park.
-export default function ParkingMap({ initialRegion }: ParkingMapProps) {
+export default function ParkingMap({ children, initialRegion }: ParkingMapProps) {
   const region: Region = initialRegion ?? INITIAL_REGION;
   const mapRef = useRef<MapView>(null);
   const theme = React.useContext(ThemeContext);
@@ -34,7 +34,9 @@ export default function ParkingMap({ initialRegion }: ParkingMapProps) {
         showsCompass
         moveOnMarkerPress={false}
         mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
-      />
+      >
+        {children}
+      </MapView>
       {/* Recenter control: animates camera back to campus.
           Future: replace with camera-to-lot animation when a marker is selected. */}
       <Pressable
