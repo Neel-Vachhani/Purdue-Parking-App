@@ -12,6 +12,7 @@ import ThemedText from "../../components/ThemedText";
 
 
 import axios from "axios";
+import GoogleLoginButton from "../../components/GoogleLoginButton";
 
 // platform-safe base URL:
 // - iOS Simulator: http://localhost:7500
@@ -235,16 +236,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
       </TouchableOpacity>
 
       {/* Google Sign-In */}
-      <TouchableOpacity
-        onPress={handleGoogle}
-        disabled={!request}
-        style={[
-          styles.googleButton,
-          !request && { opacity: 0.6 },
-        ]}
-      >
-        <Text style={styles.googleText}>Continue with Google</Text>
-      </TouchableOpacity>
+      <GoogleLoginButton onPress={handleGoogle} />
 
       {Platform.OS === "ios" && (
         <View style={{ width: "100%", marginTop: 12 }}>
