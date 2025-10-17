@@ -16,10 +16,15 @@ def open_file_calendar():
     calendar = icalendar.Calendar.from_ical(ics_path.read_bytes())
     events = recurring_ical_events.of(calendar).between(pytz.UTC.localize(
         datetime.now()), pytz.UTC.localize(datetime.now() + timedelta(days=7)))
+    event_array = []
     for event in events:
         print(event.get("Summary"))
+        print(event.get("LOCATION"))
         print(event.decoded("DTSTART"))
         print(event.decoded("DTEND"))
+        event_array.append([event.get("Summary"), event.get("LOCATION"), event.decoded("DTSTART"),
+                            event.decoded("DTEND")])
+    return event_array
 
 
 def open_subscription_calendar(calendar_url):
