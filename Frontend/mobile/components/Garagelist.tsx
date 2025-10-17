@@ -3,6 +3,7 @@ import * as React from "react";
 import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
+import { ThemeContext } from "../theme/ThemeProvider";
 
 type Garage = {
   id: string;
@@ -13,6 +14,7 @@ type Garage = {
   lat?: number;
   lng?: number;
 };
+
 
 const SAMPLE: Garage[] = [
   { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true },
@@ -31,9 +33,22 @@ export default function GarageList({
   onToggleFavorite?: (g: Garage) => void;
   onOpenInMaps?: (g: Garage) => void;
 }) {
+
+  const [time, setTime] = React.useState<Date>(new Date());
+
+  const theme = React.useContext(ThemeContext);
+
+  React.useEffect(() => {
+        setTime(new Date());
+    }, []);
+
   const renderItem = ({ item }: { item: Garage }) => {
     const pct = Math.min(item.current / item.total, 1);
     const colors = getColors(pct);
+
+
+    const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
+    const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
 
     return (
       <View
@@ -42,7 +57,7 @@ export default function GarageList({
           marginVertical: 10,
           padding: 16,
           borderRadius: 14,
-          backgroundColor: "#202225",
+          backgroundColor: cardBg,
           borderWidth: 2,
           borderColor: colors.border,
           shadowColor: "#000",
@@ -52,7 +67,7 @@ export default function GarageList({
       >
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <View style={{ flex: 1,  flexDirection: "row", }}>
-            <Text style={{ color: "white", fontSize: 22, fontWeight: "600", marginRight: 8 }}>
+            <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600", marginRight: 8 }}>
               {item.name}
             </Text>
 
@@ -61,7 +76,7 @@ export default function GarageList({
               style={{ marginRight: 12 }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="location-outline" size={20} color="#4aa3ff" />
+              <Ionicons name="location-outline" size={20} color={theme.primary} />
             </TouchableOpacity>
           </View>
 
@@ -73,19 +88,19 @@ export default function GarageList({
             <Ionicons
               name={item.favorite ? "star" : "star-outline"}
               size={22}
-              color={item.favorite ? "#f5d442" : "#f5d442"}
+              color={theme.primary}
             />
           </TouchableOpacity>
         </View>
 
-        <Text style={{ color: "#cfd2d6", marginTop: 8 }}>
+        <Text style={{ color: secondaryText, marginTop: 8 }}>
           {item.current}/{item.total}
         </Text>
 
         <View
           style={{
             height: 14,
-            backgroundColor: "#d9d9d9",
+            backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#d9d9d9",
             borderRadius: 8,
             marginTop: 10,
             overflow: "hidden",
@@ -104,9 +119,9 @@ export default function GarageList({
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#121314" }}>
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ color: "white", fontSize: 34, fontWeight: "700", margin: 16 }}>
+        <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700", margin: 16 }}>
           Parking Lots
         </Text>
         <TouchableOpacity
@@ -114,13 +129,13 @@ export default function GarageList({
         style={{
           padding: 10,
           borderRadius: 50,
-          backgroundColor: "#1e1f23",
+          backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
           shadowColor: "#000",
           shadowOpacity: 0.25,
           shadowRadius: 4,
         }}
       >
-        <Ionicons name="map-outline" size={26} color="#4aa3ff" />
+        <Ionicons name="map-outline" size={26} color={theme.primary} />
       </TouchableOpacity>
       </View>
 
@@ -139,7 +154,7 @@ export default function GarageList({
           marginBottom: 16,
         }}
       >
-        Last Updated: 6:09 PM EST
+        Last Updated: {time.toLocaleTimeString()} EST
       </Text>
     </View>
   );

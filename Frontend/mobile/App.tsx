@@ -57,10 +57,10 @@ export default function App() {
       <ThemedView style={{ flex: 1 }}>
         <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
         <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-          {tab === "garages" && <GarageList />}
-          {tab === "map" && <ParkingMapScreen />}
-          {tab === "settings" && <SettingsScreen onLogout={() => setIsAuthed(false)} />}
-          {tab === "calendar" && <Calendar />} {/* <-- new tab */}
+          {(tab === "garages") ? <GarageList /> : null}
+          {(tab === "map") ? <ParkingMapScreen /> : null}
+          {(tab === "calendar") ? <Calendar /> : null}
+          {(tab === "settings") ? <SettingsScreen onLogout={() => setIsAuthed(false)} /> : null}
         </SafeAreaView>
         <BottomBar active={tab} onChange={setTab} />
       </ThemedView>

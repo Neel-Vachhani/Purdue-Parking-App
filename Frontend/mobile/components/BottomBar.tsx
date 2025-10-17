@@ -12,8 +12,8 @@ type Props = { active: TabKey; onChange: (key: TabKey) => void };
 const TAB_LABELS: Record<TabKey, string> = {
   garages: "Garages",
   map: "Map",
-  settings: "Settings",
   calendar: "Calendar",
+  settings: "Settings",
 };
 
 export default function BottomBar({ active, onChange }: Props) {
