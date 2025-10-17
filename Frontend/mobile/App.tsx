@@ -13,10 +13,12 @@ import BottomBar from "./components/BottomBar";
 import ParkingMapScreen from "./screens/Parking/ParkingMapScreen";
 import SettingsScreen from "./screens/Settings/SettingsScreen";
 import GarageList from "./components/Garagelist";
+import Calendar from "./screens/Calender/Calender";
 
 import AuthScreen from "./screens/Auth/AuthScreen";
 
-type TabKey = "garages" | "map" | "settings";
+// Add "calendar" to TabKey
+type TabKey = "garages" | "map" | "settings" | "calendar";
 
 export default function App() {
   const [tab, setTab] = React.useState<TabKey>("garages");
@@ -24,7 +26,6 @@ export default function App() {
   const [booting, setBooting] = React.useState(true);
   const [isAuthed, setIsAuthed] = React.useState(false);
 
-  // First-launch push permission/token (optional)
   React.useEffect(() => {
     (async () => {
       try {
@@ -59,6 +60,7 @@ export default function App() {
           {tab === "garages" && <GarageList />}
           {tab === "map" && <ParkingMapScreen />}
           {tab === "settings" && <SettingsScreen onLogout={() => setIsAuthed(false)} />}
+          {tab === "calendar" && <Calendar />} {/* <-- new tab */}
         </SafeAreaView>
         <BottomBar active={tab} onChange={setTab} />
       </ThemedView>
@@ -75,10 +77,7 @@ export default function App() {
         ) : isAuthed ? (
           <Tabs />
         ) : (
-          <AuthScreen
-            pushToken={expoPushToken}
-            onAuthed={() => setIsAuthed(true)}
-          />
+          <AuthScreen pushToken={expoPushToken} onAuthed={() => setIsAuthed(true)} />
         )}
       </SafeAreaProvider>
     </ThemeProvider>
