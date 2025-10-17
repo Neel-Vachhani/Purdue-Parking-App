@@ -39,11 +39,18 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {/* Public auth group */}
-      <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-      {/* Private app screens */}
-      <Stack.Screen name="index" options={{ headerShown: true, title: "Home" }} />
-    </Stack>
+    <ThemeProvider>
+      <SafeAreaProvider>
+        {booting ? (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <ActivityIndicator />
+          </View>
+        ) : isAuthed ? (
+          <Tabs />
+        ) : (
+          <AuthScreen pushToken={expoPushToken} onAuthed={() => setIsAuthed(true)} />
+        )}
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }

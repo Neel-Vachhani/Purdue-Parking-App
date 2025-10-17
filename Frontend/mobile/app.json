@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "boilerpark",
-    "slug": "boilerpark",
+    "name": "mobile",
+    "slug": "mobile",
+    "scheme": "boilerpark",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,11 +10,9 @@
     "newArchEnabled": true,
     "scheme": "boilerpark",
     "ios": {
-      "bundleIdentifier": "com.team6.boilerpark",
       "supportsTablet": true,
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "bundleIdentifier": "com.yourname.boilerpark",
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "com.team6.boilerpark",
@@ -21,7 +20,23 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.yourname.boilerpark",
       "edgeToEdgeEnabled": true,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "boilerpark",
+              "host": "*"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "predictiveBackGestureEnabled": false
     },
     "splash": {
@@ -33,12 +48,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-web-browser",
-      "expo-secure-store"
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": "0587f440-a9c9-4020-87a1-9cfa7894d670"
+        "projectId": "YOUR_EAS_PROJECT_ID"
       }
     }
   }

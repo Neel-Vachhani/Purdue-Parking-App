@@ -3,7 +3,7 @@ doc/*
 .venv/
 
 db.sqlite3
-
+# Environment files with secrets
 .env
 
 __pycache__

@@ -1,5 +1,4 @@
 import React, { createContext } from "react";
-import { useColorScheme } from "react-native";
 import { lightTheme, darkTheme } from "./tokens";
 
 // This creates a "context" that lets any component in our app access the current theme
