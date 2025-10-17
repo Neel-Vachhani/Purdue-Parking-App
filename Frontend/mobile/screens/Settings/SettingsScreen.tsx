@@ -1,8 +1,8 @@
 import React from "react";
 import { View, Switch } from "react-native";
+import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
-import { ThemeContext } from "../../theme/ThemeProvider";
 
 export default function SettingsScreen() {
   const theme = React.useContext(ThemeContext);

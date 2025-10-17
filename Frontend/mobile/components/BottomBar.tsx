@@ -1,8 +1,8 @@
 import React from "react";
 import { View, Pressable, Platform } from "react-native";
-import ThemedText from "./ThemedText";
 import { ThemeContext } from "../theme/ThemeProvider";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ThemedText from "./ThemedText";
 
 // Define what tabs we have in our app
 type TabKey = "garages" | "map" | "settings";

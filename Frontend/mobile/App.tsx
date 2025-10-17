@@ -1,13 +1,13 @@
 import React from "react";
-import ThemeProvider from "./app/theme/ThemeProvider";
-import ThemedView from "./app/components/ThemedView";
-import BottomBar from "./app/components/BottomBar";
-import ParkingListScreen from "./app/screens/Parking/ParkingListScreen";
-import ParkingMapScreen from "./app/screens/Parking/ParkingMapScreen";
-import SettingsScreen from "./app/screens/Settings/SettingsScreen";
+import ThemeProvider from "./theme/ThemeProvider";
+import ThemedView from "./components/ThemedView";
+import BottomBar from "./components/BottomBar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { ThemeContext } from "./app/theme/ThemeProvider";
+import { ThemeContext } from "./theme/ThemeProvider";
+import ParkingListScreen from "./screens/Parking/ParkingListScreen";
+import ParkingMapScreen from "./screens/Parking/ParkingMapScreen";
+import SettingsScreen from "./screens/Settings/SettingsScreen";
 
 type TabKey = "garages" | "map" | "settings";
 

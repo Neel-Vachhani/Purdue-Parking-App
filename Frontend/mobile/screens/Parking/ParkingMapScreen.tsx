@@ -1,7 +1,7 @@
 import React from "react";
-import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
 import { INITIAL_REGION } from "../../constants/map";
+import ThemedView from "../../components/ThemedView";
 
 export default function ParkingMapScreen() {
   return (
