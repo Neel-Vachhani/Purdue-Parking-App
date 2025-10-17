@@ -1,4 +1,4 @@
-# from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.fields import ArrayField
 # from location_field.models.plain import PlainLocationField
 from django.db import models
 
@@ -22,7 +22,17 @@ class User(models.Model):
         max_length=5, choices=parking_passes, blank=True, null=True)
     notification_token = models.CharField(
         max_length=255, blank=True, null=True)
-    # events = models.CharField()
+
+
+class Events(models.Model):
+    id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=100)
+    description = models.CharField(max_length=200)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    dates = ArrayField(models.DateField())
+    location = models.CharField(max_length=100)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 
 '''

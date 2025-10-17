@@ -64,9 +64,9 @@ def accept_ical_file(request):
 
 @api_view(['POST'])
 def accept_notification_token(request):
-    username = request.data["username"]
+    email = request.data["email"]
     token = request.data["token"]
-    user = User.objects.get(name=username)
+    user = User.objects.get(email=email)
     user.notification_token = token
     user.save()
     return Response("Token received")

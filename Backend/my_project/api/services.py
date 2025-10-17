@@ -8,6 +8,7 @@ from pathlib import Path
 from decouple import config
 import pytz
 from django.utils import timezone
+from boiler_park_backend.models import Events
 
 
 def open_file_calendar():
@@ -18,12 +19,18 @@ def open_file_calendar():
         datetime.now()), pytz.UTC.localize(datetime.now() + timedelta(days=7)))
     event_array = []
     for event in events:
-        print(event.get("Summary"))
-        print(event.get("LOCATION"))
-        print(event.decoded("DTSTART"))
-        print(event.decoded("DTEND"))
-        event_array.append([event.get("Summary"), event.get("LOCATION"), event.decoded("DTSTART"),
-                            event.decoded("DTEND")])
+        if event.decoded("DTEND") > pytz.UTC.localize(datetime.now()):
+            db_event = Events(
+                title=event.get("Summary"),
+                description=event.get("DESCRIPTION"),
+                start_time=event.decoded("DTSTART").time(),
+                end_time=event.decoded("DTEND").time(),
+                dates=[event.decoded("DTSTART").date()],
+                location=event.get("LOCATION"),
+            )
+            db_event.save()
+            event_array.append([event.get("Summary"), event.get("LOCATION"), event.decoded("DTSTART"),
+                                event.decoded("DTEND")])
     return event_array
 
 
@@ -31,11 +38,16 @@ def open_subscription_calendar(calendar_url):
     url = calendar_url
     url = config('GEORGE_CALENDAR_URL')  # TODO remove before using in prod
     calendar = Calendar(requests.get(url).text)
+    event_array = []
     for item in sorted(calendar.events, reverse=False):
-        # if item.end > pytz.UTC.localize(datetime.now()):
-        print(item)
+        if item.end > pytz.UTC.localize(datetime.now()):
+            event_array.append([item.name, item.begin, item.end,
+                                item.location, item.description])
+
     # print(item.name, item.begin, item.end,
     #      item.location, item.description)
+    print(event_array)
+    return (event_array)
 
 
 def analyze_calendar(ics):
@@ -44,5 +56,5 @@ def analyze_calendar(ics):
 
 
 if __name__ == "__main__":
-    open_file_calendar()
-    # open_subscription_calendar("asf")
+    # open_file_calendar()
+    open_subscription_calendar("asf")
