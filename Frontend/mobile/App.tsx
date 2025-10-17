@@ -5,9 +5,9 @@ import BottomBar from "./components/BottomBar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { ThemeContext } from "./theme/ThemeProvider";
-import ParkingListScreen from "./screens/Parking/ParkingListScreen";
 import ParkingMapScreen from "./screens/Parking/ParkingMapScreen";
 import SettingsScreen from "./screens/Settings/SettingsScreen";
+import GarageList from "./components/Garagelist";
 
 type TabKey = "garages" | "map" | "settings";
 
@@ -17,7 +17,7 @@ export default function App() {
 
   function renderTab() {
     switch (tab) {
-      case "garages": return <ParkingListScreen />;
+      case "garages": return <GarageList />;
       case "map": return <ParkingMapScreen />;
       case "settings": return <SettingsScreen />;
     }
