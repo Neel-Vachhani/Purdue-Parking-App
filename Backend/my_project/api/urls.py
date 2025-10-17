@@ -6,4 +6,5 @@ urlpatterns = [
     path('add/', views.add_item),
     path('signup/', views.sign_up),
     path('notification_token/', views.accept_notification_token),
+    path('login/', views.log_in),
 ]

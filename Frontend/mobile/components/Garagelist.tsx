@@ -2,7 +2,7 @@
 import * as React from "react";
 import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router/build/exports";
+import { useRouter } from "expo-router";
 
 type Garage = {
   id: string;
@@ -31,6 +31,8 @@ export default function GarageList({
   onToggleFavorite?: (g: Garage) => void;
   onOpenInMaps?: (g: Garage) => void;
 }) {
+  const router = useRouter();
+
   const renderItem = ({ item }: { item: Garage }) => {
     const pct = Math.min(item.current / item.total, 1);
     const colors = getColors(pct);

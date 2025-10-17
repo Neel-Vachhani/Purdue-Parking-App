@@ -37,11 +37,12 @@ export default function SignupScreen({ onSignup, pushToken }: SignupScreenProps)
 
     try {
       // Sends user information to the backend
-      await createUserAccount(email, password);
+      const userData = await createUserAccount(email, password);
+      console.log('User created successfully:', userData);
 
       // If we have a push token, send it to the backend
       if (pushToken) {
-        await fetch("http://127.0.0.1:2523/notification_token", {
+        const tokenResponse = await fetch("http://127.0.0.1:2523/notification_token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -49,11 +50,16 @@ export default function SignupScreen({ onSignup, pushToken }: SignupScreenProps)
             token: pushToken
           }),
         });
+
+        if (!tokenResponse.ok) {
+          console.warn('Failed to save notification token');
+        }
       }
 
       // Notify parent component (App.tsx) that user has successfully signed up (route to Log In screen)
       onSignup();
     } catch (err) {
+      console.error('Signup error:', err);
       setError('Account creation failed.');
     } finally {
       setLoading(false);

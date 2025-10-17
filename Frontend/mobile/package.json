@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@expo/metro-config": "^54.0.6",
-    "@types/react": "~19.1.0",
+    "@types/react": "^18.2.21",
     "typescript": "~5.9.2"
   },
   "private": true
