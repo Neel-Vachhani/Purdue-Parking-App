@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view
 from boiler_park_backend.models import Item, User
 from .serializers import ItemSerializer, UserSerializer
 import bcrypt
+import services
 
 
 @api_view(['GET'])
@@ -41,3 +42,9 @@ def accept_notification_token(request):
     token = request.data["token"]
     # save token to database
     return Response("Token received")
+
+@api_view(['POST'])
+def accept_ical_file(request):
+    calendar = request.data["calendar"]
+    output = services.open_file_calendar(calendar)
+    return Response(output)

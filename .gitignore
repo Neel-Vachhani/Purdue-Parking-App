@@ -5,3 +5,18 @@ doc/*
 db.sqlite3
 
 .env
+
+__pycache__
+
+/Users/georgesamra/Purdue-Parking-App/Backend/my_project/api/calendar_test.ics
+
+.vscode
+
+test.ics
+venv/
+
+.DS_Store
+
+# Expo
+.expo/
+.expo-shared/

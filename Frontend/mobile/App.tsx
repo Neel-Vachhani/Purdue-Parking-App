@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
@@ -10,18 +9,23 @@ import BottomBar from "./app/components/BottomBar";
 import ParkingListScreen from "./app/screens/Parking/ParkingListScreen";
 import ParkingMapScreen from "./app/screens/Parking/ParkingMapScreen";
 import SettingsScreen from "./app/screens/Settings/SettingsScreen";
-import LoginScreen from "./app/screens/Auth/LogInScreen";
+import LoginScreen from "./app/screens/Auth/LoginScreen";
 import SignupScreen from "./app/screens/Auth/SignUpScreen";
 
-type TabKey = "list" | "map" | "settings";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { ThemeContext } from "./app/theme/ThemeProvider";
+
+type TabKey = "garages" | "map" | "settings";
 type AuthModeKey = "signup" | "login" | null;
 
 export default function App() {
+  const [tab, setTab] = React.useState<TabKey>("garages");
+  const theme = React.useContext(ThemeContext);
   // expoPushToken identifies the device that a push notification would go to
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   // Default to login screen
   const [authMode, setAuthMode] = React.useState<AuthModeKey>("login");
-  const [tab, setTab] = React.useState<TabKey>("list");
 
   useEffect(() => {
     const setupPushNotifications = async () => {
@@ -93,19 +97,26 @@ export default function App() {
         );
       case null: // If the user is already logged in, just render the page with tabs
         return (
-          <>
-            <ThemedView style={{ flex: 1 }}>{renderTab()}</ThemedView>
-            <BottomBar active={tab} onChange={setTab} />
-          </>
+          <ThemeProvider>
+            <SafeAreaProvider>
+              <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
+              {/* App layout: content respects top safe area; bottom bar overlays flush */}
+              <ThemedView style={{ flex: 1 }}>
+                <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+                  <ThemedView style={{ flex: 1 }}>{renderTab()}</ThemedView>
+                </SafeAreaView>
+                <BottomBar active={tab} onChange={setTab} />
+              </ThemedView>
+            </SafeAreaProvider>
+          </ThemeProvider>
         );
-      
     }
   }
 
   // Function to render the correct tab screen
   function renderTab() {
     switch (tab) {
-      case "list": return <ParkingListScreen />;
+      case "garages": return <ParkingListScreen />;
       case "map": return <ParkingMapScreen />;
       case "settings": return <SettingsScreen />;
     }
