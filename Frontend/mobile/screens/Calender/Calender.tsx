@@ -1,7 +1,11 @@
-// app/calendar.tsx
+// screens/Calender/Calender.tsx
 import React from "react";
-import CalendarView from "../../components/CalenderView"
+import CalendarView, { ClassEvent } from "../../components/CalenderView";
 
-export default function CalendarScreen() {
-  return <CalendarView />;
+interface CalendarScreenProps {
+  data: ClassEvent[];
+}
+
+export default function Calendar({ data }: CalendarScreenProps) {
+  return <CalendarView data={data} />;
 }

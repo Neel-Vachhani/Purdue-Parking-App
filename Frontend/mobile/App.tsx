@@ -1,4 +1,3 @@
-// App.tsx
 import * as React from "react";
 import { View, ActivityIndicator } from "react-native";
 import * as Notifications from "expo-notifications";
@@ -14,10 +13,11 @@ import ParkingMapScreen from "./screens/Parking/ParkingMapScreen";
 import SettingsScreen from "./screens/Settings/SettingsScreen";
 import GarageList from "./components/Garagelist";
 import Calendar from "./screens/Calender/Calender";
-
 import AuthScreen from "./screens/Auth/AuthScreen";
 
-// Add "calendar" to TabKey
+import { ClassEvent } from "./components/CalenderView";
+
+// Tab type
 type TabKey = "garages" | "map" | "settings" | "calendar";
 
 export default function App() {
@@ -25,6 +25,9 @@ export default function App() {
   const [expoPushToken, setExpoPushToken] = React.useState<string | null>(null);
   const [booting, setBooting] = React.useState(true);
   const [isAuthed, setIsAuthed] = React.useState(false);
+
+  // User-specific calendar events
+  const [userEvents, setUserEvents] = React.useState<ClassEvent[]>([]);
 
   React.useEffect(() => {
     (async () => {
@@ -59,8 +62,13 @@ export default function App() {
         <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
           {tab === "garages" && <GarageList />}
           {tab === "map" && <ParkingMapScreen />}
-          {tab === "settings" && <SettingsScreen onLogout={() => setIsAuthed(false)} />}
-          {tab === "calendar" && <Calendar />} {/* <-- new tab */}
+          {tab === "settings" && (
+            <SettingsScreen
+              onLogout={() => setIsAuthed(false)}
+              setUserEvents={setUserEvents} // <-- pass setter
+            />
+          )}
+          {tab === "calendar" && <Calendar data={userEvents} />} {/* <-- calendar tab */}
         </SafeAreaView>
         <BottomBar active={tab} onChange={setTab} />
       </ThemedView>

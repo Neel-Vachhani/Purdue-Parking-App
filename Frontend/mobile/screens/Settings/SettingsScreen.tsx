@@ -5,12 +5,15 @@ import * as SecureStore from "expo-secure-store";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
+import { icsToJson } from "ics-to-json";
+import { ClassEvent } from "../../components/CalenderView";
 
 interface Props {
   onLogout: () => void;
+  setUserEvents: React.Dispatch<React.SetStateAction<ClassEvent[]>>; // setter for events
 }
 
-export default function SettingsScreen({ onLogout }: Props) {
+export default function SettingsScreen({ onLogout, setUserEvents }: Props) {
   const theme = React.useContext(ThemeContext);
   const isDark = theme.mode === "dark";
 
@@ -40,25 +43,29 @@ export default function SettingsScreen({ onLogout }: Props) {
       const response = await fetch(file.uri);
       const icsText = await response.text();
       const jsonData = icsToJson(icsText);
-      console.log(jsonData);
-      axios.post("http://localhost:7500/test/", jsonData)
 
-      Alert.alert("Calendar selected", `${file.name}`);
+      // Convert JSON to ClassEvent[]
+      const events: ClassEvent[] = jsonData.map((e: any, i: number) => ({
+        id: e.uid || `${i}`,
+        course: e.summary || "Untitled",
+        time: `${e.start} - ${e.end}`,
+        location: e.location || "Unknown",
+        type: "lecture", // fallback; adjust as needed
+      }));
+
+      setUserEvents(events);
+      Alert.alert("Calendar selected", `${file.name} uploaded.`);
     } catch (e: any) {
       Alert.alert("Picker error", e?.message ?? "Unknown error");
     }
   };
-
-
-
-
 
   const handleLogout = async () => {
     try {
       await SecureStore.deleteItemAsync("sessionToken");
       await SecureStore.deleteItemAsync("user");
       Alert.alert("Logged out", "Your session has been cleared.");
-      onLogout(); // 👈 triggers authMode("login") in App.tsx
+      onLogout();
     } catch (e: any) {
       Alert.alert("Logout failed", e?.message ?? "Unknown error");
     }
@@ -68,7 +75,6 @@ export default function SettingsScreen({ onLogout }: Props) {
     <ThemedView style={{ padding: 20, gap: 16 }}>
       <ThemedText style={{ fontSize: 22, fontWeight: "700" }}>Settings</ThemedText>
 
-      {/* Dark mode toggle */}
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <ThemedText style={{ fontSize: 16 }}>Dark Mode</ThemedText>
         <Switch
@@ -79,12 +85,10 @@ export default function SettingsScreen({ onLogout }: Props) {
         />
       </View>
 
-      {/* Calendar upload */}
       <View style={{ marginTop: 8 }}>
         <Button title="Upload calendar (.ics)" onPress={pickCalendar} />
       </View>
 
-      {/* Logout */}
       <View style={{ marginTop: 16 }}>
         <Button title="Log Out" color="#e53935" onPress={handleLogout} />
       </View>
