@@ -1,13 +1,39 @@
 import cv2
-import math
 import numpy as np
 from ultralytics import YOLO
 import cvzone
 from sort import Sort
+import redis
+from decouple import config
+from multiprocessing import Process
+
+# --- Redis Setup ---
+r = redis.Redis(
+    host=config("REDIS_HOST"),
+    port=config("REDIS_PORT"),
+    decode_responses=True,
+    username=config("REDIS_USERNAME"),
+    password=config("REDIS_PASSWORD"),
+)
+
+# --- Garage definitions ---
+GARAGES = {
+    "Harrison": {"redis_key": "PGH_availability", "capacity": 800},
+    "GrantStreet": {"redis_key": "PGG_availability", "capacity": 648},
+    "UniversityStreet": {"redis_key": "PGU_availability", "capacity": 826},
+    "Northwestern": {"redis_key": "PGNW_availability", "capacity": 434},
+    "DSAI": {"redis_key": "DSAI_availability", "capacity": 178},
+}
+
+MASK_PATH = "Backend/my_project/cv_model/mask.png"
+GRAPHICS_PATH = "Backend/my_project/cv_model/graphics.png"
+YOLO_WEIGHTS = "Yolo-Weights/yolov8n.pt"
+VIDEO_PATH = "Backend/my_project/cv_model/Videos/cars.mp4"
+
 
 class CarCounter:
-    def __init__(self, video_path, yolo_weights, mask_path=None, graphics_path=None, conf_threshold=0.3, emptyCapacity = 150):
-        # Video and YOLO model
+    def __init__(self, video_path, yolo_weights, redis_key, emptyCapacity=150, mask_path=None, graphics_path=None, conf_threshold=0.3):
+        # Video and YOLO
         self.cap = cv2.VideoCapture(video_path)
         self.model = YOLO(yolo_weights)
         
@@ -15,11 +41,9 @@ class CarCounter:
         self.mask = cv2.imread(mask_path) if mask_path else None
         self.graphics = cv2.imread(graphics_path, cv2.IMREAD_UNCHANGED) if graphics_path else None
 
-        # Stretch graphics once
         if self.graphics is not None:
             h, w = self.graphics.shape[:2]
-            new_w = int(w + 30)  # stretch horizontally
-            self.graphics = cv2.resize(self.graphics, (new_w, h))
+            self.graphics = cv2.resize(self.graphics, (w + 30, h))  # stretch
 
         # Tracker
         self.tracker = Sort(max_age=20, min_hits=3, iou_threshold=0.3)
@@ -27,28 +51,42 @@ class CarCounter:
         # Counting
         self.incoming = set()
         self.outgoing = set()
-        self.prev_positions = {}  # {obj_id: cy}
-        self.obj_colors = {}      # persist colors per object
-        self.line_limits = [420, 297, 673, 297]  # Example line
+        self.prev_positions = {}
+        self.obj_colors = {}
+        self.line_limits = [420, 297, 673, 297]
         self.conf_threshold = conf_threshold
         self.emptyCapacity = emptyCapacity
-        self.currCapacity = emptyCapacity
-        # Classes to detect
+        self.capacity = emptyCapacity
+        self.redis_key = redis_key
         self.detection_classes = ['car', 'truck', 'bus', 'motorbike']
+        self.update_redis()
+
+        
+
+    def update_redis(self):
+        """Update the current garage capacity in Redis and verify"""
+        try:
+            # Set the value
+            r.set(self.redis_key, self.capacity)
+
+            # Read it back
+            current_value = r.get(self.redis_key)
+            print(f"{self.redis_key} updated to {self.capacity}, read back as {current_value}")
+            
+        except Exception as e:
+            print(f"Redis update failed for {self.redis_key}: {e}")
+
 
     def process_frame(self):
         success, frame = self.cap.read()
         if not success:
             return None, 0, False
 
-        # Apply mask if exists
         frame_region = cv2.bitwise_and(frame, self.mask) if self.mask is not None else frame
 
-        # Overlay graphics
         if self.graphics is not None:
             cvzone.overlayPNG(frame, self.graphics, (0, 0))
 
-        # YOLO Detection
         results = self.model(frame_region, stream=True)
         detections = np.empty((0, 5))
 
@@ -62,61 +100,46 @@ class CarCounter:
                 if class_name in self.detection_classes and conf > self.conf_threshold:
                     detections = np.vstack((detections, [x1, y1, x2, y2, conf]))
 
-        # Update tracker
         tracker_results = self.tracker.update(detections)
-
-        # Prepare for line color change
         crossed_ids = set()
-        line_color = (255, 0, 0)  # default blue
+        line_color = (255, 0, 0)
 
-        # Process tracked objects
         for res in tracker_results:
             x1, y1, x2, y2, obj_id = map(int, res)
             w, h = x2 - x1, y2 - y1
             cx, cy = x1 + w // 2, y1 + h // 2
+            box_color = self.obj_colors.get(obj_id, (255, 0, 255))
 
-            # Use persisted color if exists
-            box_color = self.obj_colors.get(obj_id, (255, 0, 255))  # magenta default
-
-            # Check if within ±15 of the line and moving in correct direction
             if obj_id not in self.obj_colors and obj_id in self.prev_positions:
                 prev_cy = self.prev_positions[obj_id]
-
-                # Entering: moving down
-                if abs(cy - self.line_limits[1]) <= 15 and cy > prev_cy:
+                if abs(cy - self.line_limits[1]) <= 20 and cy > prev_cy:
                     self.incoming.add(obj_id)
-                    box_color = (0, 0, 255)  # Red
-                    self.obj_colors[obj_id] = box_color  # persist
+                    box_color = (0, 0, 255)
+                    self.obj_colors[obj_id] = box_color
                     crossed_ids.add(obj_id)
-
-                # Leaving: moving up
-                elif abs(cy - self.line_limits[1]) <= 15 and cy < prev_cy:
+                elif abs(cy - self.line_limits[1]) <= 20 and cy < prev_cy:
                     self.outgoing.add(obj_id)
-                    box_color = (0, 100, 0)  # Dark green
-                    self.obj_colors[obj_id] = box_color  # persist
+                    box_color = (0, 100, 0)
+                    self.obj_colors[obj_id] = box_color
                     crossed_ids.add(obj_id)
 
-            # Save current position
             self.prev_positions[obj_id] = cy
-
-            # Draw bounding box and ID
             cvzone.cornerRect(frame, (x1, y1, w, h), l=9, rt=2, colorR=box_color)
             cvzone.putTextRect(frame, f'ID {obj_id}', (x1, max(35, y1)), scale=2, thickness=3, offset=10)
             cv2.circle(frame, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
 
-        # Change line color if any car is within ±15 of line
         if crossed_ids:
             if any(obj_id in self.incoming for obj_id in crossed_ids):
-                line_color = (0, 0, 255)  # Red for entering
+                line_color = (0, 0, 255)
             if any(obj_id in self.outgoing for obj_id in crossed_ids):
-                line_color = (0, 100, 0)  # Dark green for leaving
+                line_color = (0, 100, 0)
 
-        # Draw counting line
         cv2.line(frame, (self.line_limits[0], self.line_limits[1]),
                  (self.line_limits[2], self.line_limits[3]), line_color, 5)
 
-        # Total cars in lot
         self.capacity = self.emptyCapacity - len(self.incoming) + len(self.outgoing)
+        self.update_redis()
+
         cv2.putText(frame, f'Capacity: {self.capacity}', (210, 90),
                     cv2.FONT_HERSHEY_PLAIN, 1.8, (0, 0, 255), 3)
 
@@ -127,21 +150,32 @@ class CarCounter:
             frame, count, success = self.process_frame()
             if not success:
                 break
-
-            cv2.imshow("Parking Counter", frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):  # wait for key to debug
+            cv2.imshow(f"Parking Counter - {self.redis_key}", frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
         self.cap.release()
         cv2.destroyAllWindows()
 
 
-if __name__ == "__main__":
+def run_counter(name, info):
     counter = CarCounter(
-        video_path="Backend/my_project/cv_model/Videos/cars.mp4",
-        yolo_weights="Yolo-Weights/yolov8n.pt",
-        mask_path="Backend/my_project/cv_model/mask.png",
-        graphics_path="Backend/my_project/cv_model/graphics.png",
-        emptyCapacity=150
+        video_path=VIDEO_PATH,
+        yolo_weights=YOLO_WEIGHTS,
+        mask_path=MASK_PATH,
+        graphics_path=GRAPHICS_PATH,
+        redis_key=info["redis_key"],
+        emptyCapacity=info["capacity"]
     )
     counter.run()
+
+
+if __name__ == "__main__":
+    processes = []
+    for name, info in GARAGES.items():
+        p = Process(target=run_counter, args=(name, info))
+        p.start()
+        processes.append(p)
+
+    for p in processes:
+        p.join()

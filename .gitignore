@@ -3,6 +3,28 @@ doc/*
 .venv/
 
 db.sqlite3
+# Environment files with secrets
+.env
+
+__pycache__
+
+/Users/georgesamra/Purdue-Parking-App/Backend/my_project/api/calendar_test.ics
+
+.vscode
+
+test.ics
+venv/
+
+.DS_Store
+
+# Expo
+.expo/
+.expo-shared/
+doc/*
+
+.venv/
+
+db.sqlite3
 
 .env
 
@@ -20,3 +42,4 @@ venv/
 # Expo
 .expo/
 .expo-shared/
+node_modules
