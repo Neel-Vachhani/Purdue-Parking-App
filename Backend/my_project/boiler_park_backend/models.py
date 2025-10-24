@@ -1,5 +1,5 @@
-# from django.contrib.postgres.fields import ArrayField
-# from location_field.models.plain import PlainLocationField
+from django.contrib.postgres.fields import ArrayField
+from location_field.models.plain import PlainLocationField
 from django.db import models
 
 # Create your models here.
@@ -23,6 +23,29 @@ class User(models.Model):
     notification_token = models.CharField(
         max_length=255, blank=True, null=True)
     # events = models.CharField()
+
+
+class ParkingLot(models.Model):
+    parking_passes = {
+        "A": "A",
+        "B": "B",
+        "C": "C",
+        "Res": "Resident"
+    }
+    special_lot = {
+        "FB": "Football",
+        "BB": "Basketball"
+    }
+    id = models.AutoField(primary_key=True)
+    location = PlainLocationField()
+    name = models.CharField(max_length=50)
+    capacity = models.PositiveIntegerField()
+    parking_passes = ArrayField(models.CharField(
+        max_length=10, choices=parking_passes, blank=True))
+    special_lot = models.CharField(
+        max_length=10, choices=special_lot, null=True, blank=True)
+    cameras = models.CharField(max_length=200)  # Placeholder for ArrayField
+    paid = models.BooleanField(default=False)
 
 
 '''

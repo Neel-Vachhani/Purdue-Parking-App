@@ -9,8 +9,9 @@ import os
 import requests
 from requests.exceptions import ConnectionError, HTTPError
 import rollbar
+from notifications.models import PushToken
 
-'''
+
 # Optionally providing an access token within a session if you have enabled push security
 session = requests.Session()
 session.headers.update(
@@ -21,7 +22,7 @@ session.headers.update(
         "content-type": "application/json",
     }
 )
-'''
+
 # Basic arguments. You should extend this function with the push features you
 # want to use, or simply pass in a `PushMessage` object.
 
@@ -57,7 +58,6 @@ def send_push_message(token, message, extra=None):
         response.validate_response()
     except DeviceNotRegisteredError:
         # Mark the push token as inactive
-        from notifications.models import PushToken
         PushToken.objects.filter(token=token).update(active=False)
     except PushTicketError as exc:
         # Encountered some other per-notification error.
