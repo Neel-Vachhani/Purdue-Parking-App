@@ -14,10 +14,12 @@ import SettingsScreen from "./screens/Settings/SettingsScreen";
 import GarageList from "./components/Garagelist";
 import Calendar from "./screens/Calender/Calender";
 import AuthScreen from "./screens/Auth/AuthScreen";
+import Insights from "./screens/Insights/Insights";
+
 
 
 // Tab type
-type TabKey = "garages" | "map" | "settings" | "calendar";
+type TabKey = "garages" | "map" | "settings" | "calendar" | "insights";
 
 export default function App() {
   const [tab, setTab] = React.useState<TabKey>("garages");
@@ -60,6 +62,7 @@ export default function App() {
           {(tab === "map") ? <ParkingMapScreen /> : null}
           {(tab === "calendar") ? <Calendar /> : null}
           {(tab === "settings") ? <SettingsScreen onLogout={() => setIsAuthed(false)} /> : null}
+          {(tab === "insights") ? <Insights /> : null}
         </SafeAreaView>
         <BottomBar active={tab} onChange={setTab} />
       </ThemedView>
