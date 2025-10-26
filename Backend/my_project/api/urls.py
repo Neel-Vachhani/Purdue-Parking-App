@@ -9,4 +9,5 @@ urlpatterns = [
     path('login/', views.log_in),
     path('apple/', views.apple_sign_in),
     path('notification_token/', views.accept_notification_token),
+    path('user/origin/', views.user_origin),
 ]

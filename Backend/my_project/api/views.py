@@ -232,6 +232,30 @@ def log_in(request):
     )
 
 
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])  # TODO: tighten to IsAuthenticated with session once auth flow is finalized
+def user_origin(request):
+    """Get or set the user's default origin address.
+
+    GET:  /user/origin/?email=<email>
+    POST: { email, default_origin }
+    """
+    email = request.data.get("email") if request.method == 'POST' else request.query_params.get("email")
+    if not email:
+        return Response({"detail": "email required"}, status=400)
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response({"detail": "user not found"}, status=404)
+
+    if request.method == 'GET':
+        return Response({"default_origin": getattr(user, "default_origin", None)})
+
+    default_origin = request.data.get("default_origin", "")
+    user.default_origin = default_origin
+    user.save(update_fields=["default_origin"]) 
+    return Response({"status": "ok", "default_origin": user.default_origin})
+
 @api_view(['POST'])
 def accept_ical_file(request):
     from . import services
