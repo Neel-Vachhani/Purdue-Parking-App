@@ -78,6 +78,7 @@ export default function GarageList({
       timeZoneName: "short",
     })
   );
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   React.useEffect(() => {
     setGarages(data);
@@ -107,7 +108,7 @@ export default function GarageList({
 
     const loadAvailability = async () => {
       try {
-  const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
+        const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
         if (!response.ok) {
           console.error("Failed to fetch parking availability:", response.status);
           return;
@@ -170,6 +171,14 @@ export default function GarageList({
       isMounted = false;
     };
   }, []);
+
+  const visibleGarages = React.useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return garages;
+    }
+    return garages.filter((garage) => garage.name.toLowerCase().includes(query));
+  }, [garages, searchQuery]);
 
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
@@ -298,14 +307,14 @@ export default function GarageList({
             placeholder="Search garages"
             placeholderTextColor={theme.mode === "dark" ? "#9ca3af" : "#6b7280"}
             style={{ flex: 1, color: theme.text, fontSize: 16 }}
-            value=""
-            editable={false}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
       </View>
 
       <FlatList
-        data={garages}
+        data={visibleGarages}
         keyExtractor={(g) => g.id}
         renderItem={renderItem}
         contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
