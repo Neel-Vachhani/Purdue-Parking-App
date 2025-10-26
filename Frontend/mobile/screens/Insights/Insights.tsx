@@ -13,14 +13,13 @@ import { BarChart } from "react-native-chart-kit";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import Constants from "expo-constants";
 
-
 const { width } = Dimensions.get("window");
 
 type Garage = {
   id: string;
   name: string;
-  current: number;
-  total: number;
+  current: number; // occupied spots
+  total: number;   // total spots
   occupancy_percentage: number;
 };
 
@@ -31,6 +30,38 @@ type HistoricalDataPoint = {
   occupancy_percentage: number;
   available_spots: number;
   occupied_spots: number;
+};
+
+// Map lot display names to API column names
+const LOT_COLUMNS: Record<string, string> = {
+  "PGMD": "pgmd",
+  "PGU": "pgu",
+  "PGNW": "pgnw",
+  "PGG": "pgg",
+  "PGW": "pgw",
+  "PGGH": "pggh",
+  "PGH": "pgh",
+  "Lot R": "lot_r",
+  "Lot H": "lot_h",
+  "Lot FB": "lot_fb",
+  "KFPC": "kfpc",
+  "Lot A": "lot_a",
+  "CREC": "crec",
+  "Lot O": "lot_o",
+  "Tark/Wily": "tark_wily",
+  "Lot AA": "lot_aa",
+  "Lot BB": "lot_bb",
+  "WND/Krach": "wnd_krach",
+  "Shrv/Erht/Mrdh": "shrv_erht_mrdh",
+  "McCut/Harr/Hill": "mcut_harr_hill",
+  "DUHM": "duhm",
+  "Pierce St": "pierce_st",
+  "PGM": "pgm",
+  "Smith/Bchm": "smth_bchm",
+  "Disc A": "disc_a",
+  "Disc AB": "disc_ab",
+  "Disc ABC": "disc_abc",
+  "Airport": "airport"
 };
 
 export default function InsightsScreen() {
@@ -50,10 +81,8 @@ export default function InsightsScreen() {
     { value: "current", label: "Current Status", icon: "time-outline" },
     { value: "day", label: "Last 24 Hours", icon: "today-outline" },
     { value: "week", label: "Last 7 Days", icon: "calendar-outline" },
-    { value: "month", label: "Last 30 Days", icon: "calendar-number-outline" },
+    { value: "month", label: "Last 30 Days", icon: "calendar-number-outline" }
   ];
-
-  const AVAILABILITY_ENDPOINT = "/parking/availability/";
 
   const getApiBaseUrl = (): string => {
     const configExtra = Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined;
@@ -68,36 +97,34 @@ export default function InsightsScreen() {
     }
 
     let host = "localhost";
-
-    if (Platform.OS === "android") {
-      host = "10.0.2.2";
-    } else {
+    if (Platform.OS === "android") host = "10.0.2.2";
+    else {
       const debuggerHost = Constants.expoConfig?.hostUri || manifest?.debuggerHost;
-      if (debuggerHost) {
-        host = debuggerHost.split(":")[0];
-      }
+      if (debuggerHost) host = debuggerHost.split(":")[0];
     }
-
     return `http://${host}:7500`;
   };
 
-
+  /** Fetch current data: total and occupied for all lots */
   const fetchCurrentData = async () => {
-    const curr_avail = "/parking/availability/";
-
     try {
       setLoading(true);
-      const res = await fetch(`${getApiBaseUrl()}${curr_avail}`);
-
+      const res = await fetch(`${getApiBaseUrl()}/parking/availability/`);
       const data = await res.json();
-      setGarages(data.map((g: any, idx: number) => ({
-        id: idx.toString(),
-        name: g.lot_name || `Lot ${idx + 1}`,
-        current: g.occupied_spots,
-        total: g.total_spots,
-        occupancy_percentage: g.occupancy_percentage,
-      })));
-      if (!selectedLotId && data.length > 0) setSelectedLotId("0");
+      // Map each lot to Garage format
+      const mappedGarages: Garage[] = Object.keys(LOT_COLUMNS).map((lotName, idx) => {
+        const columnName = LOT_COLUMNS[lotName] + "_availability";
+        const availabilityValue = data[0][columnName] ?? 0; // default 0
+        return {
+          id: idx.toString(),
+          name: lotName,
+          current: availabilityValue, // occupied spots
+          total: 1,                   // assuming 1 spot per record; adjust if backend gives total
+          occupancy_percentage: availabilityValue * 100
+        };
+      });
+      setGarages(mappedGarages);
+      if (!selectedLotId && mappedGarages.length > 0) setSelectedLotId("0");
     } catch (err) {
       console.error("Error fetching current parking data:", err);
     } finally {
@@ -105,48 +132,41 @@ export default function InsightsScreen() {
     }
   };
 
-  const fetchHistoricalData = async (lotId: string, period: TimePeriod) => {
-    if (period === "current") {
-      setHistoricalData([]);
-      return;
-    }
-    try {
-      setLoading(true);
-      const lot = garages[parseInt(lotId)];
-      if (!lot) return;
-      const hist_avail = "/postgres-parking";
-      const res = await fetch(`${getApiBaseUrl()}${hist_avail}`);
-
-      const data = await res.json();
-      setHistoricalData(data.map((d: any) => ({
+  /** Fetch historical data for a lot and period */
+const fetchHistoricalData = async (lotColumn: string, period: TimePeriod) => {
+  try {
+    setLoading(true);
+    const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=${period}`);
+    const data = await res.json();
+    setHistoricalData(
+      data.map((d: any) => ({
         label: new Date(d.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        occupancy_percentage: d.occupancy_percentage,
-        available_spots: d.total_spots - d.occupied_spots,
-        occupied_spots: d.occupied_spots,
-      })));
-    } catch (err) {
-      console.error("Error fetching historical data:", err);
-      setHistoricalData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+        occupancy_percentage: d.availability * 100,
+        available_spots: d.availability ? 1 : 0,
+        occupied_spots: d.availability ? 0 : 1
+      }))
+    );
+  } catch (err) {
+    console.error("Error fetching historical data:", err);
+    setHistoricalData([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   React.useEffect(() => {
     fetchCurrentData();
   }, []);
 
   React.useEffect(() => {
-    if (selectedLotId !== "") {
-      fetchHistoricalData(selectedLotId, timePeriod);
-    }
+    if (selectedLotId !== "") fetchHistoricalData(selectedLotId, timePeriod);
   }, [selectedLotId, timePeriod, garages]);
 
   const getOccupancyColor = (percentage: number): string => {
-    if (percentage >= 90) return "#f91e1eff"; // Red - Full
-    if (percentage >= 70) return "#ff7f1eff"; // Orange - Moderate
-    if (percentage >= 25) return "#e0c542"; // Yellow - Available
-    return "#41c463"; // Green - Available
+    if (percentage >= 90) return "#f91e1eff"; // Red
+    if (percentage >= 70) return "#ff7f1eff"; // Orange
+    if (percentage >= 25) return "#e0c542"; // Yellow
+    return "#41c463"; // Green
   };
 
   const currentStatus = garages.find((g) => g.id === selectedLotId) || garages[0];
@@ -164,7 +184,7 @@ export default function InsightsScreen() {
       avgOccupancy: avgOccupancy.toFixed(1),
       avgAvailable,
       avgOccupied,
-      total: avgAvailable + avgOccupied,
+      total: avgAvailable + avgOccupied
     };
   };
 
@@ -172,38 +192,27 @@ export default function InsightsScreen() {
     if (historicalData.length === 0) return { labels: ["No Data"], datasets: [{ data: [0] }] };
     return {
       labels: historicalData.map((d) => d.label),
-      datasets: [{ data: historicalData.map((d) => d.occupancy_percentage) }],
+      datasets: [{ data: historicalData.map((d) => d.occupancy_percentage) }]
     };
   };
 
   const selectedPeriodLabel =
     periodOptions.find((p) => p.value === timePeriod)?.label || "Current Status";
-
   const avgStats = timePeriod !== "current" ? calculateAverageStats() : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      {loading && (
-        <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 16 }} />
-      )}
+      {loading && <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 16 }} />}
       <ScrollView>
         {/* Header */}
         <View style={{ padding: 16 }}>
-          <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700" }}>
-            Parking Insights
-          </Text>
-          <Text style={{ color: secondaryText, fontSize: 14, marginTop: 4 }}>
-            Historical availability data
-          </Text>
+          <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700" }}>Parking Insights</Text>
+          <Text style={{ color: secondaryText, fontSize: 14, marginTop: 4 }}>Historical availability data</Text>
         </View>
 
         {/* Lot Selector */}
         <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-          <Text
-            style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 12 }}
-          >
-            Select Parking Lot:
-          </Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 12 }}>Select Parking Lot:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {garages.map((lot) => {
               const isSelected = selectedLotId === lot.id;
@@ -217,21 +226,11 @@ export default function InsightsScreen() {
                     backgroundColor: isSelected ? theme.primary : cardBg,
                     borderRadius: 20,
                     borderWidth: 2,
-                    borderColor: isSelected
-                      ? theme.primary
-                      : theme.mode === "dark"
-                      ? "#2b2b2b"
-                      : "#e5e7eb",
+                    borderColor: isSelected ? theme.primary : theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb"
                   }}
                   onPress={() => setSelectedLotId(lot.id)}
                 >
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      color: isSelected ? "#FFFFFF" : theme.text,
-                      fontWeight: isSelected ? "600" : "500",
-                    }}
-                  >
+                  <Text style={{ fontSize: 14, color: isSelected ? "#FFFFFF" : theme.text, fontWeight: isSelected ? "600" : "500" }}>
                     {lot.name}
                   </Text>
                 </TouchableOpacity>
@@ -242,11 +241,7 @@ export default function InsightsScreen() {
 
         {/* Time Period Dropdown */}
         <View style={{ paddingHorizontal: 16, marginBottom: 16, zIndex: 1000 }}>
-          <Text
-            style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 12 }}
-          >
-            Time Period:
-          </Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 12 }}>Time Period:</Text>
           <View style={{ position: "relative" }}>
             <TouchableOpacity
               style={{
@@ -257,29 +252,20 @@ export default function InsightsScreen() {
                 backgroundColor: cardBg,
                 borderRadius: 12,
                 borderWidth: 2,
-                borderColor: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb",
+                borderColor: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb"
               }}
               onPress={() => setShowPeriodDropdown(!showPeriodDropdown)}
             >
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <Ionicons
-                  name={
-                    periodOptions.find((p) => p.value === timePeriod)?.icon as any ||
-                    "time-outline"
-                  }
+                  name={periodOptions.find((p) => p.value === timePeriod)?.icon as any || "time-outline"}
                   size={20}
                   color={theme.primary}
                   style={{ marginRight: 10 }}
                 />
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>
-                  {selectedPeriodLabel}
-                </Text>
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>{selectedPeriodLabel}</Text>
               </View>
-              <Ionicons
-                name={showPeriodDropdown ? "chevron-up" : "chevron-down"}
-                size={20}
-                color={secondaryText}
-              />
+              <Ionicons name={showPeriodDropdown ? "chevron-up" : "chevron-down"} size={20} color={secondaryText} />
             </TouchableOpacity>
 
             {showPeriodDropdown && (
@@ -297,7 +283,7 @@ export default function InsightsScreen() {
                   shadowOpacity: 0.3,
                   shadowRadius: 8,
                   elevation: 5,
-                  zIndex: 1000,
+                  zIndex: 1000
                 }}
               >
                 {periodOptions.map((option, index) => (
@@ -309,12 +295,7 @@ export default function InsightsScreen() {
                       padding: 14,
                       borderBottomWidth: index < periodOptions.length - 1 ? 1 : 0,
                       borderBottomColor: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb",
-                      backgroundColor:
-                        timePeriod === option.value
-                          ? theme.mode === "dark"
-                            ? "#2b2b2b"
-                            : "#f3f4f6"
-                          : "transparent",
+                      backgroundColor: timePeriod === option.value ? theme.mode === "dark" ? "#2b2b2b" : "#f3f4f6" : "transparent"
                     }}
                     onPress={() => {
                       setTimePeriod(option.value);
@@ -327,13 +308,7 @@ export default function InsightsScreen() {
                       color={timePeriod === option.value ? theme.primary : secondaryText}
                       style={{ marginRight: 10 }}
                     />
-                    <Text
-                      style={{
-                        color: timePeriod === option.value ? theme.primary : theme.text,
-                        fontSize: 16,
-                        fontWeight: timePeriod === option.value ? "600" : "400",
-                      }}
-                    >
+                    <Text style={{ color: timePeriod === option.value ? theme.primary : theme.text, fontSize: 16, fontWeight: timePeriod === option.value ? "600" : "400" }}>
                       {option.label}
                     </Text>
                   </TouchableOpacity>
@@ -352,76 +327,44 @@ export default function InsightsScreen() {
             borderRadius: 14,
             backgroundColor: cardBg,
             borderWidth: 2,
-            borderColor: getOccupancyColor(
-              avgStats ? parseFloat(avgStats.avgOccupancy) : currentStatus?.occupancy_percentage || 0
-            ),
+            borderColor: getOccupancyColor(avgStats ? parseFloat(avgStats.avgOccupancy) : currentStatus?.occupancy_percentage || 0),
             shadowColor: "#000",
             shadowOpacity: 0.2,
-            shadowRadius: 6,
+            shadowRadius: 6
           }}
         >
-          <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
-            {currentStatus?.name || "Loading..."}
-          </Text>
+          <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>{currentStatus?.name || "Loading..."}</Text>
           <Text style={{ color: secondaryText, fontSize: 14, marginTop: 4 }}>
             {timePeriod === "current" ? "Current Status" : `Average (${selectedPeriodLabel})`}
           </Text>
 
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-around",
-              marginTop: 16,
-              marginBottom: 16,
-            }}
-          >
+          <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 16, marginBottom: 16 }}>
             <View style={{ alignItems: "center" }}>
               <Text style={{ fontSize: 24, fontWeight: "bold", color: "#41c463" }}>
                 {avgStats ? avgStats.avgAvailable : (currentStatus?.total || 0) - (currentStatus?.current || 0)}
               </Text>
-              <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>
-                Available
-              </Text>
+              <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>Available</Text>
             </View>
             <View style={{ alignItems: "center" }}>
               <Text style={{ fontSize: 24, fontWeight: "bold", color: "#f91e1eff" }}>
                 {avgStats ? avgStats.avgOccupied : currentStatus?.current || 0}
               </Text>
-              <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>
-                Occupied
-              </Text>
+              <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>Occupied</Text>
             </View>
             <View style={{ alignItems: "center" }}>
               <Text style={{ fontSize: 24, fontWeight: "bold", color: theme.text }}>
                 {avgStats ? avgStats.total : currentStatus?.total || 0}
               </Text>
-              <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>
-                Total
-              </Text>
+              <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>Total</Text>
             </View>
           </View>
 
-          {/* Occupancy Bar */}
-          <View
-            style={{
-              height: 14,
-              backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#d9d9d9",
-              borderRadius: 8,
-              overflow: "hidden",
-              marginBottom: 8,
-            }}
-          >
+          <View style={{ height: 14, backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#d9d9d9", borderRadius: 8, overflow: "hidden", marginBottom: 8 }}>
             <View
               style={{
-                width: (avgStats
-                  ? `${avgStats.avgOccupancy}%`
-                  : `${currentStatus?.occupancy_percentage || 0}%`) as any,
+                width: (avgStats ? `${avgStats.avgOccupancy}%` : `${currentStatus?.occupancy_percentage || 0}%`) as any,
                 height: "100%",
-                backgroundColor: getOccupancyColor(
-                  avgStats
-                    ? parseFloat(avgStats.avgOccupancy)
-                    : currentStatus?.occupancy_percentage || 0
-                ),
+                backgroundColor: getOccupancyColor(avgStats ? parseFloat(avgStats.avgOccupancy) : currentStatus?.occupancy_percentage || 0)
               }}
             />
           </View>
@@ -432,21 +375,8 @@ export default function InsightsScreen() {
 
         {/* Historical Chart */}
         {timePeriod !== "current" && (
-          <View
-            style={{
-              marginHorizontal: 16,
-              marginBottom: 16,
-              padding: 16,
-              borderRadius: 14,
-              backgroundColor: cardBg,
-              shadowColor: "#000",
-              shadowOpacity: 0.2,
-              shadowRadius: 6,
-            }}
-          >
-            <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 16 }}>
-              Occupancy Trend
-            </Text>
+          <View style={{ marginHorizontal: 16, marginBottom: 16, padding: 16, borderRadius: 14, backgroundColor: cardBg, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6 }}>
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 16 }}>Occupancy Trend</Text>
             <BarChart
               data={getChartData()}
               width={width - 64}
@@ -462,7 +392,7 @@ export default function InsightsScreen() {
                 labelColor: (opacity = 1) => theme.text,
                 style: { borderRadius: 16 },
                 propsForLabels: { fontSize: 10 },
-                propsForBackgroundLines: { strokeDasharray: "", stroke: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb" },
+                propsForBackgroundLines: { strokeDasharray: "", stroke: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb" }
               }}
               style={{ marginVertical: 8, borderRadius: 16 }}
               showValuesOnTopOfBars={false}
