@@ -22,6 +22,8 @@ class User(models.Model):
         max_length=5, choices=parking_passes, blank=True, null=True)
     notification_token = models.CharField(
         max_length=255, blank=True, null=True)
+    default_origin = models.CharField(
+        max_length=255, blank=True, null=True)
     # events = models.CharField()
 
 
