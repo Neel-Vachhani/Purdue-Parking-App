@@ -5,10 +5,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
+  Platform
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { BarChart } from "react-native-chart-kit";
 import { ThemeContext } from "../../theme/ThemeProvider";
+import Constants from "expo-constants";
 
 
 const { width } = Dimensions.get("window");
@@ -30,59 +33,114 @@ type HistoricalDataPoint = {
   occupied_spots: number;
 };
 
-// Mock data for demonstration
-const MOCK_GARAGES: Garage[] = [
-  { id: "1", name: "Harrison Garage", current: 192, total: 240, occupancy_percentage: 80 },
-  { id: "2", name: "Grant Street Garage", current: 158, total: 240, occupancy_percentage: 66 },
-  { id: "3", name: "University Street Garage", current: 70, total: 240, occupancy_percentage: 29 },
-  { id: "4", name: "Northwestern Garage", current: 240, total: 240, occupancy_percentage: 100 },
-  { id: "5", name: "DSAI Lot", current: 32, total: 38, occupancy_percentage: 84 },
-];
-
-const MOCK_HISTORICAL_DATA = {
-  day: [
-    { label: "6AM", occupancy_percentage: 45, available_spots: 132, occupied_spots: 108 },
-    { label: "8AM", occupancy_percentage: 78, available_spots: 53, occupied_spots: 187 },
-    { label: "10AM", occupancy_percentage: 88, available_spots: 29, occupied_spots: 211 },
-    { label: "12PM", occupancy_percentage: 95, available_spots: 12, occupied_spots: 228 },
-    { label: "2PM", occupancy_percentage: 82, available_spots: 43, occupied_spots: 197 },
-    { label: "4PM", occupancy_percentage: 70, available_spots: 72, occupied_spots: 168 },
-    { label: "6PM", occupancy_percentage: 58, available_spots: 101, occupied_spots: 139 },
-  ],
-  week: [
-    { label: "Mon", occupancy_percentage: 82, available_spots: 43, occupied_spots: 197 },
-    { label: "Tue", occupancy_percentage: 85, available_spots: 36, occupied_spots: 204 },
-    { label: "Wed", occupancy_percentage: 88, available_spots: 29, occupied_spots: 211 },
-    { label: "Thu", occupancy_percentage: 90, available_spots: 24, occupied_spots: 216 },
-    { label: "Fri", occupancy_percentage: 75, available_spots: 60, occupied_spots: 180 },
-    { label: "Sat", occupancy_percentage: 35, available_spots: 156, occupied_spots: 84 },
-    { label: "Sun", occupancy_percentage: 28, available_spots: 173, occupied_spots: 67 },
-  ],
-  month: [
-    { label: "Wk1", occupancy_percentage: 78, available_spots: 53, occupied_spots: 187 },
-    { label: "Wk2", occupancy_percentage: 82, available_spots: 43, occupied_spots: 197 },
-    { label: "Wk3", occupancy_percentage: 85, available_spots: 36, occupied_spots: 204 },
-    { label: "Wk4", occupancy_percentage: 80, available_spots: 48, occupied_spots: 192 },
-  ],
-};
-
 export default function InsightsScreen() {
   const theme = React.useContext(ThemeContext);
-  const [garages] = React.useState<Garage[]>(MOCK_GARAGES);
-  const [selectedLotId, setSelectedLotId] = React.useState<string>("1");
+
+  const [garages, setGarages] = React.useState<Garage[]>([]);
+  const [selectedLotId, setSelectedLotId] = React.useState<string>("");
   const [timePeriod, setTimePeriod] = React.useState<TimePeriod>("current");
   const [showPeriodDropdown, setShowPeriodDropdown] = React.useState(false);
-  const [lastUpdated] = React.useState<string>(
-    new Date().toLocaleString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-      timeZoneName: "short",
-    })
-  );
+  const [historicalData, setHistoricalData] = React.useState<HistoricalDataPoint[]>([]);
+  const [loading, setLoading] = React.useState(false);
 
   const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
   const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
+
+  const periodOptions: { value: TimePeriod; label: string; icon: string }[] = [
+    { value: "current", label: "Current Status", icon: "time-outline" },
+    { value: "day", label: "Last 24 Hours", icon: "today-outline" },
+    { value: "week", label: "Last 7 Days", icon: "calendar-outline" },
+    { value: "month", label: "Last 30 Days", icon: "calendar-number-outline" },
+  ];
+
+  const AVAILABILITY_ENDPOINT = "/parking/availability/";
+
+  const getApiBaseUrl = (): string => {
+    const configExtra = Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined;
+    const manifest = Constants.manifest as
+      | { extra?: { apiBaseUrl?: string }; debuggerHost?: string }
+      | null;
+    const manifestExtra = manifest?.extra;
+
+    const override = configExtra?.apiBaseUrl || manifestExtra?.apiBaseUrl;
+    if (override) {
+      return override.replace(/\/$/, "");
+    }
+
+    let host = "localhost";
+
+    if (Platform.OS === "android") {
+      host = "10.0.2.2";
+    } else {
+      const debuggerHost = Constants.expoConfig?.hostUri || manifest?.debuggerHost;
+      if (debuggerHost) {
+        host = debuggerHost.split(":")[0];
+      }
+    }
+
+    return `http://${host}:7500`;
+  };
+
+
+  const fetchCurrentData = async () => {
+    const curr_avail = "/parking/availability/";
+
+    try {
+      setLoading(true);
+      const res = await fetch(`${getApiBaseUrl()}${curr_avail}`);
+
+      const data = await res.json();
+      setGarages(data.map((g: any, idx: number) => ({
+        id: idx.toString(),
+        name: g.lot_name || `Lot ${idx + 1}`,
+        current: g.occupied_spots,
+        total: g.total_spots,
+        occupancy_percentage: g.occupancy_percentage,
+      })));
+      if (!selectedLotId && data.length > 0) setSelectedLotId("0");
+    } catch (err) {
+      console.error("Error fetching current parking data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchHistoricalData = async (lotId: string, period: TimePeriod) => {
+    if (period === "current") {
+      setHistoricalData([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      const lot = garages[parseInt(lotId)];
+      if (!lot) return;
+      const hist_avail = "/postgres-parking";
+      const res = await fetch(`${getApiBaseUrl()}${hist_avail}`);
+
+      const data = await res.json();
+      setHistoricalData(data.map((d: any) => ({
+        label: new Date(d.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        occupancy_percentage: d.occupancy_percentage,
+        available_spots: d.total_spots - d.occupied_spots,
+        occupied_spots: d.occupied_spots,
+      })));
+    } catch (err) {
+      console.error("Error fetching historical data:", err);
+      setHistoricalData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchCurrentData();
+  }, []);
+
+  React.useEffect(() => {
+    if (selectedLotId !== "") {
+      fetchHistoricalData(selectedLotId, timePeriod);
+    }
+  }, [selectedLotId, timePeriod, garages]);
 
   const getOccupancyColor = (percentage: number): string => {
     if (percentage >= 90) return "#f91e1eff"; // Red - Full
@@ -93,23 +151,14 @@ export default function InsightsScreen() {
 
   const currentStatus = garages.find((g) => g.id === selectedLotId) || garages[0];
 
-  const getHistoricalData = (): HistoricalDataPoint[] => {
-    if (timePeriod === "day") return MOCK_HISTORICAL_DATA.day;
-    if (timePeriod === "week") return MOCK_HISTORICAL_DATA.week;
-    if (timePeriod === "month") return MOCK_HISTORICAL_DATA.month;
-    return [];
-  };
-
   const calculateAverageStats = () => {
-    const data = getHistoricalData();
-    if (data.length === 0) return null;
-
+    if (historicalData.length === 0) return null;
     const avgOccupancy =
-      data.reduce((sum, d) => sum + d.occupancy_percentage, 0) / data.length;
+      historicalData.reduce((sum, d) => sum + d.occupancy_percentage, 0) / historicalData.length;
     const avgAvailable =
-      Math.round(data.reduce((sum, d) => sum + d.available_spots, 0) / data.length);
+      Math.round(historicalData.reduce((sum, d) => sum + d.available_spots, 0) / historicalData.length);
     const avgOccupied =
-      Math.round(data.reduce((sum, d) => sum + d.occupied_spots, 0) / data.length);
+      Math.round(historicalData.reduce((sum, d) => sum + d.occupied_spots, 0) / historicalData.length);
 
     return {
       avgOccupancy: avgOccupancy.toFixed(1),
@@ -120,30 +169,12 @@ export default function InsightsScreen() {
   };
 
   const getChartData = () => {
-    const data = getHistoricalData();
-    if (data.length === 0) {
-      return {
-        labels: ["No Data"],
-        datasets: [{ data: [0] }],
-      };
-    }
-
+    if (historicalData.length === 0) return { labels: ["No Data"], datasets: [{ data: [0] }] };
     return {
-      labels: data.map((d) => d.label),
-      datasets: [
-        {
-          data: data.map((d) => d.occupancy_percentage),
-        },
-      ],
+      labels: historicalData.map((d) => d.label),
+      datasets: [{ data: historicalData.map((d) => d.occupancy_percentage) }],
     };
   };
-
-  const periodOptions: { value: TimePeriod; label: string; icon: string }[] = [
-    { value: "current", label: "Current Status", icon: "time-outline" },
-    { value: "day", label: "Last 24 Hours", icon: "today-outline" },
-    { value: "week", label: "Last 7 Days", icon: "calendar-outline" },
-    { value: "month", label: "Last 30 Days", icon: "calendar-number-outline" },
-  ];
 
   const selectedPeriodLabel =
     periodOptions.find((p) => p.value === timePeriod)?.label || "Current Status";
@@ -152,6 +183,9 @@ export default function InsightsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      {loading && (
+        <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 16 }} />
+      )}
       <ScrollView>
         {/* Header */}
         <View style={{ padding: 16 }}>
@@ -309,7 +343,7 @@ export default function InsightsScreen() {
           </View>
         </View>
 
-        {/* Current Status or Average Stats Card */}
+        {/* Current / Average Stats Card */}
         <View
           style={{
             marginHorizontal: 16,
@@ -319,7 +353,7 @@ export default function InsightsScreen() {
             backgroundColor: cardBg,
             borderWidth: 2,
             borderColor: getOccupancyColor(
-              avgStats ? parseFloat(avgStats.avgOccupancy) : currentStatus.occupancy_percentage
+              avgStats ? parseFloat(avgStats.avgOccupancy) : currentStatus?.occupancy_percentage || 0
             ),
             shadowColor: "#000",
             shadowOpacity: 0.2,
@@ -327,7 +361,7 @@ export default function InsightsScreen() {
           }}
         >
           <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
-            {currentStatus.name}
+            {currentStatus?.name || "Loading..."}
           </Text>
           <Text style={{ color: secondaryText, fontSize: 14, marginTop: 4 }}>
             {timePeriod === "current" ? "Current Status" : `Average (${selectedPeriodLabel})`}
@@ -343,7 +377,7 @@ export default function InsightsScreen() {
           >
             <View style={{ alignItems: "center" }}>
               <Text style={{ fontSize: 24, fontWeight: "bold", color: "#41c463" }}>
-                {avgStats ? avgStats.avgAvailable : currentStatus.total - currentStatus.current}
+                {avgStats ? avgStats.avgAvailable : (currentStatus?.total || 0) - (currentStatus?.current || 0)}
               </Text>
               <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>
                 Available
@@ -351,7 +385,7 @@ export default function InsightsScreen() {
             </View>
             <View style={{ alignItems: "center" }}>
               <Text style={{ fontSize: 24, fontWeight: "bold", color: "#f91e1eff" }}>
-                {avgStats ? avgStats.avgOccupied : currentStatus.current}
+                {avgStats ? avgStats.avgOccupied : currentStatus?.current || 0}
               </Text>
               <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>
                 Occupied
@@ -359,7 +393,7 @@ export default function InsightsScreen() {
             </View>
             <View style={{ alignItems: "center" }}>
               <Text style={{ fontSize: 24, fontWeight: "bold", color: theme.text }}>
-                {avgStats ? avgStats.total : currentStatus.total}
+                {avgStats ? avgStats.total : currentStatus?.total || 0}
               </Text>
               <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>
                 Total
@@ -381,22 +415,22 @@ export default function InsightsScreen() {
               style={{
                 width: (avgStats
                   ? `${avgStats.avgOccupancy}%`
-                  : `${currentStatus.occupancy_percentage}%`) as any,
+                  : `${currentStatus?.occupancy_percentage || 0}%`) as any,
                 height: "100%",
                 backgroundColor: getOccupancyColor(
                   avgStats
                     ? parseFloat(avgStats.avgOccupancy)
-                    : currentStatus.occupancy_percentage
+                    : currentStatus?.occupancy_percentage || 0
                 ),
               }}
             />
           </View>
           <Text style={{ fontSize: 14, color: secondaryText, textAlign: "center" }}>
-            {avgStats ? avgStats.avgOccupancy : currentStatus.occupancy_percentage.toFixed(1)}% Full
+            {avgStats ? avgStats.avgOccupancy : currentStatus?.occupancy_percentage?.toFixed(1) || 0}% Full
           </Text>
         </View>
 
-        {/* Historical Chart - Only show for non-current periods */}
+        {/* Historical Chart */}
         {timePeriod !== "current" && (
           <View
             style={{
@@ -410,9 +444,7 @@ export default function InsightsScreen() {
               shadowRadius: 6,
             }}
           >
-            <Text
-              style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 16 }}
-            >
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 16 }}>
               Occupancy Trend
             </Text>
             <BarChart
@@ -428,94 +460,16 @@ export default function InsightsScreen() {
                 decimalPlaces: 0,
                 color: (opacity = 1) => theme.primary,
                 labelColor: (opacity = 1) => theme.text,
-                style: {
-                  borderRadius: 16,
-                },
-                propsForLabels: {
-                  fontSize: 10,
-                },
-                propsForBackgroundLines: {
-                  strokeDasharray: "",
-                  stroke: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb",
-                },
+                style: { borderRadius: 16 },
+                propsForLabels: { fontSize: 10 },
+                propsForBackgroundLines: { strokeDasharray: "", stroke: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb" },
               }}
-              style={{
-                marginVertical: 8,
-                borderRadius: 16,
-              }}
+              style={{ marginVertical: 8, borderRadius: 16 }}
               showValuesOnTopOfBars={false}
               fromZero={true}
             />
-
-            {/* Legend */}
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-around",
-                marginTop: 16,
-                paddingTop: 16,
-                borderTopWidth: 1,
-                borderTopColor: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb",
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 2,
-                    backgroundColor: "#41c463",
-                    marginRight: 6,
-                  }}
-                />
-                <Text style={{ fontSize: 11, color: secondaryText }}>Low (&lt;25%)</Text>
-              </View>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 2,
-                    backgroundColor: "#e0c542",
-                    marginRight: 6,
-                  }}
-                />
-                <Text style={{ fontSize: 11, color: secondaryText }}>Moderate (25-70%)</Text>
-              </View>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 2,
-                    backgroundColor: "#ff7f1eff",
-                    marginRight: 6,
-                  }}
-                />
-                <Text style={{ fontSize: 11, color: secondaryText }}>High (70-90%)</Text>
-              </View>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 2,
-                    backgroundColor: "#f91e1eff",
-                    marginRight: 6,
-                  }}
-                />
-                <Text style={{ fontSize: 11, color: secondaryText }}>Full (90%+)</Text>
-              </View>
-            </View>
           </View>
         )}
-
-        {/* Footer */}
-        <View style={{ padding: 16, alignItems: "center" }}>
-          <Text style={{ fontSize: 12, color: secondaryText }}>
-            Last Updated: {lastUpdated}
-          </Text>
-        </View>
       </ScrollView>
     </View>
   );
