@@ -31,6 +31,7 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '10.0.2.2',
     '10.1.125.44',
+    '10.1.125.52',
 ]
 
 REDIS_URL = config("REDIS_URL")
