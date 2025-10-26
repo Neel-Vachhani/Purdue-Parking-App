@@ -10,6 +10,7 @@ import { icsToJson } from "ics-to-json";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
+import AuthInput from "../../components/AuthInput";
 
 interface Props {
   onLogout: () => void;
@@ -42,6 +43,8 @@ export default function SettingsScreen({ onLogout }: Props) {
   // -------- Notification prefs state --------
   const [prefs, setPrefs] = React.useState<NotifPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = React.useState(false);
+  const [origin, setOrigin] = React.useState("");
+  const [originLoading, setOriginLoading] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
@@ -53,6 +56,46 @@ export default function SettingsScreen({ onLogout }: Props) {
       }
     })();
   }, []);
+
+  // -------- Default Origin load/save --------
+  const loadOrigin = React.useCallback(async () => {
+    try {
+      setOriginLoading(true);
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+      if (!email) return;
+      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
+      setOrigin(res?.data?.default_origin ?? "");
+    } catch {
+      // ignore for now
+    } finally {
+      setOriginLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadOrigin();
+  }, [loadOrigin]);
+
+  const saveOrigin = async () => {
+    try {
+      setOriginLoading(true);
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+      if (!email) {
+        Alert.alert("Not logged in", "Please log in again.");
+        return;
+      }
+      await axios.post(`${API_BASE}/user/origin/`, { email, default_origin: origin });
+      Alert.alert("Saved", "Default origin updated.");
+    } catch (e: any) {
+      Alert.alert("Save failed", e?.message ?? "Unknown error");
+    } finally {
+      setOriginLoading(false);
+    }
+  };
 
   const setToggle = (key: keyof Omit<NotifPrefs, "frequency">, val: boolean) =>
     setPrefs(p => ({ ...p, [key]: val }));
@@ -164,6 +207,19 @@ export default function SettingsScreen({ onLogout }: Props) {
           thumbColor={isDark ? "#111827" : "#FFFFFF"}
         />
       </Row>
+
+      {/* Default Origin */}
+      <View style={{ marginTop: 12, gap: 10 }}>
+        <ThemedText style={{ fontSize: 18, fontWeight: "700" }}>Default Origin</ThemedText>
+        <AuthInput
+          placeholder="e.g., 201 Grant St, West Lafayette"
+          value={origin}
+          onChangeText={setOrigin}
+        />
+        <View>
+          <Button title={originLoading ? "Saving..." : "Save Origin"} onPress={saveOrigin} disabled={originLoading} />
+        </View>
+      </View>
 
       {/* Notification Preferences */}
       <View style={{ marginTop: 12, gap: 10 }}>
