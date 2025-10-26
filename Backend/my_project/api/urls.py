@@ -10,4 +10,6 @@ urlpatterns = [
     path('apple/', views.apple_sign_in),
     path('notification_token/', views.accept_notification_token),
     path("postgres-parking/", views.get_postgres_parking_data),
+    path("postgres-parking/", views.get_postgres_parking_data),
+
 ]
