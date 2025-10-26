@@ -1,4 +1,3 @@
-// screens/InsightsScreen.tsx
 import * as React from "react";
 import {
   View,
@@ -10,6 +9,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { BarChart } from "react-native-chart-kit";
 import { ThemeContext } from "../../theme/ThemeProvider";
+
 
 const { width } = Dimensions.get("window");
 
