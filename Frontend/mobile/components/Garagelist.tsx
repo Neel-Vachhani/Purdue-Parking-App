@@ -14,14 +14,15 @@ type Garage = {
   favorite?: boolean;
   lat?: number;
   lng?: number;
+  code?: string;
 };
 
 const INITIAL_GARAGES: Garage[] = [
-  { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true },
-  { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true },
-  { id: "3", name: "University Street Garage", current: 70, total: 240 },
-  { id: "4", name: "Northwestern Garage", current: 240, total: 240 },
-  { id: "5", name: "DSAI Lot", current: 32, total: 38 },
+  { id: "1", name: "Harrison Garage", code: "PGH", current: 8, total: 240, favorite: true },
+  { id: "2", name: "Grant Street Garage", code: "PGG", current: 158, total: 240, favorite: true },
+  { id: "3", name: "University Street Garage", code: "PGU", current: 70, total: 240 },
+  { id: "4", name: "Northwestern Garage", code: "PGNW", current: 240, total: 240 },
+  { id: "5", name: "DSAI Lot", code: "DSAI", current: 32, total: 38 },
 ];
 
 type ApiLot = {
@@ -177,7 +178,11 @@ export default function GarageList({
     if (!query) {
       return garages;
     }
-    return garages.filter((garage) => garage.name.toLowerCase().includes(query));
+    return garages.filter((garage) => {
+      const nameMatches = garage.name.toLowerCase().includes(query);
+      const codeMatches = garage.code?.toLowerCase().includes(query);
+      return nameMatches || codeMatches;
+    });
   }, [garages, searchQuery]);
 
   const renderItem = ({ item }: { item: Garage }) => {
