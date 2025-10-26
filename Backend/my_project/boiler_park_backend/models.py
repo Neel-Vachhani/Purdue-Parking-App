@@ -1,8 +1,7 @@
 from django.contrib.postgres.fields import ArrayField
 from location_field.models.plain import PlainLocationField
-from django.db import models
-
-# Create your models here.
+from django.contrib.gis.db import models
+from django.contrib.gis.geos import Point, LineString, Polygon
 
 
 class User(models.Model):
@@ -37,7 +36,7 @@ class ParkingLot(models.Model):
         "BB": "Basketball"
     }
     id = models.AutoField(primary_key=True)
-    location = PlainLocationField()
+    location = Point()
     name = models.CharField(max_length=50)
     capacity = models.PositiveIntegerField()
     parking_passes = ArrayField(models.CharField(

@@ -30,6 +30,19 @@ Frontend/mobile/
 Location: `Backend/`
 
 ## Getting Started
+From the backend cd into my_project
+   ```
+   cd Backend
+   cd my_project
+   ```
+Install Dependencies
+   ```
+   pip install requirements.txt
+   ```
+Start the server
+   ```
+   python manage.py runserve
+   ```
 
 ### Frontend Development
 1. Navigate to the frontend directory:
