@@ -279,3 +279,20 @@ def list_lot_events(request, lot_code: str):
     from django.utils.timezone import now
     qs = LotEvent.objects.filter(lot_code__iexact=lot_code, end_time__gte=now()).order_by('start_time')[:100]
     return Response(LotEventSerializer(qs, many=True).data)
+
+
+@api_view(['POST'])
+def notify_parking_pass_sale(request):
+    """Stub endpoint to broadcast parking pass sale notifications."""
+    message = request.data.get("message") or "Parking passes are on sale!"
+    users = User.objects.exclude(notification_token__isnull=True).exclude(notification_token__exact="")
+    # TODO: integrate send_push_message once ready
+    return Response({"queued": users.count(), "message": message})
+
+
+@api_view(['POST'])
+def notify_upcoming_closures(request):
+    """Stub endpoint for closure notifications (schedule integration later)."""
+    lot = request.data.get("lot") or "PGH"
+    date = request.data.get("date") or "tomorrow"
+    return Response({"queued": True, "lot": lot, "date": date})

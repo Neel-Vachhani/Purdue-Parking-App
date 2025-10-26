@@ -11,4 +11,6 @@ urlpatterns = [
     path('notification_token/', views.accept_notification_token),
     path('user/origin/', views.user_origin),
     path('lots/<str:lot_code>/events/', views.list_lot_events),
+    path('notify/sale/', views.notify_parking_pass_sale),
+    path('notify/closures/', views.notify_upcoming_closures),
 ]
