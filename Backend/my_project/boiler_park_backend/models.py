@@ -95,3 +95,14 @@ class Item(models.Model):
     name = models.CharField(max_length=50)
     password = models.CharField(max_length=100)
     created = models.DateTimeField(auto_now_add=True)
+
+
+class LotEvent(models.Model):
+    lot_code = models.CharField(max_length=32)
+    title = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+
+    class Meta:
+        indexes = [models.Index(fields=['lot_code', 'start_time'])]
