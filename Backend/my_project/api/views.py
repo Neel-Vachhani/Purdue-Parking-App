@@ -1,3 +1,4 @@
+from . import services
 import logging
 from typing import List, Dict, Any, Optional
 
@@ -10,7 +11,6 @@ from rest_framework import status, serializers
 from boiler_park_backend.models import Item, User
 from .serializers import ItemSerializer, UserSerializer
 from rest_framework.response import Response
-
 
 
 logger = logging.getLogger(__name__)
@@ -83,14 +83,12 @@ def get_parking_availability(request):
             status=503,
         )
     except Exception:
-        logger.exception("Unexpected error while building parking availability response")
+        logger.exception(
+            "Unexpected error while building parking availability response")
         return Response(
             {"detail": "Unexpected error while building parking availability response."},
             status=500,
         )
-import bcrypt
-from . import services
-
 
 
 @api_view(['GET'])
@@ -123,20 +121,23 @@ def sign_up(request):
     parking_pass = serializer.validated_data.get('parking_pass', "abcd")
 
     salt = bcrypt.gensalt()
-    hashed_pass = bcrypt.hashpw(raw_password.encode('utf-8'), salt).decode('utf-8')
+    hashed_pass = bcrypt.hashpw(
+        raw_password.encode('utf-8'), salt).decode('utf-8')
 
     user = User(
         email=email,
         name=name,
-        password=hashed_pass,  
+        password=hashed_pass,
         parking_pass=parking_pass,
     )
     user.save()
 
     return Response(
-        {"message": "User created successfully", "user": UserSerializer(user).data},
+        {"message": "User created successfully",
+            "user": UserSerializer(user).data},
         status=status.HTTP_201_CREATED,
     )
+
 
 @api_view(['POST'])
 def accept_notification_token(request):
@@ -144,9 +145,11 @@ def accept_notification_token(request):
     # save token to database
     return Response("Token received")
 
+
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
+
 
 @api_view(['POST'])
 def log_in(request):
@@ -179,6 +182,11 @@ def accept_ical_file(request):
     calendar = request.data["calendar"]
     output = services.open_file_calendar(calendar)
     return Response(output)
+
+
+@api_view(['POST'])
+def get_map_api_data(request):
+    return ("Repsonse recieved")
 
 
 @api_view(['POST'])
