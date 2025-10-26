@@ -9,8 +9,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.response import Response
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from boiler_park_backend.models import Item, User
-from .serializers import ItemSerializer, UserSerializer
+from boiler_park_backend.models import Item, User, LotEvent
+from .serializers import ItemSerializer, UserSerializer, LotEventSerializer
 from .services import verify_apple_identity, issue_session_token
 import jwt
 
@@ -272,3 +272,10 @@ def accept_notification_token(request):
     user.notification_token = token
     user.save()
     return Response("Token received")
+
+
+@api_view(['GET'])
+def list_lot_events(request, lot_code: str):
+    from django.utils.timezone import now
+    qs = LotEvent.objects.filter(lot_code__iexact=lot_code, end_time__gte=now()).order_by('start_time')[:100]
+    return Response(LotEventSerializer(qs, many=True).data)

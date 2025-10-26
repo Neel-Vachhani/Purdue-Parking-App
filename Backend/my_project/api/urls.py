@@ -10,4 +10,5 @@ urlpatterns = [
     path('apple/', views.apple_sign_in),
     path('notification_token/', views.accept_notification_token),
     path('user/origin/', views.user_origin),
+    path('lots/<str:lot_code>/events/', views.list_lot_events),
 ]

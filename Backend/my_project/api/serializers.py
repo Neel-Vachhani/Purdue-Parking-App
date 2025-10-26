@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import models
-from boiler_park_backend.models import Item, User
+from boiler_park_backend.models import Item, User, LotEvent
 
 
 class ItemSerializer(serializers.ModelSerializer):
@@ -12,4 +12,10 @@ class ItemSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
+        fields = '__all__'
+
+
+class LotEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LotEvent
         fields = '__all__'
