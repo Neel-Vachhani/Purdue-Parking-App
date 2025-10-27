@@ -2,26 +2,28 @@
 import Constants from "expo-constants";
 import * as React from "react";
 import { Platform, View, Text, FlatList, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
+import PaidLot from "./PaidLot";
 
 type Garage = {
   id: string;
   name: string;
   current: number;   
   total: number;     
+  paid: boolean;
   favorite?: boolean;
   lat?: number;
   lng?: number;
 };
 
 const INITIAL_GARAGES: Garage[] = [
-  { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true },
-  { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true },
-  { id: "3", name: "University Street Garage", current: 70, total: 240 },
-  { id: "4", name: "Northwestern Garage", current: 240, total: 240 },
-  { id: "5", name: "DSAI Lot", current: 32, total: 38 },
+  { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true, paid: true },
+  { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true, paid: true },
+  { id: "3", name: "University Street Garage", current: 70, total: 240, paid: false },
+  { id: "4", name: "Northwestern Garage", current: 240, total: 240, paid: false },
+  { id: "5", name: "DSAI Lot", current: 32, total: 38, paid: false },
 ];
 
 type ApiLot = {
@@ -207,6 +209,7 @@ export default function GarageList({
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons name="location-outline" size={20} color={theme.primary} />
+              <PaidLot paid={item.paid}></PaidLot>
             </TouchableOpacity>
           </View>
 
