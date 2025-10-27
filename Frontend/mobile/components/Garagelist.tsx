@@ -97,6 +97,17 @@ export default function GarageList({
     [onToggleFavorite]
   );
 
+  const sortGaragesByPrice = React.useCallback( 
+    () => {
+      console.log("here")
+      const copyArray = [...garages]
+      console.log(copyArray)
+      copyArray.sort((a,b) => Number(b.paid) - Number(a.paid))
+      setGarages(copyArray)
+      console.log(garages)
+    }, []
+  )
+
   const handleOpenInMaps = React.useCallback(
     (garage: Garage) => {
       onOpenInMaps?.(garage);
@@ -209,8 +220,8 @@ export default function GarageList({
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons name="location-outline" size={20} color={theme.primary} />
-              <PaidLot paid={item.paid}></PaidLot>
             </TouchableOpacity>
+            <PaidLot paid={item.paid}></PaidLot>
           </View>
 
 
@@ -269,6 +280,20 @@ export default function GarageList({
         }}
       >
         <Ionicons name="map-outline" size={26} color={theme.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => sortGaragesByPrice()}
+        style={{
+         padding: 10,
+          borderRadius: 50,
+          backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+          shadowColor: "#000",
+          shadowOpacity: 0.25,
+          shadowRadius: 4,
+          marginLeft: 5
+        }}
+      >
+        <FontAwesome name="usd" size={26} color={theme.primary} />
       </TouchableOpacity>
       </View>
 
