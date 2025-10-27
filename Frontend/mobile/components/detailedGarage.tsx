@@ -82,6 +82,15 @@ const Pill = ({ children }: { children: React.ReactNode }) => (
   <View style={styles.pill}><Text style={styles.pillText}>{children}</Text></View>
 );
 
+// Badge shown when a lot is shaded by trees/buildings but not truly covered by a roof
+const ShadeBadge = () => (
+  <View style={styles.pill}>
+    <Ionicons name="umbrella" size={14} />
+    <Text style={styles.pillText}>Shaded (No Roof)</Text>
+  </View>
+);
+
+
 const Line = () => <View style={styles.line} />;
 
 export default function GarageDetail({
