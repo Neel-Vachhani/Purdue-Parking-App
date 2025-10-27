@@ -15,6 +15,7 @@
     "expo": "~54.0.12",
     "expo-apple-authentication": "^8.0.7",
     "expo-auth-session": "^7.0.8",
+    "expo-build-properties": "~1.0.9",
     "expo-device": "^8.0.9",
     "expo-document-picker": "^14.0.7",
     "expo-file-system": "~19.0.17",
@@ -23,7 +24,8 @@
     "expo-secure-store": "^15.0.7",
     "expo-status-bar": "~3.0.8",
     "expo-web-browser": "^15.0.8",
-    "react": "19.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.2.0",
     "react-native": "^0.81.4",
     "react-native-maps": "1.20.1",
     "react-native-safe-area-context": "~5.6.0",
@@ -31,7 +33,7 @@
   },
   "devDependencies": {
     "@expo/metro-config": "^54.0.6",
-    "@types/react": "^18.2.21",
+    "@types/react": "^19.2.2",
     "typescript": "~5.9.2"
   },
   "private": true

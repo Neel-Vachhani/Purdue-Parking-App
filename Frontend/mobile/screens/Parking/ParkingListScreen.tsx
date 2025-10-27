@@ -12,6 +12,8 @@ type ParkingLot = {
   capacity: number;
   available: number;
   isFavorite: boolean;
+  adaSpaces?: number;
+  hasAdaAccess: boolean;
 };
 
 type ApiLot = Pick<ParkingLot, "id" | "name"> &
@@ -24,6 +26,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 800,
     available: 560,
     isFavorite: false,
+    adaSpaces: 24,
+    hasAdaAccess: true,
   },
   {
     id: 2,
@@ -31,6 +35,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 648,
     available: 118,
     isFavorite: false,
+    adaSpaces: 18,
+    hasAdaAccess: true,
   },
   {
     id: 3,
@@ -38,6 +44,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 826,
     available: 406,
     isFavorite: false,
+    adaSpaces: 20,
+    hasAdaAccess: true,
   },
   {
     id: 4,
@@ -45,6 +53,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 434,
     available: 2,
     isFavorite: false,
+    adaSpaces: 16,
+    hasAdaAccess: true,
   },
   {
     id: 5,
@@ -52,6 +62,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 178,
     available: 32,
     isFavorite: false,
+    adaSpaces: 8,
+    hasAdaAccess: true,
   },
 ];
 
@@ -86,9 +98,9 @@ const getApiBaseUrl = (): string => {
 };
 
 export default function ParkingListScreen() {
-  const [parkingLots, setParkingLots] = useState<ParkingLot[]>(
-    INITIAL_PARKING_LOTS
-  );
+  const theme = React.useContext(ThemeContext);
+  const [parkingLots, setParkingLots] = useState<ParkingLot[]>(INITIAL_PARKING_LOTS);
+  const [showOnlyAda, setShowOnlyAda] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -181,13 +193,62 @@ export default function ParkingListScreen() {
     timeZoneName: "short",
   });
 
+  const filteredParkingLots = showOnlyAda
+    ? parkingLots.filter(lot => lot.hasAdaAccess)
+    : parkingLots;
+
   return (
     <ThemedView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60, paddingBottom: 24 }}>
-      <ThemedText style={{ fontSize: 24, fontWeight: "bold", marginBottom: 24 }}>
-        Parking Garages
-      </ThemedText>
+      <ThemedView style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <ThemedText style={{ fontSize: 24, fontWeight: "bold" }}>
+          Parking Garages
+        </ThemedText>
+        <ThemedView 
+          style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            backgroundColor: theme.mode === "dark" ? "#374151" : "#e5e7eb",
+            padding: 8,
+            borderRadius: 8
+          }}
+        >
+          <ThemedText style={{ marginRight: 8, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
+            ADA Only
+          </ThemedText>
+          <ThemedView 
+            style={{ 
+              width: 40, 
+              height: 24, 
+              backgroundColor: showOnlyAda ? "#22c55e" : (theme.mode === "dark" ? "#1f2937" : "#d1d5db"),
+              borderRadius: 12,
+              padding: 2,
+            }}
+          >
+            <ThemedView 
+              style={{
+                width: 20,
+                height: 20,
+                backgroundColor: "#fff",
+                borderRadius: 10,
+                transform: [{ translateX: showOnlyAda ? 16 : 0 }],
+              }}
+            />
+          </ThemedView>
+          <ThemedText 
+            onPress={() => setShowOnlyAda(!showOnlyAda)}
+            style={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              opacity: 0
+            }}
+          />
+        </ThemedView>
+      </ThemedView>
 
-      {parkingLots.map((lot) => (
+      {filteredParkingLots.map((lot) => (
         <ThemedView
           key={lot.id}
           style={{
@@ -200,11 +261,27 @@ export default function ParkingListScreen() {
           }}
         >
           <ThemedView style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-            <ThemedView style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <ThemedText style={{ fontSize: 18, fontWeight: "600" }}>
-                {lot.name}
-              </ThemedText>
-              <ThemedText style={{ fontSize: 16, color: theme.primary }}>ⓘ</ThemedText>
+            <ThemedView style={{ flex: 1 }}>
+              <ThemedView style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <ThemedText style={{ fontSize: 18, fontWeight: "600" }}>
+                  {lot.name}
+                </ThemedText>
+                <ThemedText style={{ fontSize: 16, color: theme.primary }}>ⓘ</ThemedText>
+              </ThemedView>
+              {lot.hasAdaAccess && (
+                <ThemedView style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <ThemedText style={{ 
+                    fontSize: 14, 
+                    color: theme.mode === "dark" ? "#9ca3af" : "#6b7280",
+                    backgroundColor: theme.mode === "dark" ? "#374151" : "#e5e7eb",
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 4
+                  }}>
+                    ♿️ {lot.adaSpaces} spaces
+                  </ThemedText>
+                </ThemedView>
+              )}
             </ThemedView>
             <ThemedText
               style={{ fontSize: 20, color: lot.isFavorite ? "#facc15" : (theme.mode === "dark" ? "#6b7280" : "#9ca3af") }}

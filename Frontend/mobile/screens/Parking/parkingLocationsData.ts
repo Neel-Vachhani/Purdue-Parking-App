@@ -6,6 +6,8 @@ export interface ParkingLocation {
     longitude: number;
   };
   description?: string;
+  adaSpaces?: number;
+  hasAdaAccess: boolean;
 }
 
 export const PARKING_LOCATIONS: ParkingLocation[] = [
@@ -16,7 +18,9 @@ export const PARKING_LOCATIONS: ParkingLocation[] = [
       latitude: 40.420928743577996,
       longitude: -86.91759020145541
     },
-    description: ''
+    description: '',
+    adaSpaces: 24,
+    hasAdaAccess: true
   },
   {
     id: '2',
@@ -25,7 +29,9 @@ export const PARKING_LOCATIONS: ParkingLocation[] = [
       latitude: 40.42519706999441,
       longitude: -86.90972814560583
     },
-    description: ''
+    description: '',
+    adaSpaces: 18,
+    hasAdaAccess: true
   },
   {
     id: '3',
@@ -34,7 +40,9 @@ export const PARKING_LOCATIONS: ParkingLocation[] = [
       latitude: 40.4266903911869,
       longitude: -86.91728093292815
     },
-    description: ''
+    description: '',
+    adaSpaces: 20,
+    hasAdaAccess: true
   },
   {
     id: '4',
@@ -43,7 +51,9 @@ export const PARKING_LOCATIONS: ParkingLocation[] = [
       latitude: 40.42964447741563,
       longitude: -86.91111021483658
     },
-    description: ''
+    description: '',
+    adaSpaces: 16,
+    hasAdaAccess: true
   },
   {
     id: '5',
@@ -52,7 +62,9 @@ export const PARKING_LOCATIONS: ParkingLocation[] = [
       latitude: 40.428997605924756,
       longitude: -86.91608038169943
     },
-    description: 'Northwestern Avenue Parking Garage'
+    description: 'Northwestern Avenue Parking Garage',
+    adaSpaces: 8,
+    hasAdaAccess: true
   },
   // Add more parking locations as needed
 ];
