@@ -210,12 +210,23 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
         {mode === "login" ? "Log In" : "Create Account"}
       </ThemedText>
 
-      <AuthInput placeholder="Email" value={email} onChangeText={setEmail} />
+      <AuthInput
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        textContentType="emailAddress"
+      />
       <AuthInput
         placeholder="Password"
-        secureTextEntry
+        secure
         value={password}
         onChangeText={setPassword}
+        autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="password"
       />
 
       {/* Primary action: Log In or Sign Up */}
