@@ -8,26 +8,72 @@ import { ThemeContext } from "../theme/ThemeProvider";
 
 type Garage = {
   id: string;
+  code: string;
   name: string;
   current: number;
   total: number;
   favorite?: boolean;
   lat?: number;
   lng?: number;
-  code?: string;
 };
 
-const INITIAL_GARAGES: Garage[] = [
-  { id: "1", name: "Harrison Garage", code: "PGH", current: 8, total: 240, favorite: true },
-  { id: "2", name: "Grant Street Garage", code: "PGG", current: 158, total: 240, favorite: true },
-  { id: "3", name: "University Street Garage", code: "PGU", current: 70, total: 240 },
-  { id: "4", name: "Northwestern Garage", code: "PGNW", current: 240, total: 240 },
-  { id: "5", name: "DSAI Lot", code: "DSAI", current: 32, total: 38 },
+type GarageDefinition = {
+  code: string;
+  name: string;
+  favorite?: boolean;
+  lat?: number;
+  lng?: number;
+};
+
+const GARAGE_DEFINITIONS: GarageDefinition[] = [
+  { code: "PGH", name: "Harrison Street Parking Garage", favorite: true },
+  { code: "PGG", name: "Grant Street Parking Garage", favorite: true },
+  { code: "PGU", name: "University Street Parking Garage", favorite: true },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage" },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage" },
+  { code: "PGW", name: "Wood Street Parking Garage" },
+  { code: "PGGH", name: "Graduate House Parking Garage" },
+  { code: "PGM", name: "Marsteller Street Parking Garage" },
+  { code: "LOT_R", name: "Lot R (North of Ross-Ade)" },
+  { code: "LOT_H", name: "Lot H (North of Football Practice Field)" },
+  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)" },
+  { code: "KFPC", name: "Kozuch Football Performance Complex Lot" },
+  { code: "LOT_A", name: "Lot A (North of Cary Quad)" },
+  { code: "CREC", name: "Co-Rec Parking Lots" },
+  { code: "LOT_O", name: "Lot O (East of Rankin Track)" },
+  { code: "TARK_WILY", name: "Tarkington & Wiley Lots" },
+  { code: "LOT_AA", name: "Lot AA (6th & Russell)" },
+  { code: "LOT_BB", name: "Lot BB (6th & Waldron)" },
+  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot" },
+  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot" },
+  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot" },
+  { code: "DUHM", name: "Duhme Hall Parking Lot" },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot" },
+  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot" },
+  { code: "DISC_A", name: "Discovery Lot (A Permit)" },
+  { code: "DISC_AB", name: "Discovery Lot (AB Permit)" },
+  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)" },
+  { code: "AIRPORT", name: "Airport Parking Lots" },
 ];
+
+const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
+  const initialCounts = getInitialOccupancy();
+  return {
+    id: String(index + 1),
+    code: definition.code,
+    name: definition.name,
+  favorite: definition.favorite ?? false,
+    current: initialCounts.current,
+    total: initialCounts.total,
+    lat: definition.lat,
+    lng: definition.lng,
+  };
+});
 
 type ApiLot = {
   id?: number;
   name?: string;
+  code?: string;
   available?: number;
   capacity?: number;
 };
@@ -122,18 +168,32 @@ export default function GarageList({
         }
 
         const updatesById = new Map<string, ApiLot>();
+        const updatesByCode = new Map<string, ApiLot>();
+        const updatesByName = new Map<string, ApiLot>();
+
         lots.forEach((lot) => {
-          const key = lot.id !== undefined ? String(lot.id) : lot.name ?? "";
-          if (key) {
-            updatesById.set(key, lot);
+          const idKey = lot.id !== undefined ? String(lot.id) : undefined;
+          if (idKey) {
+            updatesById.set(idKey, lot);
+          }
+
+          const codeKey = lot.code ? lot.code.toUpperCase() : undefined;
+          if (codeKey) {
+            updatesByCode.set(codeKey, lot);
+          }
+
+          const nameKey = lot.name ? lot.name.toLowerCase() : undefined;
+          if (nameKey) {
+            updatesByName.set(nameKey, lot);
           }
         });
 
         setGarages((prev) =>
           prev.map((garage) => {
             const update =
-              updatesById.get(garage.id) || updatesById.get(garage.name) ||
-              lots.find((lot) => lot.name === garage.name);
+              updatesByCode.get(garage.code.toUpperCase()) ||
+              updatesById.get(String(garage.id)) ||
+              updatesByName.get(garage.name.toLowerCase());
 
             if (!update) {
               return garage;
@@ -180,7 +240,7 @@ export default function GarageList({
     }
     return garages.filter((garage) => {
       const nameMatches = garage.name.toLowerCase().includes(query);
-      const codeMatches = garage.code?.toLowerCase().includes(query);
+      const codeMatches = garage.code.toLowerCase().includes(query);
       return nameMatches || codeMatches;
     });
   }, [garages, searchQuery]);
@@ -209,32 +269,33 @@ export default function GarageList({
           shadowRadius: 6,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View style={{ flex: 1,  flexDirection: "row", }}>
-            <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600", marginRight: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
               {item.name}
             </Text>
-
-            <TouchableOpacity
-              onPress={() => handleOpenInMaps(item)}
-              style={{ marginRight: 12 }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="location-outline" size={20} color={theme.primary} />
-            </TouchableOpacity>
           </View>
 
+          <View style={{ alignItems: "flex-end" }}>
+            <TouchableOpacity
+              onPress={() => handleOpenInMaps(item)}
+              style={{ marginBottom: 12 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="location-outline" size={22} color={theme.primary} />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => handleToggleFavorite(item)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name={item.favorite ? "star" : "star-outline"}
-              size={22}
-              color={theme.primary}
-            />
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleToggleFavorite(item)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={item.favorite ? "star" : "star-outline"}
+                size={22}
+                color={theme.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Text style={{ color: secondaryText, marginTop: 8 }}>
@@ -344,4 +405,11 @@ function getColors(pct: number) {
   if (pct >= 0.65) return { border: "#ff7f1eff", fill: "#ff7f1eff" };
   if (pct >= 0.25) return { border: "#e0c542", fill: "#cbb538" };
   return { border: "#41c463", fill: "#41c463" };
+}
+
+function getInitialOccupancy() {
+  const total = 100 + Math.floor(Math.random() * 400);
+  const current = Math.floor(Math.random() * (total + 1));
+
+  return { total, current };
 }
