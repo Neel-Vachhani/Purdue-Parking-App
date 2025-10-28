@@ -23,7 +23,7 @@ const INITIAL_GARAGES: Garage[] = [
   { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true, paid: true },
   { id: "3", name: "University Street Garage", current: 70, total: 240, paid: false },
   { id: "4", name: "Northwestern Garage", current: 240, total: 240, paid: false },
-  { id: "5", name: "DSAI Lot", current: 32, total: 38, paid: false },
+  { id: "5", name: "DSAI Lot", current: 32, total: 38, paid: true },
 ];
 
 type ApiLot = {
@@ -99,12 +99,9 @@ export default function GarageList({
 
   const sortGaragesByPrice = React.useCallback( 
     () => {
-      console.log("here")
       const copyArray = [...garages]
-      console.log(copyArray)
       copyArray.sort((a,b) => Number(b.paid) - Number(a.paid))
       setGarages(copyArray)
-      console.log(garages)
     }, []
   )
 
