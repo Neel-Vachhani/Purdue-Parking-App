@@ -1,7 +1,7 @@
 // components/GarageList.tsx
 import Constants from "expo-constants";
 import * as React from "react";
-import { Platform, View, Text, FlatList, TouchableOpacity } from "react-native";
+import { Platform, View, Text, FlatList, TouchableOpacity, TextInput } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
@@ -16,6 +16,7 @@ type Garage = {
   favorite?: boolean;
   lat?: number;
   lng?: number;
+  code?: string;
 };
 
 const INITIAL_GARAGES: Garage[] = [
@@ -80,6 +81,7 @@ export default function GarageList({
       timeZoneName: "short",
     })
   );
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   React.useEffect(() => {
     setGarages(data);
@@ -117,7 +119,7 @@ export default function GarageList({
 
     const loadAvailability = async () => {
       try {
-  const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
+        const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
         if (!response.ok) {
           console.error("Failed to fetch parking availability:", response.status);
           return;
@@ -180,6 +182,18 @@ export default function GarageList({
       isMounted = false;
     };
   }, []);
+
+  const visibleGarages = React.useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return garages;
+    }
+    return garages.filter((garage) => {
+      const nameMatches = garage.name.toLowerCase().includes(query);
+      const codeMatches = garage.code?.toLowerCase().includes(query);
+      return nameMatches || codeMatches;
+    });
+  }, [garages, searchQuery]);
 
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
@@ -261,44 +275,79 @@ export default function GarageList({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700", margin: 16 }}>
-          Parking Lots
-        </Text>
-        <TouchableOpacity
-        onPress={() => router.push("/map")}
-        style={{
-          padding: 10,
-          borderRadius: 50,
-          backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
-          shadowColor: "#000",
-          shadowOpacity: 0.25,
-          shadowRadius: 4,
-        }}
-      >
-        <Ionicons name="map-outline" size={26} color={theme.primary} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => sortGaragesByPrice()}
-        style={{
-         padding: 10,
-          borderRadius: 50,
-          backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
-          shadowColor: "#000",
-          shadowOpacity: 0.25,
-          shadowRadius: 4,
-          marginLeft: 5
-        }}
-      >
-        <FontAwesome name="usd" size={26} color={theme.primary} />
-      </TouchableOpacity>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700", flex: 1 }}>
+            Parking Lots
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/map")}
+            style={{
+              padding: 10,
+              borderRadius: 50,
+              backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+              shadowColor: "#000",
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="map-outline" size={26} color={theme.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => sortGaragesByPrice()}
+            style={{
+             padding: 10,
+              borderRadius: 50,
+              backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+              shadowColor: "#000",
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+              marginLeft: 5
+            }}
+          >
+            <FontAwesome name="usd" size={26} color={theme.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            gap: 8,
+          }}
+        >
+          <Ionicons
+            name="search"
+            size={18}
+            color={theme.mode === "dark" ? "#9ca3af" : "#6b7280"}
+          />
+          <TextInput
+            placeholder="Search garages"
+            placeholderTextColor={theme.mode === "dark" ? "#9ca3af" : "#6b7280"}
+            style={{ flex: 1, color: theme.text, fontSize: 16 }}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
       </View>
 
       <FlatList
-        data={garages}
+        data={visibleGarages}
         keyExtractor={(g) => g.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
       />
 
       <Text
