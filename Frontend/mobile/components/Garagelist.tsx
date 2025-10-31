@@ -2,26 +2,28 @@
 import Constants from "expo-constants";
 import * as React from "react";
 import { Platform, View, Text, FlatList, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
+import PaidLot from "./PaidLot";
 
 type Garage = {
   id: string;
   name: string;
   current: number;   
   total: number;     
+  paid: boolean;
   favorite?: boolean;
   lat?: number;
   lng?: number;
 };
 
 const INITIAL_GARAGES: Garage[] = [
-  { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true },
-  { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true },
-  { id: "3", name: "University Street Garage", current: 70, total: 240 },
-  { id: "4", name: "Northwestern Garage", current: 240, total: 240 },
-  { id: "5", name: "DSAI Lot", current: 32, total: 38 },
+  { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true, paid: true },
+  { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true, paid: true },
+  { id: "3", name: "University Street Garage", current: 70, total: 240, paid: false },
+  { id: "4", name: "Northwestern Garage", current: 240, total: 240, paid: false },
+  { id: "5", name: "DSAI Lot", current: 32, total: 38, paid: true },
 ];
 
 type ApiLot = {
@@ -94,6 +96,14 @@ export default function GarageList({
     },
     [onToggleFavorite]
   );
+
+  const sortGaragesByPrice = React.useCallback( 
+    () => {
+      const copyArray = [...garages]
+      copyArray.sort((a,b) => Number(b.paid) - Number(a.paid))
+      setGarages(copyArray)
+    }, []
+  )
 
   const handleOpenInMaps = React.useCallback(
     (garage: Garage) => {
@@ -208,6 +218,7 @@ export default function GarageList({
             >
               <Ionicons name="location-outline" size={20} color={theme.primary} />
             </TouchableOpacity>
+            <PaidLot paid={item.paid}></PaidLot>
           </View>
 
 
@@ -266,6 +277,20 @@ export default function GarageList({
         }}
       >
         <Ionicons name="map-outline" size={26} color={theme.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => sortGaragesByPrice()}
+        style={{
+         padding: 10,
+          borderRadius: 50,
+          backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+          shadowColor: "#000",
+          shadowOpacity: 0.25,
+          shadowRadius: 4,
+          marginLeft: 5
+        }}
+      >
+        <FontAwesome name="usd" size={26} color={theme.primary} />
       </TouchableOpacity>
       </View>
 
