@@ -9,6 +9,7 @@ import PaidLot from "./PaidLot";
 
 type Garage = {
   id: string;
+  code: string;
   name: string;
   current: number;   
   total: number;     
@@ -18,6 +19,43 @@ type Garage = {
   lng?: number;
 };
 
+type GarageDefinition = {
+  code: string;
+  name: string;
+  favorite?: boolean;
+  lat?: number;
+  lng?: number;
+};
+
+const GARAGE_DEFINITIONS: GarageDefinition[] = [
+  { code: "PGH", name: "Harrison Street Parking Garage", favorite: true },
+  { code: "PGG", name: "Grant Street Parking Garage", favorite: true },
+  { code: "PGU", name: "University Street Parking Garage", favorite: true },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage" },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage" },
+  { code: "PGW", name: "Wood Street Parking Garage" },
+  { code: "PGGH", name: "Graduate House Parking Garage" },
+  { code: "PGM", name: "Marsteller Street Parking Garage" },
+  { code: "LOT_R", name: "Lot R (North of Ross-Ade)" },
+  { code: "LOT_H", name: "Lot H (North of Football Practice Field)" },
+  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)" },
+  { code: "KFPC", name: "Kozuch Football Performance Complex Lot" },
+  { code: "LOT_A", name: "Lot A (North of Cary Quad)" },
+  { code: "CREC", name: "Co-Rec Parking Lots" },
+  { code: "LOT_O", name: "Lot O (East of Rankin Track)" },
+  { code: "TARK_WILY", name: "Tarkington & Wiley Lots" },
+  { code: "LOT_AA", name: "Lot AA (6th & Russell)" },
+  { code: "LOT_BB", name: "Lot BB (6th & Waldron)" },
+  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot" },
+  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot" },
+  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot" },
+  { code: "DUHM", name: "Duhme Hall Parking Lot" },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot" },
+  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot" },
+  { code: "DISC_A", name: "Discovery Lot (A Permit)" },
+  { code: "DISC_AB", name: "Discovery Lot (AB Permit)" },
+  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)" },
+  { code: "AIRPORT", name: "Airport Parking Lots" },
 const INITIAL_GARAGES: Garage[] = [
   { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true, paid: true },
   { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true, paid: true },
@@ -26,9 +64,24 @@ const INITIAL_GARAGES: Garage[] = [
   { id: "5", name: "DSAI Lot", current: 32, total: 38, paid: true },
 ];
 
+const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
+  const initialCounts = getInitialOccupancy();
+  return {
+    id: String(index + 1),
+    code: definition.code,
+    name: definition.name,
+  favorite: definition.favorite ?? false,
+    current: initialCounts.current,
+    total: initialCounts.total,
+    lat: definition.lat,
+    lng: definition.lng,
+  };
+});
+
 type ApiLot = {
   id?: number;
   name?: string;
+  code?: string;
   available?: number;
   capacity?: number;
 };
@@ -80,6 +133,7 @@ export default function GarageList({
       timeZoneName: "short",
     })
   );
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   React.useEffect(() => {
     setGarages(data);
@@ -117,7 +171,7 @@ export default function GarageList({
 
     const loadAvailability = async () => {
       try {
-  const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
+        const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
         if (!response.ok) {
           console.error("Failed to fetch parking availability:", response.status);
           return;
@@ -130,18 +184,32 @@ export default function GarageList({
         }
 
         const updatesById = new Map<string, ApiLot>();
+        const updatesByCode = new Map<string, ApiLot>();
+        const updatesByName = new Map<string, ApiLot>();
+
         lots.forEach((lot) => {
-          const key = lot.id !== undefined ? String(lot.id) : lot.name ?? "";
-          if (key) {
-            updatesById.set(key, lot);
+          const idKey = lot.id !== undefined ? String(lot.id) : undefined;
+          if (idKey) {
+            updatesById.set(idKey, lot);
+          }
+
+          const codeKey = lot.code ? lot.code.toUpperCase() : undefined;
+          if (codeKey) {
+            updatesByCode.set(codeKey, lot);
+          }
+
+          const nameKey = lot.name ? lot.name.toLowerCase() : undefined;
+          if (nameKey) {
+            updatesByName.set(nameKey, lot);
           }
         });
 
         setGarages((prev) =>
           prev.map((garage) => {
             const update =
-              updatesById.get(garage.id) || updatesById.get(garage.name) ||
-              lots.find((lot) => lot.name === garage.name);
+              updatesByCode.get(garage.code.toUpperCase()) ||
+              updatesById.get(String(garage.id)) ||
+              updatesByName.get(garage.name.toLowerCase());
 
             if (!update) {
               return garage;
@@ -181,6 +249,18 @@ export default function GarageList({
     };
   }, []);
 
+  const visibleGarages = React.useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return garages;
+    }
+    return garages.filter((garage) => {
+      const nameMatches = garage.name.toLowerCase().includes(query);
+      const codeMatches = garage.code.toLowerCase().includes(query);
+      return nameMatches || codeMatches;
+    });
+  }, [garages, searchQuery]);
+
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
     const pct = Math.min(item.current / total, 1);
@@ -205,33 +285,35 @@ export default function GarageList({
           shadowRadius: 6,
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View style={{ flex: 1,  flexDirection: "row", }}>
-            <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600", marginRight: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
               {item.name}
             </Text>
+          </View>
 
+          <View style={{ alignItems: "flex-end" }}>
             <TouchableOpacity
               onPress={() => handleOpenInMaps(item)}
-              style={{ marginRight: 12 }}
+              style={{ marginBottom: 12 }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="location-outline" size={20} color={theme.primary} />
+              <Ionicons name="location-outline" size={22} color={theme.primary} />
             </TouchableOpacity>
             <PaidLot paid={item.paid}></PaidLot>
           </View>
 
-
-          <TouchableOpacity
-            onPress={() => handleToggleFavorite(item)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name={item.favorite ? "star" : "star-outline"}
-              size={22}
-              color={theme.primary}
-            />
-          </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleToggleFavorite(item)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={item.favorite ? "star" : "star-outline"}
+                size={22}
+                color={theme.primary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Text style={{ color: secondaryText, marginTop: 8 }}>
@@ -261,6 +343,58 @@ export default function GarageList({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700", flex: 1 }}>
+            Parking Lots
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/map")}
+            style={{
+              padding: 10,
+              borderRadius: 50,
+              backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+              shadowColor: "#000",
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="map-outline" size={26} color={theme.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            gap: 8,
+          }}
+        >
+          <Ionicons
+            name="search"
+            size={18}
+            color={theme.mode === "dark" ? "#9ca3af" : "#6b7280"}
+          />
+          <TextInput
+            placeholder="Search garages"
+            placeholderTextColor={theme.mode === "dark" ? "#9ca3af" : "#6b7280"}
+            style={{ flex: 1, color: theme.text, fontSize: 16 }}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
       <View style={{ flexDirection: "row", alignItems: "center" }}>
         <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700", margin: 16 }}>
           Parking Lots
@@ -295,10 +429,10 @@ export default function GarageList({
       </View>
 
       <FlatList
-        data={garages}
+        data={visibleGarages}
         keyExtractor={(g) => g.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
       />
 
       <Text
@@ -320,4 +454,11 @@ function getColors(pct: number) {
   if (pct >= 0.65) return { border: "#ff7f1eff", fill: "#ff7f1eff" };
   if (pct >= 0.25) return { border: "#e0c542", fill: "#cbb538" };
   return { border: "#41c463", fill: "#41c463" };
+}
+
+function getInitialOccupancy() {
+  const total = 100 + Math.floor(Math.random() * 400);
+  const current = Math.floor(Math.random() * (total + 1));
+
+  return { total, current };
 }
