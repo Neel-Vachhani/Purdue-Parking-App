@@ -1,7 +1,7 @@
 // components/GarageList.tsx
 import Constants from "expo-constants";
 import * as React from "react";
-import { Platform, View, Text, FlatList, TouchableOpacity } from "react-native";
+import { Platform, View, Text, FlatList, TouchableOpacity, TextInput } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
@@ -11,8 +11,8 @@ type Garage = {
   id: string;
   code: string;
   name: string;
-  current: number;   
-  total: number;     
+  current: number;
+  total: number;
   paid: boolean;
   favorite?: boolean;
   lat?: number;
@@ -22,20 +22,21 @@ type Garage = {
 type GarageDefinition = {
   code: string;
   name: string;
+  paid?: boolean;
   favorite?: boolean;
   lat?: number;
   lng?: number;
 };
 
 const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", favorite: true },
-  { code: "PGG", name: "Grant Street Parking Garage", favorite: true },
-  { code: "PGU", name: "University Street Parking Garage", favorite: true },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage" },
-  { code: "PGMD", name: "McCutcheon Drive Parking Garage" },
-  { code: "PGW", name: "Wood Street Parking Garage" },
-  { code: "PGGH", name: "Graduate House Parking Garage" },
-  { code: "PGM", name: "Marsteller Street Parking Garage" },
+  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true },
+  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true },
+  { code: "PGU", name: "University Street Parking Garage", paid: true },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true },
+  { code: "PGW", name: "Wood Street Parking Garage", paid: true },
+  { code: "PGGH", name: "Graduate House Parking Garage", paid: true },
+  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true },
   { code: "LOT_R", name: "Lot R (North of Ross-Ade)" },
   { code: "LOT_H", name: "Lot H (North of Football Practice Field)" },
   { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)" },
@@ -50,18 +51,12 @@ const GARAGE_DEFINITIONS: GarageDefinition[] = [
   { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot" },
   { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot" },
   { code: "DUHM", name: "Duhme Hall Parking Lot" },
-  { code: "PIERCE_ST", name: "Pierce Street Parking Lot" },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true },
   { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot" },
   { code: "DISC_A", name: "Discovery Lot (A Permit)" },
   { code: "DISC_AB", name: "Discovery Lot (AB Permit)" },
   { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)" },
   { code: "AIRPORT", name: "Airport Parking Lots" },
-const INITIAL_GARAGES: Garage[] = [
-  { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true, paid: true },
-  { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true, paid: true },
-  { id: "3", name: "University Street Garage", current: 70, total: 240, paid: false },
-  { id: "4", name: "Northwestern Garage", current: 240, total: 240, paid: false },
-  { id: "5", name: "DSAI Lot", current: 32, total: 38, paid: true },
 ];
 
 const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
@@ -70,7 +65,8 @@ const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => 
     id: String(index + 1),
     code: definition.code,
     name: definition.name,
-  favorite: definition.favorite ?? false,
+    paid: definition.paid ?? false,
+    favorite: definition.favorite ?? false,
     current: initialCounts.current,
     total: initialCounts.total,
     lat: definition.lat,
@@ -151,13 +147,13 @@ export default function GarageList({
     [onToggleFavorite]
   );
 
-  const sortGaragesByPrice = React.useCallback( 
-    () => {
-      const copyArray = [...garages]
-      copyArray.sort((a,b) => Number(b.paid) - Number(a.paid))
-      setGarages(copyArray)
-    }, []
-  )
+  const sortGaragesByPrice = React.useCallback(() => {
+    setGarages((prev) => {
+      const sorted = [...prev];
+      sorted.sort((a, b) => Number(b.paid) - Number(a.paid));
+      return sorted;
+    });
+  }, []);
 
   const handleOpenInMaps = React.useCallback(
     (garage: Garage) => {
@@ -188,19 +184,16 @@ export default function GarageList({
         const updatesByName = new Map<string, ApiLot>();
 
         lots.forEach((lot) => {
-          const idKey = lot.id !== undefined ? String(lot.id) : undefined;
-          if (idKey) {
-            updatesById.set(idKey, lot);
+          if (lot.id !== undefined) {
+            updatesById.set(String(lot.id), lot);
           }
 
-          const codeKey = lot.code ? lot.code.toUpperCase() : undefined;
-          if (codeKey) {
-            updatesByCode.set(codeKey, lot);
+          if (lot.code) {
+            updatesByCode.set(lot.code.toUpperCase(), lot);
           }
 
-          const nameKey = lot.name ? lot.name.toLowerCase() : undefined;
-          if (nameKey) {
-            updatesByName.set(nameKey, lot);
+          if (lot.name) {
+            updatesByName.set(lot.name.toLowerCase(), lot);
           }
         });
 
@@ -208,7 +201,7 @@ export default function GarageList({
           prev.map((garage) => {
             const update =
               updatesByCode.get(garage.code.toUpperCase()) ||
-              updatesById.get(String(garage.id)) ||
+              updatesById.get(garage.id) ||
               updatesByName.get(garage.name.toLowerCase());
 
             if (!update) {
@@ -293,19 +286,24 @@ export default function GarageList({
           </View>
 
           <View style={{ alignItems: "flex-end" }}>
-            <TouchableOpacity
-              onPress={() => handleOpenInMaps(item)}
-              style={{ marginBottom: 12 }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="location-outline" size={22} color={theme.primary} />
-            </TouchableOpacity>
-            <PaidLot paid={item.paid}></PaidLot>
-          </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              {item.paid ? (
+                <FontAwesome name="usd" size={20} color={theme.primary} />
+              ) : null}
 
+              <TouchableOpacity
+                onPress={() => handleOpenInMaps(item)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="location-outline" size={20} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
+
+          <View style={{ alignItems: "flex-end" }}>
             <TouchableOpacity
               onPress={() => handleToggleFavorite(item)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ marginTop: 12, alignSelf: "flex-end" }}
             >
               <Ionicons
                 name={item.favorite ? "star" : "star-outline"}
@@ -316,7 +314,11 @@ export default function GarageList({
           </View>
         </View>
 
-        <Text style={{ color: secondaryText, marginTop: 8 }}>
+        <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
+          Code: {item.code}
+        </Text>
+
+        <Text style={{ color: secondaryText, marginTop: 4 }}>
           {item.current}/{item.total}
         </Text>
 
@@ -338,6 +340,8 @@ export default function GarageList({
           />
         </View>
       </View>
+    </View>
+
     );
   };
 
@@ -369,6 +373,20 @@ export default function GarageList({
           >
             <Ionicons name="map-outline" size={26} color={theme.primary} />
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => sortGaragesByPrice()}
+            style={{
+             padding: 10,
+              borderRadius: 50,
+              backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+              shadowColor: "#000",
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+              marginLeft: 5
+            }}
+          >
+            <FontAwesome name="usd" size={26} color={theme.primary} />
+          </TouchableOpacity>
         </View>
 
         <View
@@ -395,37 +413,6 @@ export default function GarageList({
             onChangeText={setSearchQuery}
           />
         </View>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700", margin: 16 }}>
-          Parking Lots
-        </Text>
-        <TouchableOpacity
-        onPress={() => router.push("/map")}
-        style={{
-          padding: 10,
-          borderRadius: 50,
-          backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
-          shadowColor: "#000",
-          shadowOpacity: 0.25,
-          shadowRadius: 4,
-        }}
-      >
-        <Ionicons name="map-outline" size={26} color={theme.primary} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => sortGaragesByPrice()}
-        style={{
-         padding: 10,
-          borderRadius: 50,
-          backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
-          shadowColor: "#000",
-          shadowOpacity: 0.25,
-          shadowRadius: 4,
-          marginLeft: 5
-        }}
-      >
-        <FontAwesome name="usd" size={26} color={theme.primary} />
-      </TouchableOpacity>
       </View>
 
       <FlatList
@@ -449,6 +436,7 @@ export default function GarageList({
   );
 }
 
+
 function getColors(pct: number) {
   if (pct >= 0.8) return { border: "#f91e1eff", fill: "#f91e1eff" };
   if (pct >= 0.65) return { border: "#ff7f1eff", fill: "#ff7f1eff" };
@@ -457,8 +445,7 @@ function getColors(pct: number) {
 }
 
 function getInitialOccupancy() {
-  const total = 100 + Math.floor(Math.random() * 400);
+  const total = 80 + Math.floor(Math.random() * 320);
   const current = Math.floor(Math.random() * (total + 1));
-
-  return { total, current };
+  return { current, total };
 }

@@ -218,6 +218,8 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
         autoCorrect={false}
         keyboardType="email-address"
         textContentType="emailAddress"
+        autoComplete="email"
+        inputMode="email"
       />
       <AuthInput
         placeholder="Password"
@@ -227,6 +229,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
         autoCapitalize="none"
         autoCorrect={false}
         textContentType="password"
+        autoComplete="password"
       />
 
       {/* Primary action: Log In or Sign Up */}

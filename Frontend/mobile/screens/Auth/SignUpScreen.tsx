@@ -71,6 +71,8 @@ export default function SignupScreen({ onSignup, pushToken }: SignupScreenProps)
         autoCorrect={false}
         keyboardType="email-address"
         textContentType="emailAddress"
+        autoComplete="email"
+        inputMode="email"
       />
       <AuthInput
         placeholder="Password"
@@ -80,6 +82,7 @@ export default function SignupScreen({ onSignup, pushToken }: SignupScreenProps)
         autoCapitalize="none"
         autoCorrect={false}
         textContentType="password"
+        autoComplete="password"
       />
       <AuthInput
         placeholder="Confirm Password"
@@ -89,6 +92,7 @@ export default function SignupScreen({ onSignup, pushToken }: SignupScreenProps)
         autoCapitalize="none"
         autoCorrect={false}
         textContentType="password"
+        autoComplete="password"
       />
 
       {error ? <Text style={{ color: 'red', marginBottom: 10 }}>{error}</Text> : null}

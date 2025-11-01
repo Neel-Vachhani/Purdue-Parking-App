@@ -7,7 +7,7 @@ type AuthInputProps = TextInputProps & {
   secure?: boolean;
 };
 
-// Template to customize input boxes used across auth screens
+// Template to customize input boxes
 export default function AuthInput({ secure, style, ...rest }: AuthInputProps) {
   return (
     <TextInput
