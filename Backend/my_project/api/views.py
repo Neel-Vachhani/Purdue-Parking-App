@@ -13,6 +13,11 @@ from boiler_park_backend.models import Item, User
 from .serializers import ItemSerializer, UserSerializer
 from .services import verify_apple_identity, issue_session_token
 import jwt
+from datetime import datetime, timedelta
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+
 
 
 
@@ -248,3 +253,145 @@ def accept_notification_token(request):
     user.notification_token = token
     user.save()
     return Response("Token received")
+
+DUMMY_GARAGE_DETAILS = {
+    # You can tweak any of these per garage_id below
+    "address": "123 Grant St, West Lafayette, IN 47906",
+    "coordinates": {"lat": 40.4240, "lng": -86.9138},
+    "hours": {
+        "mon_fri": "24/7",
+        "sat": "24/7",
+        "sun": "24/7",
+    },
+    "rates": {
+        "per_hour": 2.0,
+        "daily_max": 12.0,
+        "free_after": None,  # example: "18:00" if evenings are free
+    },
+    "amenities": {
+        "ev_chargers": 8,
+        "accessible_spots": 12,
+        "restrooms": True,
+        "security": "Cameras and patrol",
+        "elevators": True,
+    },
+    "restrictions": {
+        "height_clearance_ft": 7.0,
+        "permit_required": False,
+        "overnight_allowed": True,
+    },
+    "features": {
+        "covered": True,
+        "shaded": True,
+        "heated": False,
+        "bike_parking": True,
+    },
+    "levels": [
+        # Dummy breakdown per level
+        {"level": "B1", "total": 120, "available": 18, "covered": True},
+        {"level": "L1", "total": 150, "available": 25, "covered": True},
+        {"level": "L2", "total": 150, "available": 31, "covered": True},
+        {"level": "Roof", "total": 100, "available": 12, "covered": False},
+    ],
+}
+
+def _compute_totals(levels):
+    total = sum(l["total"] for l in levels)
+    available = sum(l["available"] for l in levels)
+    occupied = max(total - available, 0)
+    pct_available = round((available / total) * 100, 1) if total else 0.0
+    return total, available, occupied, pct_available
+
+def _mock_occupancy_series(minutes=60, step=10, base_available=86, jitter=5):
+    # Simple synthetic mini time series for the last hour
+    now = datetime.utcnow()
+    points = []
+    for i in range(0, minutes + 1, step):
+        t = now - timedelta(minutes=i)
+        # deterministic wobble for stable dummy output
+        wobble = ((i // step) % (jitter * 2)) - jitter
+        points.append({
+            "ts_utc": t.replace(microsecond=0).isoformat() + "Z",
+            "available": max(base_available + wobble, 0),
+        })
+    return list(reversed(points))
+
+@api_view(["GET"])
+def get_garage_detail(request, garage_id: int):
+    """
+    Return a single garage with rich dummy data.
+    Path param: garage_id (int)
+    Example response fields include totals, levels, features, and a short occupancy series.
+    """
+    # Find the garage skeleton from PARKING_LOTS
+    garage = next((g for g in PARKING_LOTS if g["id"] == int(garage_id)), None)
+    if not garage:
+        return Response(
+            {"detail": f"Garage with id {garage_id} not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Clone the base dummy template per garage and adjust a few values to feel unique
+    details = dict(DUMMY_GARAGE_DETAILS)  # shallow copy
+    levels = [dict(l) for l in DUMMY_GARAGE_DETAILS["levels"]]
+
+    # Light per-garage customization
+    name = garage["name"]
+    if "Harrison" in name:
+        details["address"] = "504 Northwestern Ave, West Lafayette, IN 47906"
+        details["features"]["covered"] = True
+        levels[0]["available"] = 10
+        levels[-1]["available"] = 20
+    elif "Grant Street" in name:
+        details["address"] = "120 N Grant St, West Lafayette, IN 47906"
+        details["amenities"]["ev_chargers"] = 12
+        details["features"]["shaded"] = True
+    elif "University Street" in name:
+        details["address"] = "504 University St, West Lafayette, IN 47906"
+        details["restrictions"]["height_clearance_ft"] = 6.8
+        details["features"]["covered"] = False
+        for l in levels:
+            l["covered"] = False
+    elif "Northwestern" in name:
+        details["address"] = "220 Northwestern Ave, West Lafayette, IN 47906"
+        details["rates"]["per_hour"] = 1.5
+    elif "DS/AI" in name:
+        details["address"] = "Discovery Park Lot, West Lafayette, IN 47907"
+        details["features"]["covered"] = False
+        details["features"]["shaded"] = False
+        levels = [
+            {"level": "Surface", "total": 220, "available": 64, "covered": False}
+        ]
+
+    total, available, occupied, pct_available = _compute_totals(levels)
+
+    payload = {
+        "id": garage["id"],
+        "name": name,
+        "redis_key": garage["redis_key"],  # present for consistency with your list
+        "address": details["address"],
+        "coordinates": details["coordinates"],
+        "hours": details["hours"],
+        "rates": details["rates"],
+        "amenities": details["amenities"],
+        "restrictions": details["restrictions"],
+        "features": details["features"],
+        "levels": levels,
+        "totals": {
+            "capacity": total,
+            "available": available,
+            "occupied": occupied,
+            "pct_available": pct_available,
+        },
+        "availability": {
+            "last_updated_utc": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "series": _mock_occupancy_series(base_available=available),
+        },
+        "notices": [
+            # examples of runtime messages you might surface in the UI
+            {"type": "info", "message": "Elevator maintenance on L2 from 2 pm to 4 pm"},
+            {"type": "advice", "message": "EV chargers busiest 11 am to 2 pm"},
+        ],
+    }
+
+    return Response(payload, status=status.HTTP_200_OK)
