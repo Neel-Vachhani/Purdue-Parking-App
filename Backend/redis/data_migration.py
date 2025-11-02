@@ -63,6 +63,7 @@ def fetch_redis_values(r):
     for k in PARKING_LOTS:
         v = r.get(k)
         values[k] = int(v)
+    print(values)
     return values
 
 def save_snapshot_to_postgres(values_map):

@@ -21,6 +21,15 @@ columns = cursor.fetchall()
 print("All columns:")
 for column in columns:
     print(f"- {column[0]}")
+cursor.execute("""
+    SELECT * 
+    FROM parking_availability_data
+    LIMIT 5;
+""")
+rows = cursor.fetchall()
+print("\nFirst 5 rows:")
+for row in rows:
+    print(row)
 
 cursor.close()
 conn.close()

@@ -2,6 +2,7 @@ import logging
 from typing import List, Dict, Any, Optional
 
 import bcrypt
+import psycopg2
 import redis
 from decouple import config
 from redis.exceptions import RedisError
@@ -65,6 +66,63 @@ def _parse_int(value: Any) -> Optional[int]:
     except (TypeError, ValueError):
         return None
 
+def get_postgres_connection(): 
+    return psycopg2.connect( 
+        host=config('DB_HOST'), 
+        port=config('DB_PORT'), 
+        database=config('DB_NAME'), 
+        user=config('DB_USERNAME'), 
+        password=config('DB_PASSWORD') 
+    )
+
+@api_view(["GET"])
+def get_postgres_parking_data(request):
+    """
+    Returns occupancy history for a given lot and period.
+    period = 'day', 'week', 'month'
+    """
+    # Define lot names and totals inside the function
+    lot = request.GET.get("lot")
+    period = request.GET.get("period", "day").lower()
+
+    if not lot:
+        return Response({"error": "Missing 'lot' query parameter."}, status=400)
+
+    if period not in ["day", "week", "month"]:
+        return Response({"error": "Invalid period. Must be 'day', 'week', or 'month'."}, status=400)
+
+    # Connect to Postgres
+    conn = psycopg2.connect(
+        host=config("DB_HOST"),
+        port=config("DB_PORT"),
+        database=config("DB_NAME"),
+        user=config("DB_USERNAME"),
+        password=config("DB_PASSWORD")
+    )
+    cursor = conn.cursor()
+
+    # Determine date range for filtering
+    interval = {
+        "day": "1 day",
+        "week": "7 days",
+        "month": "30 days"
+    }[period]
+
+    query = f"""
+        SELECT id, timestamp, {lot}_availability
+        FROM parking_availability_data
+        WHERE timestamp >= NOW() - INTERVAL '{interval}'
+        ORDER BY timestamp ASC;
+    """
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Format results as list of dicts
+    results = [{"id": r[0], "timestamp": r[1], "availability": r[2]} for r in rows]
+
+    return Response(results)
 
 @api_view(['GET'])
 def get_parking_availability(request):
