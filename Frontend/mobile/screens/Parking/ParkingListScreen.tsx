@@ -2,9 +2,11 @@ import Constants from "expo-constants";
 import React, { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { View } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
+import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../../utils/travelTime";
 
 type ParkingLot = {
   id: number;
@@ -12,6 +14,9 @@ type ParkingLot = {
   capacity: number;
   available: number;
   isFavorite: boolean;
+  lat?: number;
+  lng?: number;
+  travelTime?: TravelTimeResult | null;
 };
 
 type ApiLot = Pick<ParkingLot, "id" | "name"> &
@@ -25,6 +30,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 800,
     available: 560,
     isFavorite: false,
+    lat: 40.420928743577996,
+    lng: -86.91759020145541,
   },
   {
     id: 2,
@@ -32,6 +39,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 648,
     available: 118,
     isFavorite: false,
+    lat: 40.42519706999441,
+    lng: -86.90972814560583,
   },
   {
     id: 3,
@@ -39,6 +48,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 826,
     available: 406,
     isFavorite: false,
+    lat: 40.4266903911869,
+    lng: -86.91728093292815,
   },
   {
     id: 4,
@@ -46,6 +57,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 434,
     available: 2,
     isFavorite: false,
+    lat: 40.42964447741563,
+    lng: -86.91111021483658,
   },
   {
     id: 5,
@@ -53,6 +66,8 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
     capacity: 178,
     available: 32,
     isFavorite: false,
+    lat: 40.428997605924756,
+    lng: -86.91608038169943,
   },
 ];
 
@@ -156,6 +171,52 @@ export default function ParkingListScreen() {
     };
   }, []);
 
+  // Load travel times from default origin
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTravelTimes = async () => {
+      try {
+        // Get user email from secure storage
+        const userJson = await SecureStore.getItemAsync("user");
+        const user = userJson ? JSON.parse(userJson) : null;
+        const email = user?.email;
+        
+        if (!email) {
+          return;
+        }
+
+        // Calculate travel times for each lot
+        const travelTimePromises = parkingLots.map(async (lot) => {
+          if (!lot.lat || !lot.lng) {
+            return { ...lot, travelTime: null };
+          }
+
+          const travelTime = await getTravelTimeFromDefaultOrigin(
+            { latitude: lot.lat, longitude: lot.lng },
+            email
+          );
+
+          return { ...lot, travelTime };
+        });
+
+        const lotsWithTravelTimes = await Promise.all(travelTimePromises);
+
+        if (isMounted) {
+          setParkingLots(lotsWithTravelTimes);
+        }
+      } catch (error) {
+        console.error("Failed to load travel times", error);
+      }
+    };
+
+    loadTravelTimes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const toggleFavorite = (id: number) => {
     setParkingLots((prevLots) =>
       prevLots.map((lot) =>
@@ -205,20 +266,27 @@ export default function ParkingListScreen() {
               <ThemedText style={{ fontSize: 18, fontWeight: "600" }}>
                 {lot.name}
               </ThemedText>
-              <ThemedText style={{ fontSize: 16, color: theme.primary }}>ⓘ</ThemedText>
+              <ThemedText style={{ fontSize: 16, color: theme.primary }}>(i)</ThemedText>
             </ThemedView>
             <ThemedText
               style={{ fontSize: 20, color: lot.isFavorite ? "#facc15" : (theme.mode === "dark" ? "#6b7280" : "#9ca3af") }}
               onPress={() => toggleFavorite(lot.id)}
             >
-              {lot.isFavorite ? "★" : "☆"}
+              {lot.isFavorite ? "*" : "+"}
             </ThemedText>
           </ThemedView>
 
           <ThemedView>
-            <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280", marginBottom: 8 }}>
-              {lot.available}/{lot.capacity}
-            </ThemedText>
+            <ThemedView style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
+                {lot.available}/{lot.capacity}
+              </ThemedText>
+              {lot.travelTime && (
+                <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
+                  {lot.travelTime.formattedDuration} ({lot.travelTime.formattedDistance})
+                </ThemedText>
+              )}
+            </ThemedView>
             <ThemedView style={{ width: "100%", height: 12, backgroundColor: theme.mode === "dark" ? "#374151" : "#e5e7eb", borderRadius: 6, overflow: "hidden" }}>
               <ThemedView
                 style={{

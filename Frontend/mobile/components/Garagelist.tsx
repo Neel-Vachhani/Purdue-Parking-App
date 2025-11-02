@@ -4,7 +4,9 @@ import * as React from "react";
 import { Platform, View, Text, FlatList, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
+import * as SecureStore from "expo-secure-store";
 import { ThemeContext } from "../theme/ThemeProvider";
+import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../utils/travelTime";
 
 type Garage = {
   id: string;
@@ -14,14 +16,52 @@ type Garage = {
   favorite?: boolean;
   lat?: number;
   lng?: number;
+  travelTime?: TravelTimeResult | null;
 };
 
 const INITIAL_GARAGES: Garage[] = [
-  { id: "1", name: "Harrison Garage", current: 8, total: 240, favorite: true },
-  { id: "2", name: "Grant Street Garage", current: 158, total: 240, favorite: true },
-  { id: "3", name: "University Street Garage", current: 70, total: 240 },
-  { id: "4", name: "Northwestern Garage", current: 240, total: 240 },
-  { id: "5", name: "DSAI Lot", current: 32, total: 38 },
+  { 
+    id: "1", 
+    name: "Harrison Garage", 
+    current: 8, 
+    total: 240, 
+    favorite: true,
+    lat: 40.420928743577996,
+    lng: -86.91759020145541
+  },
+  { 
+    id: "2", 
+    name: "Grant Street Garage", 
+    current: 158, 
+    total: 240, 
+    favorite: true,
+    lat: 40.42519706999441,
+    lng: -86.90972814560583
+  },
+  { 
+    id: "3", 
+    name: "University Street Garage", 
+    current: 70, 
+    total: 240,
+    lat: 40.4266903911869,
+    lng: -86.91728093292815
+  },
+  { 
+    id: "4", 
+    name: "Northwestern Garage", 
+    current: 240, 
+    total: 240,
+    lat: 40.42964447741563,
+    lng: -86.91111021483658
+  },
+  { 
+    id: "5", 
+    name: "DSAI Lot", 
+    current: 32, 
+    total: 38,
+    lat: 40.428997605924756,
+    lng: -86.91608038169943
+  },
 ];
 
 type ApiLot = {
@@ -171,6 +211,52 @@ export default function GarageList({
     };
   }, []);
 
+  // Load travel times from default origin
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const loadTravelTimes = async () => {
+      try {
+        // Get user email from secure storage
+        const userJson = await SecureStore.getItemAsync("user");
+        const user = userJson ? JSON.parse(userJson) : null;
+        const email = user?.email;
+        
+        if (!email) {
+          return;
+        }
+
+        // Calculate travel times for each garage
+        const travelTimePromises = garages.map(async (garage) => {
+          if (!garage.lat || !garage.lng) {
+            return { ...garage, travelTime: null };
+          }
+
+          const travelTime = await getTravelTimeFromDefaultOrigin(
+            { latitude: garage.lat, longitude: garage.lng },
+            email
+          );
+
+          return { ...garage, travelTime };
+        });
+
+        const garagesWithTravelTimes = await Promise.all(travelTimePromises);
+
+        if (isMounted) {
+          setGarages(garagesWithTravelTimes);
+        }
+      } catch (error) {
+        console.error("Failed to load travel times", error);
+      }
+    };
+
+    loadTravelTimes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
     const pct = Math.min(item.current / total, 1);
@@ -223,9 +309,20 @@ export default function GarageList({
           </TouchableOpacity>
         </View>
 
-        <Text style={{ color: secondaryText, marginTop: 8 }}>
-          {item.current}/{item.total}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+          <Text style={{ color: secondaryText }}>
+            {item.current}/{item.total}
+          </Text>
+          
+          {item.travelTime && (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons name="time-outline" size={16} color={secondaryText} style={{ marginRight: 4 }} />
+              <Text style={{ color: secondaryText, fontSize: 14 }}>
+                {item.travelTime.formattedDuration} ({item.travelTime.formattedDistance})
+              </Text>
+            </View>
+          )}
+        </View>
 
         <View
           style={{
