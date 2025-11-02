@@ -2,21 +2,18 @@ import logging
 from typing import List, Dict, Any, Optional
 
 import bcrypt
+from httpcore import Response
 import redis
 from decouple import config
 from redis.exceptions import RedisError
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.response import Response
 from rest_framework import status, serializers
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from boiler_park_backend.models import Item, User
 from .serializers import ItemSerializer, UserSerializer
 from .services import verify_apple_identity, issue_session_token
 import jwt
 from datetime import datetime, timedelta
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import status
 
 
 
@@ -29,7 +26,6 @@ PARKING_LOTS: List[Dict[str, Any]] = [
     {"id": 2, "name": "Grant Street Garage", "redis_key": "PGG_availability"},
     {"id": 3, "name": "University Street Garage", "redis_key": "PGU_availability"},
     {"id": 4, "name": "Northwestern Garage", "redis_key": "PGNW_availability"},
-    # Update redis_key if a different counter is used for DS/AI lot
     {"id": 5, "name": "DS/AI Lot", "redis_key": "DISC_ABC_availability"},
 ]
 
@@ -255,7 +251,6 @@ def accept_notification_token(request):
     return Response("Token received")
 
 DUMMY_GARAGE_DETAILS = {
-    # You can tweak any of these per garage_id below
     "address": "123 Grant St, West Lafayette, IN 47906",
     "coordinates": {"lat": 40.4240, "lng": -86.9138},
     "hours": {
@@ -266,7 +261,7 @@ DUMMY_GARAGE_DETAILS = {
     "rates": {
         "per_hour": 2.0,
         "daily_max": 12.0,
-        "free_after": None,  # example: "18:00" if evenings are free
+        "free_after": None,
     },
     "amenities": {
         "ev_chargers": 8,
@@ -287,7 +282,6 @@ DUMMY_GARAGE_DETAILS = {
         "bike_parking": True,
     },
     "levels": [
-        # Dummy breakdown per level
         {"level": "B1", "total": 120, "available": 18, "covered": True},
         {"level": "L1", "total": 150, "available": 25, "covered": True},
         {"level": "L2", "total": 150, "available": 31, "covered": True},
@@ -303,7 +297,6 @@ def _compute_totals(levels):
     return total, available, occupied, pct_available
 
 def _mock_occupancy_series(minutes=60, step=10, base_available=86, jitter=5):
-    # Simple synthetic mini time series for the last hour
     now = datetime.utcnow()
     points = []
     for i in range(0, minutes + 1, step):
@@ -368,7 +361,7 @@ def get_garage_detail(request, garage_id: int):
     payload = {
         "id": garage["id"],
         "name": name,
-        "redis_key": garage["redis_key"],  # present for consistency with your list
+        "redis_key": garage["redis_key"],
         "address": details["address"],
         "coordinates": details["coordinates"],
         "hours": details["hours"],
@@ -393,5 +386,166 @@ def get_garage_detail(request, garage_id: int):
             {"type": "advice", "message": "EV chargers busiest 11 am to 2 pm"},
         ],
     }
-
+    
     return Response(payload, status=status.HTTP_200_OK)
+
+# Simple icon names your frontend can map to real assets
+ICON_MAP = {
+    "covered": "shield-roof",
+    "uncovered": "shield-off",
+    "shaded": "tree",
+    "unshaded": "sun",
+}
+
+def _derive_indicators_from_levels(levels):
+    """Compute lot level indicators from a list of level dicts."""
+    total = sum(l["total"] for l in levels) or 0
+    total_available = sum(l["available"] for l in levels) or 0
+
+    covered_total = sum(l["total"] for l in levels if l.get("covered"))
+    covered_available = sum(l["available"] for l in levels if l.get("covered"))
+
+    uncovered_total = total - covered_total
+    uncovered_available = total_available - covered_available
+
+    pct_available = round((total_available / total) * 100, 1) if total else 0.0
+    pct_available_covered = round((covered_available / covered_total) * 100, 1) if covered_total else 0.0
+    pct_available_uncovered = round((uncovered_available / uncovered_total) * 100, 1) if uncovered_total else 0.0
+
+    has_any_covered = covered_total > 0
+    has_any_uncovered = uncovered_total > 0
+
+    return {
+        "totals": {
+            "capacity": total,
+            "available": total_available,
+            "pct_available": pct_available,
+            "covered_capacity": covered_total,
+            "covered_available": covered_available,
+            "covered_pct_available": pct_available_covered,
+            "uncovered_capacity": uncovered_total,
+            "uncovered_available": uncovered_available,
+            "uncovered_pct_available": pct_available_uncovered,
+        },
+        "flags": {
+            "has_covered": has_any_covered,
+            "has_uncovered": has_any_uncovered,
+        },
+    }
+
+def _label_for_coverage(has_covered: bool, has_uncovered: bool):
+    """Human friendly label and icon for coverage."""
+    if has_covered and not has_uncovered:
+        return {"label": "Covered", "icon": ICON_MAP["covered"]}
+    if not has_covered and has_uncovered:
+        return {"label": "Uncovered", "icon": ICON_MAP["uncovered"]}
+    if has_covered and has_uncovered:
+        return {"label": "Mixed", "icon": ICON_MAP["covered"]}  # choose one icon for mixed
+    return {"label": "Unknown", "icon": ICON_MAP["uncovered"]}
+
+def _boolean_to_label(flag: bool, true_label="Yes", false_label="No"):
+    return true_label if flag else false_label
+
+@api_view(["GET"])
+def get_garage_shade_cover(request, garage_id: int):
+    """
+    Returns shade and cover indicators for one garage:
+    - top level labels for covered and shaded
+    - per level coverage
+    - availability split by covered vs uncovered
+    """
+    # Reuse the same per garage detail builder you added earlier
+    # If you named it differently, import or adjust below call
+    detail_resp = get_garage_detail(request, garage_id)  # this returns a DRF Response
+    if detail_resp.status_code != status.HTTP_200_OK:
+        return detail_resp
+
+    data = detail_resp.data
+    features = data.get("features", {})
+    levels = data.get("levels", [])
+
+    analysis = _derive_indicators_from_levels(levels)
+    has_covered = analysis["flags"]["has_covered"]
+    has_uncovered = analysis["flags"]["has_uncovered"]
+    coverage_label = _label_for_coverage(has_covered, has_uncovered)
+
+    shaded_flag = bool(features.get("shaded", False))
+    shaded_label = {
+        "label": _boolean_to_label(shaded_flag, "Shaded", "Unshaded"),
+        "icon": ICON_MAP["shaded"] if shaded_flag else ICON_MAP["unshaded"],
+    }
+
+    # Per level simplified indicators
+    per_level = [
+        {
+            "level": l["level"],
+            "covered": bool(l.get("covered", False)),
+            "label": "Covered" if l.get("covered", False) else "Uncovered",
+            "available": l.get("available", 0),
+            "total": l.get("total", 0),
+        }
+        for l in levels
+    ]
+
+    payload = {
+        "id": data["id"],
+        "name": data["name"],
+        "coverage": {
+            "label": coverage_label["label"],
+            "icon": coverage_label["icon"],
+            "has_covered": has_covered,
+            "has_uncovered": has_uncovered,
+        },
+        "shade": {
+            "label": shaded_label["label"],
+            "icon": shaded_label["icon"],
+            "shaded": shaded_flag,
+        },
+        "availability_split": analysis["totals"],
+        "levels": per_level,
+        # optional quick badges your UI can render directly
+        "badges": [
+            {"type": "coverage", "text": coverage_label["label"], "icon": coverage_label["icon"]},
+            {"type": "shade", "text": shaded_label["label"], "icon": shaded_label["icon"]},
+        ],
+    }
+    return Response(payload, status=status.HTTP_200_OK)
+
+@api_view(["GET"])
+def list_shade_cover_indicators(request):
+    """
+    Returns shade and cover badges for all garages.
+    Useful for list and map screens.
+    """
+    results = []
+    for g in PARKING_LOTS:
+        # call the detail builder to keep the single source of truth
+        detail_resp = get_garage_detail(request, g["id"])
+        if detail_resp.status_code != status.HTTP_200_OK:
+            continue
+        data = detail_resp.data
+        features = data.get("features", {})
+        levels = data.get("levels", [])
+        analysis = _derive_indicators_from_levels(levels)
+
+        has_covered = analysis["flags"]["has_covered"]
+        has_uncovered = analysis["flags"]["has_uncovered"]
+        coverage_label = _label_for_coverage(has_covered, has_uncovered)
+
+        shaded_flag = bool(features.get("shaded", False))
+        shaded_label = "Shaded" if shaded_flag else "Unshaded"
+
+        results.append({
+            "id": data["id"],
+            "name": data["name"],
+            "coverage": coverage_label["label"],
+            "coverage_icon": coverage_label["icon"],
+            "shade": shaded_label,
+            "shade_icon": ICON_MAP["shaded"] if shaded_flag else ICON_MAP["unshaded"],
+            # small useful bits for UI sorting or badges
+            "pct_available": analysis["totals"]["pct_available"],
+            "covered_pct_available": analysis["totals"]["covered_pct_available"],
+            "uncovered_pct_available": analysis["totals"]["uncovered_pct_available"],
+        })
+    return Response({"garages": results}, status=status.HTTP_200_OK)
+
