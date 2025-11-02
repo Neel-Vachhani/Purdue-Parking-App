@@ -1,29 +1,21 @@
 import * as React from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Dimensions,
-  ActivityIndicator,
-  Platform
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Platform, Modal } from "react-native";
 import { BarChart } from "react-native-chart-kit";
-import { ThemeContext } from "../../theme/ThemeProvider";
 import Constants from "expo-constants";
+import { ThemeContext } from "../../theme/ThemeProvider";
+import { Dimensions } from "react-native";
 
 const { width } = Dimensions.get("window");
 
 type Garage = {
   id: string;
   name: string;
-  current: number; // occupied spots
-  total: number;   // total spots
+  current: number;
+  total: number;
   occupancy_percentage: number;
 };
 
-type TimePeriod = "current" | "day" | "week" | "month";
+type TimePeriod = "day" | "week" | "month";
 
 type HistoricalDataPoint = {
   label: string;
@@ -32,98 +24,91 @@ type HistoricalDataPoint = {
   occupied_spots: number;
 };
 
-// Map lot display names to API column names
 const LOT_COLUMNS: Record<string, string> = {
-  "PGMD": "pgmd",
-  "PGU": "pgu",
-  "PGNW": "pgnw",
-  "PGG": "pgg",
-  "PGW": "pgw",
-  "PGGH": "pggh",
-  "PGH": "pgh",
-  "Lot R": "lot_r",
-  "Lot H": "lot_h",
-  "Lot FB": "lot_fb",
-  "KFPC": "kfpc",
-  "Lot A": "lot_a",
-  "CREC": "crec",
-  "Lot O": "lot_o",
-  "Tark/Wily": "tark_wily",
-  "Lot AA": "lot_aa",
-  "Lot BB": "lot_bb",
-  "WND/Krach": "wnd_krach",
-  "Shrv/Erht/Mrdh": "shrv_erht_mrdh",
-  "McCut/Harr/Hill": "mcut_harr_hill",
-  "DUHM": "duhm",
-  "Pierce St": "pierce_st",
-  "PGM": "pgm",
-  "Smith/Bchm": "smth_bchm",
-  "Disc A": "disc_a",
-  "Disc AB": "disc_ab",
-  "Disc ABC": "disc_abc",
-  "Airport": "airport"
+  "Harrison Garage": "pgmd",
+  "Grant Street Garage": "pgu",
+  "University Street Garage": "pgnw",
+  "Northwestern Garage": "pgg",
+  "DS/AI Lot": "pgw",
 };
+
+const periodOptions: { value: TimePeriod; label: string }[] = [
+  { value: "day", label: "24 Hours" },
+  { value: "week", label: "7 Days" },
+  { value: "month", label: "30 Days" },
+];
+
+const INITIAL_GARAGES: Garage[] = [
+  { id: "0", name: "Harrison Garage", current: 8, total: 240, occupancy_percentage: (8 / 240) * 100 },
+  { id: "1", name: "Grant Street Garage", current: 158, total: 240, occupancy_percentage: (158 / 240) * 100 },
+  { id: "2", name: "University Street Garage", current: 70, total: 240, occupancy_percentage: (70 / 240) * 100 },
+  { id: "3", name: "Northwestern Garage", current: 240, total: 240, occupancy_percentage: (240 / 240) * 100 },
+  { id: "4", name: "DS/AI Lot", current: 32, total: 38, occupancy_percentage: (32 / 38) * 100 },
+];
 
 export default function InsightsScreen() {
   const theme = React.useContext(ThemeContext);
-
-  const [garages, setGarages] = React.useState<Garage[]>([]);
-  const [selectedLotId, setSelectedLotId] = React.useState<string>("");
-  const [timePeriod, setTimePeriod] = React.useState<TimePeriod>("current");
-  const [showPeriodDropdown, setShowPeriodDropdown] = React.useState(false);
+  const [garages, setGarages] = React.useState<Garage[]>(INITIAL_GARAGES);
+  const [selectedLotId, setSelectedLotId] = React.useState<string>("0");
+  const [timePeriod, setTimePeriod] = React.useState<TimePeriod>("day");
   const [historicalData, setHistoricalData] = React.useState<HistoricalDataPoint[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [showLotDropdown, setShowLotDropdown] = React.useState(false);
 
-  const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
-  const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
-
-  const periodOptions: { value: TimePeriod; label: string; icon: string }[] = [
-    { value: "current", label: "Current Status", icon: "time-outline" },
-    { value: "day", label: "Last 24 Hours", icon: "today-outline" },
-    { value: "week", label: "Last 7 Days", icon: "calendar-outline" },
-    { value: "month", label: "Last 30 Days", icon: "calendar-number-outline" }
-  ];
+  const isDark = theme.mode === "dark";
+  const cardBg = isDark ? "#1a1d21" : "#FFFFFF";
+  const secondaryBg = isDark ? "#252930" : "#f9fafb";
+  const borderColor = isDark ? "#2d3139" : "#e5e7eb";
+  const secondaryText = isDark ? "#9ca3af" : "#6b7280";
+  const accentColor = "#6366f1";
 
   const getApiBaseUrl = (): string => {
-    const configExtra = Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined;
-    const manifest = Constants.manifest as
-      | { extra?: { apiBaseUrl?: string }; debuggerHost?: string }
-      | null;
-    const manifestExtra = manifest?.extra;
-
-    const override = configExtra?.apiBaseUrl || manifestExtra?.apiBaseUrl;
-    if (override) {
-      return override.replace(/\/$/, "");
-    }
-
-    let host = "localhost";
-    if (Platform.OS === "android") host = "10.0.2.2";
-    else {
-      const debuggerHost = Constants.expoConfig?.hostUri || manifest?.debuggerHost;
-      if (debuggerHost) host = debuggerHost.split(":")[0];
-    }
-    return `http://${host}:7500`;
+    return "http://localhost:7500";
   };
 
-  /** Fetch current data: total and occupied for all lots */
   const fetchCurrentData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const res = await fetch(`${getApiBaseUrl()}/parking/availability/`);
-      const data = await res.json();
-      // Map each lot to Garage format
-      const mappedGarages: Garage[] = Object.keys(LOT_COLUMNS).map((lotName, idx) => {
-        const columnName = LOT_COLUMNS[lotName] + "_availability";
-        const availabilityValue = data[0][columnName] ?? 0; // default 0
-        return {
-          id: idx.toString(),
-          name: lotName,
-          current: availabilityValue, // occupied spots
-          total: 1,                   // assuming 1 spot per record; adjust if backend gives total
-          occupancy_percentage: availabilityValue * 100
-        };
-      });
+      const mappedGarages: Garage[] = await Promise.all(
+        Object.keys(LOT_COLUMNS).map(async (lotName, idx) => {
+          const lotColumn = LOT_COLUMNS[lotName];
+          
+          try {
+            const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=day`);
+            const data = await res.json();
+            console.log(`${lotName} data:`, data);
+            
+            // Get the initial garage data to use correct totals
+            const initialGarage = INITIAL_GARAGES.find(g => g.name === lotName);
+            const total = initialGarage?.total ?? 100;
+            
+            // Get the most recent availability data
+            const latestData = Array.isArray(data) && data.length > 0 ? data[data.length - 1] : null;
+            const availableSpots = latestData?.availability ?? 0;
+            
+            // Calculate occupied spots: total - available = occupied
+            const occupied = total - availableSpots;
+            
+            console.log(`${lotName}: ${occupied} occupied out of ${total} (${availableSpots} available)`);
+            
+            return {
+              id: idx.toString(),
+              name: lotName,
+              current: occupied,
+              total: total,
+              occupancy_percentage: (occupied / total) * 100,
+            };
+          } catch (err) {
+            console.error(`Error fetching data for ${lotName}:`, err);
+            // Return initial data if fetch fails
+            const initialGarage = INITIAL_GARAGES[idx];
+            return initialGarage;
+          }
+        })
+      );
+      console.log(mappedGarages)
       setGarages(mappedGarages);
+      console.log(garages)
       if (!selectedLotId && mappedGarages.length > 0) setSelectedLotId("0");
     } catch (err) {
       console.error("Error fetching current parking data:", err);
@@ -132,27 +117,44 @@ export default function InsightsScreen() {
     }
   };
 
-  /** Fetch historical data for a lot and period */
-const fetchHistoricalData = async (lotColumn: string, period: TimePeriod) => {
-  try {
+  const fetchHistoricalData = async (lotId: string, period: TimePeriod) => {
+    if (!garages.length) return;
     setLoading(true);
-    const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=${period}`);
-    const data = await res.json();
-    setHistoricalData(
-      data.map((d: any) => ({
-        label: new Date(d.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        occupancy_percentage: d.availability * 100,
-        available_spots: d.availability ? 1 : 0,
-        occupied_spots: d.availability ? 0 : 1
-      }))
-    );
-  } catch (err) {
-    console.error("Error fetching historical data:", err);
-    setHistoricalData([]);
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      const selectedGarage = garages[parseInt(lotId)];
+      const lotColumn = LOT_COLUMNS[selectedGarage.name];
+      const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=${period}`);
+      const data = await res.json();
+
+      if (!Array.isArray(data)) {
+        console.error("Historical data not an array:", data);
+        setHistoricalData([]);
+        return;
+      }
+
+      // Get the total capacity for this lot
+      const total = selectedGarage.total;
+
+      setHistoricalData(
+        data.map((d: any) => {
+          const availableSpots = d.availability; // This is actual number of available spots
+          const occupiedSpots = total - availableSpots;
+          
+          return {
+            label: new Date(d.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            occupancy_percentage: (occupiedSpots / total) * 100,
+            available_spots: availableSpots,
+            occupied_spots: occupiedSpots,
+          };
+        })
+      );
+    } catch (err) {
+      console.error("Error fetching historical data:", err);
+      setHistoricalData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   React.useEffect(() => {
     fetchCurrentData();
@@ -162,241 +164,295 @@ const fetchHistoricalData = async (lotColumn: string, period: TimePeriod) => {
     if (selectedLotId !== "") fetchHistoricalData(selectedLotId, timePeriod);
   }, [selectedLotId, timePeriod, garages]);
 
-  const getOccupancyColor = (percentage: number): string => {
-    if (percentage >= 90) return "#f91e1eff"; // Red
-    if (percentage >= 70) return "#ff7f1eff"; // Orange
-    if (percentage >= 25) return "#e0c542"; // Yellow
-    return "#41c463"; // Green
+  const currentStatus = garages[parseInt(selectedLotId)] || garages[0];
+
+  const getChartData = () => ({
+    labels: historicalData.map((d) => d.label),
+    datasets: [{ data: historicalData.map((d) => d.occupancy_percentage) }],
+  });
+
+  const getOccupancyColor = (percentage: number) => {
+    if (percentage >= 90) return "#ef4444";
+    if (percentage >= 70) return "#f59e0b";
+    if (percentage >= 25) return "#eab308";
+    return "#10b981";
   };
 
-  const currentStatus = garages.find((g) => g.id === selectedLotId) || garages[0];
-
-  const calculateAverageStats = () => {
-    if (historicalData.length === 0) return null;
-    const avgOccupancy =
-      historicalData.reduce((sum, d) => sum + d.occupancy_percentage, 0) / historicalData.length;
-    const avgAvailable =
-      Math.round(historicalData.reduce((sum, d) => sum + d.available_spots, 0) / historicalData.length);
-    const avgOccupied =
-      Math.round(historicalData.reduce((sum, d) => sum + d.occupied_spots, 0) / historicalData.length);
-
-    return {
-      avgOccupancy: avgOccupancy.toFixed(1),
-      avgAvailable,
-      avgOccupied,
-      total: avgAvailable + avgOccupied
-    };
+  const getStatusText = (percentage: number) => {
+    if (percentage >= 90) return "Nearly Full";
+    if (percentage >= 70) return "Busy";
+    if (percentage >= 25) return "Moderate";
+    return "Available";
   };
-
-  const getChartData = () => {
-    if (historicalData.length === 0) return { labels: ["No Data"], datasets: [{ data: [0] }] };
-    return {
-      labels: historicalData.map((d) => d.label),
-      datasets: [{ data: historicalData.map((d) => d.occupancy_percentage) }]
-    };
-  };
-
-  const selectedPeriodLabel =
-    periodOptions.find((p) => p.value === timePeriod)?.label || "Current Status";
-  const avgStats = timePeriod !== "current" ? calculateAverageStats() : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      {loading && <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 16 }} />}
-      <ScrollView>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={{ padding: 16 }}>
-          <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700" }}>Parking Insights</Text>
-          <Text style={{ color: secondaryText, fontSize: 14, marginTop: 4 }}>Historical availability data</Text>
+        <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 24 }}>
+          <Text style={{ color: theme.text, fontSize: 32, fontWeight: "700", letterSpacing: -0.5 }}>
+            Parking Insights
+          </Text>
+          <Text style={{ color: secondaryText, fontSize: 15, marginTop: 6 }}>
+            Real-time availability and trends
+          </Text>
         </View>
 
         {/* Lot Selector */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 12 }}>Select Parking Lot:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {garages.map((lot) => {
-              const isSelected = selectedLotId === lot.id;
-              return (
+        <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
+          <Text style={{ color: theme.text, fontSize: 13, fontWeight: "600", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            Parking Location
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowLotDropdown(!showLotDropdown)}
+            style={{ 
+              borderRadius: 16, 
+              backgroundColor: cardBg,
+              padding: 16,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDark ? 0.3 : 0.1,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
+            <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>
+              {garages[parseInt(selectedLotId)]?.name || "Select a lot"}
+            </Text>
+            <Text style={{ color: secondaryText, fontSize: 18 }}>
+              {showLotDropdown ? "▲" : "▼"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Dropdown Menu */}
+          {showLotDropdown && (
+            <View style={{
+              marginTop: 8,
+              borderRadius: 16,
+              backgroundColor: cardBg,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDark ? 0.3 : 0.1,
+              shadowRadius: 8,
+              elevation: 3,
+              overflow: "hidden",
+            }}>
+              {garages.map((lot, index) => (
                 <TouchableOpacity
                   key={lot.id}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    marginRight: 8,
-                    backgroundColor: isSelected ? theme.primary : cardBg,
-                    borderRadius: 20,
-                    borderWidth: 2,
-                    borderColor: isSelected ? theme.primary : theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb"
+                  onPress={() => {
+                    setSelectedLotId(lot.id);
+                    setShowLotDropdown(false);
                   }}
-                  onPress={() => setSelectedLotId(lot.id)}
+                  style={{
+                    padding: 16,
+                    backgroundColor: selectedLotId === lot.id ? accentColor + "15" : "transparent",
+                    borderBottomWidth: index < garages.length - 1 ? 1 : 0,
+                    borderBottomColor: borderColor,
+                  }}
                 >
-                  <Text style={{ fontSize: 14, color: isSelected ? "#FFFFFF" : theme.text, fontWeight: isSelected ? "600" : "500" }}>
+                  <Text style={{ 
+                    color: selectedLotId === lot.id ? accentColor : theme.text, 
+                    fontSize: 16,
+                    fontWeight: selectedLotId === lot.id ? "600" : "400",
+                  }}>
                     {lot.name}
                   </Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+              ))}
+            </View>
+          )}
         </View>
 
-        {/* Time Period Dropdown */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 16, zIndex: 1000 }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 12 }}>Time Period:</Text>
-          <View style={{ position: "relative" }}>
-            <TouchableOpacity
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: 14,
-                backgroundColor: cardBg,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb"
-              }}
-              onPress={() => setShowPeriodDropdown(!showPeriodDropdown)}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons
-                  name={periodOptions.find((p) => p.value === timePeriod)?.icon as any || "time-outline"}
-                  size={20}
-                  color={theme.primary}
-                  style={{ marginRight: 10 }}
-                />
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>{selectedPeriodLabel}</Text>
-              </View>
-              <Ionicons name={showPeriodDropdown ? "chevron-up" : "chevron-down"} size={20} color={secondaryText} />
-            </TouchableOpacity>
-
-            {showPeriodDropdown && (
-              <View
+        {/* Time Period Pills */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+          <Text style={{ color: theme.text, fontSize: 13, fontWeight: "600", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            Time Range
+          </Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            {periodOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                onPress={() => setTimePeriod(option.value)}
                 style={{
-                  position: "absolute",
-                  top: 60,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: cardBg,
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
                   borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb",
-                  shadowColor: "#000",
+                  backgroundColor: timePeriod === option.value ? accentColor : secondaryBg,
+                  alignItems: "center",
+                  shadowColor: timePeriod === option.value ? accentColor : "transparent",
+                  shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.3,
                   shadowRadius: 8,
-                  elevation: 5,
-                  zIndex: 1000
+                  elevation: timePeriod === option.value ? 4 : 0,
                 }}
               >
-                {periodOptions.map((option, index) => (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      padding: 14,
-                      borderBottomWidth: index < periodOptions.length - 1 ? 1 : 0,
-                      borderBottomColor: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb",
-                      backgroundColor: timePeriod === option.value ? theme.mode === "dark" ? "#2b2b2b" : "#f3f4f6" : "transparent"
-                    }}
-                    onPress={() => {
-                      setTimePeriod(option.value);
-                      setShowPeriodDropdown(false);
-                    }}
-                  >
-                    <Ionicons
-                      name={option.icon as any}
-                      size={20}
-                      color={timePeriod === option.value ? theme.primary : secondaryText}
-                      style={{ marginRight: 10 }}
-                    />
-                    <Text style={{ color: timePeriod === option.value ? theme.primary : theme.text, fontSize: 16, fontWeight: timePeriod === option.value ? "600" : "400" }}>
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+                <Text style={{ 
+                  color: timePeriod === option.value ? "#ffffff" : theme.text, 
+                  fontSize: 14, 
+                  fontWeight: "600" 
+                }}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
-        {/* Current / Average Stats Card */}
-        <View
-          style={{
-            marginHorizontal: 16,
-            marginBottom: 16,
-            padding: 16,
-            borderRadius: 14,
+        {/* Stats Card */}
+        {currentStatus && (
+          <View style={{ 
+            marginHorizontal: 20, 
+            marginBottom: 24, 
+            padding: 24, 
+            borderRadius: 20, 
             backgroundColor: cardBg,
-            borderWidth: 2,
-            borderColor: getOccupancyColor(avgStats ? parseFloat(avgStats.avgOccupancy) : currentStatus?.occupancy_percentage || 0),
             shadowColor: "#000",
-            shadowOpacity: 0.2,
-            shadowRadius: 6
-          }}
-        >
-          <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>{currentStatus?.name || "Loading..."}</Text>
-          <Text style={{ color: secondaryText, fontSize: 14, marginTop: 4 }}>
-            {timePeriod === "current" ? "Current Status" : `Average (${selectedPeriodLabel})`}
-          </Text>
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: isDark ? 0.4 : 0.1,
+            shadowRadius: 12,
+            elevation: 5,
+          }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <View>
+                <Text style={{ color: theme.text, fontSize: 20, fontWeight: "700" }}>
+                  {currentStatus.name}
+                </Text>
+                <Text style={{ color: secondaryText, fontSize: 13, marginTop: 4 }}>
+                  Current Status
+                </Text>
+              </View>
+              <View style={{
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+                borderRadius: 20,
+                backgroundColor: getOccupancyColor(currentStatus.occupancy_percentage) + "20",
+              }}>
+                <Text style={{ 
+                  color: getOccupancyColor(currentStatus.occupancy_percentage), 
+                  fontSize: 13, 
+                  fontWeight: "700" 
+                }}>
+                  {getStatusText(currentStatus.occupancy_percentage)}
+                </Text>
+              </View>
+            </View>
 
-          <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 16, marginBottom: 16 }}>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 24, fontWeight: "bold", color: "#41c463" }}>
-                {avgStats ? avgStats.avgAvailable : (currentStatus?.total || 0) - (currentStatus?.current || 0)}
-              </Text>
-              <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>Available</Text>
+            <View style={{ 
+              flexDirection: "row", 
+              justifyContent: "space-between", 
+              paddingTop: 20,
+              borderTopWidth: 1,
+              borderTopColor: borderColor,
+            }}>
+              <View style={{ alignItems: "center", flex: 1 }}>
+                <Text style={{ fontSize: 28, fontWeight: "800", color: "#10b981" }}>
+                  {currentStatus.total - currentStatus.current}
+                </Text>
+                <Text style={{ fontSize: 12, color: secondaryText, marginTop: 6, fontWeight: "500" }}>
+                  Available
+                </Text>
+              </View>
+              <View style={{ width: 1, backgroundColor: borderColor }} />
+              <View style={{ alignItems: "center", flex: 1 }}>
+                <Text style={{ fontSize: 28, fontWeight: "800", color: "#ef4444" }}>
+                  {currentStatus.current}
+                </Text>
+                <Text style={{ fontSize: 12, color: secondaryText, marginTop: 6, fontWeight: "500" }}>
+                  Occupied
+                </Text>
+              </View>
+              <View style={{ width: 1, backgroundColor: borderColor }} />
+              <View style={{ alignItems: "center", flex: 1 }}>
+                <Text style={{ fontSize: 28, fontWeight: "800", color: theme.text }}>
+                  {currentStatus.total}
+                </Text>
+                <Text style={{ fontSize: 12, color: secondaryText, marginTop: 6, fontWeight: "500" }}>
+                  Total Spots
+                </Text>
+              </View>
             </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 24, fontWeight: "bold", color: "#f91e1eff" }}>
-                {avgStats ? avgStats.avgOccupied : currentStatus?.current || 0}
+
+            {/* Occupancy Bar */}
+            <View style={{ marginTop: 20 }}>
+              <View style={{ 
+                height: 8, 
+                backgroundColor: secondaryBg, 
+                borderRadius: 4, 
+                overflow: "hidden" 
+              }}>
+                <View style={{ 
+                  height: "100%", 
+                  width: `${currentStatus.occupancy_percentage}%`, 
+                  backgroundColor: getOccupancyColor(currentStatus.occupancy_percentage),
+                  borderRadius: 4,
+                }} />
+              </View>
+              <Text style={{ 
+                color: secondaryText, 
+                fontSize: 12, 
+                marginTop: 8, 
+                textAlign: "center",
+                fontWeight: "500" 
+              }}>
+                {currentStatus.occupancy_percentage.toFixed(0)}% Occupied
               </Text>
-              <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>Occupied</Text>
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 24, fontWeight: "bold", color: theme.text }}>
-                {avgStats ? avgStats.total : currentStatus?.total || 0}
-              </Text>
-              <Text style={{ fontSize: 12, color: secondaryText, marginTop: 4 }}>Total</Text>
             </View>
           </View>
+        )}
 
-          <View style={{ height: 14, backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#d9d9d9", borderRadius: 8, overflow: "hidden", marginBottom: 8 }}>
-            <View
-              style={{
-                width: (avgStats ? `${avgStats.avgOccupancy}%` : `${currentStatus?.occupancy_percentage || 0}%`) as any,
-                height: "100%",
-                backgroundColor: getOccupancyColor(avgStats ? parseFloat(avgStats.avgOccupancy) : currentStatus?.occupancy_percentage || 0)
-              }}
-            />
+        {/* Loading Indicator */}
+        {loading && (
+          <View style={{ alignItems: "center", marginVertical: 20 }}>
+            <ActivityIndicator size="large" color={accentColor} />
           </View>
-          <Text style={{ fontSize: 14, color: secondaryText, textAlign: "center" }}>
-            {avgStats ? avgStats.avgOccupancy : currentStatus?.occupancy_percentage?.toFixed(1) || 0}% Full
-          </Text>
-        </View>
+        )}
 
         {/* Historical Chart */}
-        {timePeriod !== "current" && (
-          <View style={{ marginHorizontal: 16, marginBottom: 16, padding: 16, borderRadius: 14, backgroundColor: cardBg, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6 }}>
-            <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600", marginBottom: 16 }}>Occupancy Trend</Text>
+        {!loading && historicalData.length > 0 && (
+          <View style={{ 
+            marginHorizontal: 20, 
+            marginBottom: 32, 
+            padding: 20, 
+            borderRadius: 20, 
+            backgroundColor: cardBg,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: isDark ? 0.4 : 0.1,
+            shadowRadius: 12,
+            elevation: 5,
+          }}>
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: "700", marginBottom: 16 }}>
+              Occupancy Trend
+            </Text>
             <BarChart
               data={getChartData()}
-              width={width - 64}
-              height={220}
-              yAxisLabel=""
+              width={width - 80}
+              height={240}
               yAxisSuffix="%"
               chartConfig={{
                 backgroundColor: cardBg,
                 backgroundGradientFrom: cardBg,
                 backgroundGradientTo: cardBg,
                 decimalPlaces: 0,
-                color: (opacity = 1) => theme.primary,
-                labelColor: (opacity = 1) => theme.text,
-                style: { borderRadius: 16 },
-                propsForLabels: { fontSize: 10 },
-                propsForBackgroundLines: { strokeDasharray: "", stroke: theme.mode === "dark" ? "#2b2b2b" : "#e5e7eb" }
+                color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
+                labelColor: () => secondaryText,
+                propsForBackgroundLines: { 
+                  strokeDasharray: "", 
+                  stroke: borderColor,
+                  strokeWidth: 1,
+                },
+                propsForLabels: {
+                  fontSize: 11,
+                },
               }}
-              style={{ marginVertical: 8, borderRadius: 16 }}
-              showValuesOnTopOfBars={false}
-              fromZero={true}
+              fromZero
+              style={{ borderRadius: 16, marginVertical: 8 }}
+              showValuesOnTopOfBars
             />
           </View>
         )}
