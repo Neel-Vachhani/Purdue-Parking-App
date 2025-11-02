@@ -16,6 +16,7 @@ import Calendar from "./screens/Calender/Calender";
 import AuthScreen from "./screens/Auth/AuthScreen";
 import Insights from "./screens/Insights/Insights";
 
+import ParkingWS from "./components/ParkingWS";
 
 
 // Tab type
@@ -77,7 +78,10 @@ export default function App() {
             <ActivityIndicator />
           </View>
         ) : isAuthed ? (
-          <Tabs />
+          <>
+            <Tabs />
+            <ParkingWS />
+          </>
         ) : (
           <AuthScreen pushToken={expoPushToken} onAuthed={() => setIsAuthed(true)} />
         )}

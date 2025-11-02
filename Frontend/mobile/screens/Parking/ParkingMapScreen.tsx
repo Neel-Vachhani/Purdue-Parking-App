@@ -12,7 +12,8 @@
 // }
 
 import React, { useEffect, useState } from "react";
-import { Marker } from 'react-native-maps';
+import { View, Text } from "react-native";
+import { Marker, Callout } from "react-native-maps";
 import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
 import { INITIAL_REGION } from "../../constants/map";
@@ -46,12 +47,16 @@ export default function ParkingMapScreen() {
     <ThemedView>
       <ParkingMap initialRegion={INITIAL_REGION}>
         {locations.map((location) => (
-          <Marker
-            key={location.id}
-            coordinate={location.coordinate}
-            title={location.title}
-            description={location.description}
-          />
+          <Marker key={location.id} coordinate={location.coordinate}>
+            <Callout tooltip={false}>
+              <View style={{ padding: 6, maxWidth: 220 }}>
+                <Text style={{ fontWeight: "600" }}>{location.title}</Text>
+                <Text style={{ marginTop: 4 }}>
+                  {location.description || "Availability unavailable"}
+                </Text>
+              </View>
+            </Callout>
+          </Marker>
         ))}
       </ParkingMap>
     </ThemedView>
