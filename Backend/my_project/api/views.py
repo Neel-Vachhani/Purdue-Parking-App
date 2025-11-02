@@ -9,8 +9,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.response import Response
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from boiler_park_backend.models import Item, User, LotEvent
-from .serializers import ItemSerializer, UserSerializer, LotEventSerializer
+from boiler_park_backend.models import Item, User, LotEvent, NotificationLog
+from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer
 from .services import verify_apple_identity, issue_session_token
 import jwt
 
@@ -134,6 +134,12 @@ def apple_sign_in(request):
         parking_pass="a",
       )
       user.save()
+    
+    # Save push token if provided
+    push_token = request.data.get("push_token")
+    if push_token:
+        user.notification_token = push_token
+        user.save(update_fields=["notification_token"])
 
     token = issue_session_token(user)
 
@@ -180,6 +186,7 @@ def sign_up(request):
     name = serializer.validated_data.get('name', email)
     raw_password = serializer.validated_data['password']
     parking_pass = serializer.validated_data.get('parking_pass', "abcd")
+    push_token = request.data.get('push_token')  # Get from raw data, not validated
 
     salt = bcrypt.gensalt()
     hashed_pass = bcrypt.hashpw(raw_password.encode('utf-8'), salt).decode('utf-8')
@@ -189,6 +196,7 @@ def sign_up(request):
         name=name,
         password=hashed_pass,  
         parking_pass=parking_pass,
+        notification_token=push_token if push_token else None,
     )
     user.save()
 
@@ -283,11 +291,73 @@ def list_lot_events(request, lot_code: str):
 
 @api_view(['POST'])
 def notify_parking_pass_sale(request):
-    """Stub endpoint to broadcast parking pass sale notifications."""
+    """
+    Broadcast parking pass sale notifications to all opted-in users.
+    Used by User Story #2 - Push notifications for pass sales.
+    
+    Body:
+        message (optional): Custom notification message
+    
+    Returns:
+        sent: Number of successful notifications
+        failed: Number of failed notifications
+        message: The message that was sent
+    """
+    from .push_notifications import send_push_message
+    
+    # Get message from request, with default
     message = request.data.get("message") or "Parking passes are on sale!"
+    
+    # Get all users with notification tokens (opted-in)
     users = User.objects.exclude(notification_token__isnull=True).exclude(notification_token__exact="")
-    # TODO: integrate send_push_message once ready
-    return Response({"queued": users.count(), "message": message})
+    
+    sent = 0
+    failed = 0
+    
+    for user in users:
+        try:
+            # Personalize with user's name
+            name = (user.name or user.email or "Boilermaker").split()[0]
+            personalized_message = f"Hi {name}, {message}"
+            
+            # Send push notification
+            send_push_message(
+                token=user.notification_token,
+                message=personalized_message,
+                extra={"type": "pass_sale", "user_id": user.id}
+            )
+            
+            # Log successful notification
+            NotificationLog.objects.create(
+                user=user,
+                notification_type='pass_sale',
+                message=personalized_message,
+                success=True
+            )
+            sent += 1
+            
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Failed to send push to user {user.id}: {error_msg}")
+            
+            # Log failed notification
+            NotificationLog.objects.create(
+                user=user,
+                notification_type='pass_sale',
+                message=personalized_message if 'personalized_message' in locals() else message,
+                success=False,
+                error_message=error_msg
+            )
+            failed += 1
+    
+    logger.info(f"Pass sale notification: {sent} sent, {failed} failed")
+    
+    return Response({
+        "sent": sent,
+        "failed": failed,
+        "total_users": sent + failed,
+        "message": message
+    })
 
 
 @api_view(['POST'])
@@ -296,3 +366,116 @@ def notify_upcoming_closures(request):
     lot = request.data.get("lot") or "PGH"
     date = request.data.get("date") or "tomorrow"
     return Response({"queued": True, "lot": lot, "date": date})
+
+
+@api_view(['GET'])
+def notification_history(request):
+    """
+    Get notification history with optional filtering.
+    Used for debugging and monitoring User Story #2 and #11.
+    
+    Query params:
+        user_email: Filter by user email
+        notification_type: Filter by type (pass_sale, lot_closure, etc.)
+        limit: Number of results (default 50, max 200)
+    
+    Example:
+        /api/notifications/history/?notification_type=pass_sale&limit=10
+    """
+    # Start with all notifications
+    notifications = NotificationLog.objects.all()
+    
+    # Filter by user email if provided
+    user_email = request.query_params.get('user_email')
+    if user_email:
+        notifications = notifications.filter(user__email__icontains=user_email)
+    
+    # Filter by notification type if provided
+    notification_type = request.query_params.get('notification_type')
+    if notification_type:
+        notifications = notifications.filter(notification_type=notification_type)
+    
+    # Limit results
+    limit = min(int(request.query_params.get('limit', 50)), 200)
+    notifications = notifications[:limit]
+    
+    return Response(NotificationLogSerializer(notifications, many=True).data)
+
+
+@api_view(['GET'])
+def notification_stats(request):
+    """
+    Get notification statistics.
+    Shows success/failure rates by notification type.
+    
+    Example:
+        /api/notifications/stats/
+    """
+    from django.db.models import Count, Q
+    
+    stats = {}
+    
+    # Get stats for each notification type
+    for type_code, type_name in NotificationLog.NOTIFICATION_TYPES:
+        type_notifications = NotificationLog.objects.filter(notification_type=type_code)
+        
+        stats[type_code] = {
+            'name': type_name,
+            'total': type_notifications.count(),
+            'successful': type_notifications.filter(success=True).count(),
+            'failed': type_notifications.filter(success=False).count()
+        }
+    
+    # Overall stats
+    all_notifications = NotificationLog.objects.all()
+    stats['overall'] = {
+        'total': all_notifications.count(),
+        'successful': all_notifications.filter(success=True).count(),
+        'failed': all_notifications.filter(success=False).count()
+    }
+    
+    # Opted-in users count
+    stats['opted_in_users'] = User.objects.exclude(
+        notification_token__isnull=True
+    ).exclude(
+        notification_token__exact=""
+    ).count()
+    
+    return Response(stats)
+
+
+@api_view(['GET'])
+def check_user_notifications(request):
+    """
+    Check if a user will receive notifications.
+    Useful for debugging opt-in/opt-out issues.
+    
+    Query params:
+        email: User's email address
+    
+    Example:
+        /api/notifications/check/?email=user@purdue.edu
+    """
+    email = request.query_params.get('email')
+    if not email:
+        return Response({"error": "email parameter required"}, status=400)
+    
+    try:
+        user = User.objects.get(email=email)
+        
+        # Check if user has notification token
+        has_token = bool(user.notification_token and user.notification_token.strip())
+        
+        # Get recent notifications for this user
+        recent_notifications = NotificationLog.objects.filter(user=user)[:5]
+        
+        return Response({
+            'email': user.email,
+            'name': user.name,
+            'opted_in': has_token,
+            'notification_token': user.notification_token[:20] + '...' if has_token else None,
+            'recent_notifications': NotificationLogSerializer(recent_notifications, many=True).data
+        })
+    
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
