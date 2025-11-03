@@ -12,6 +12,7 @@ import ThemedText from "../../components/ThemedText";
 
 
 import axios from "axios";
+import GoogleLoginButton from "../../components/GoogleLoginButton";
 
 // platform-safe base URL:
 // - iOS Simulator: http://localhost:7500
@@ -66,9 +67,10 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
       setSubmitting(true);
 
       if (mode === "signup") {
-        const res = await axios.post(`${API_BASE}/auth/signup/`, {
+        const res = await axios.post(`${API_BASE}/signup/`, {
           email,
           password,
+          name: email,
           push_token: pushToken ?? null,
         });
         // Expecting { token, user }
@@ -78,7 +80,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
       }
 
       // login
-      const res = await axios.post(`${API_BASE}/auth/login/`, {
+      const res = await axios.post(`${API_BASE}/login/`, {
         email,
         password,
       });
@@ -96,22 +98,34 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
     }
   }
   async function handleApple() {
-    try {
-      const cred = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-      // TODO: send cred.identityToken (+ pushToken) to backend
-      await SecureStore.setItemAsync("sessionToken", cred.user ?? "apple_user");
-      onAuthed();
-    } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED") {
-        Alert.alert("Apple Sign-In failed", e?.message ?? "Unknown error");
-      }
+  try {
+    const cred = await AppleAuthentication.signInAsync({
+      requestedScopes: [
+        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+      ],
+    });
+
+    // Send token + user info to backend for verification and session creation
+    const res = await axios.post(`${API_BASE}/apple/`, {
+      identity_token: cred.identityToken,  // JWT from Apple
+      user: cred.user,                     // Apple user ID
+      full_name: cred.fullName ?? null,    // optional
+      email: cred.email ?? null,           // optional
+      push_token: pushToken ?? null,
+    });
+
+    const { token, user } = res.data || {};
+    await SecureStore.setItemAsync("sessionToken", token ?? "apple_ios");
+    if (user) await SecureStore.setItemAsync("user", JSON.stringify(user));
+
+    onAuthed(); // continue to main app
+  } catch (e: any) {
+    if (e?.code !== "ERR_CANCELED") {
+      Alert.alert("Apple Sign-In failed", e?.message ?? "Unknown error");
     }
   }
+}
 
   // ---------- Google OAuth (expo-auth-session) ----------
   const isExpoGo = Constants.executionEnvironment === "storeClient";
@@ -222,16 +236,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
       </TouchableOpacity>
 
       {/* Google Sign-In */}
-      <TouchableOpacity
-        onPress={handleGoogle}
-        disabled={!request}
-        style={[
-          styles.googleButton,
-          !request && { opacity: 0.6 },
-        ]}
-      >
-        <Text style={styles.googleText}>Continue with Google</Text>
-      </TouchableOpacity>
+      <GoogleLoginButton onPress={handleGoogle} />
 
       {Platform.OS === "ios" && (
         <View style={{ width: "100%", marginTop: 12 }}>

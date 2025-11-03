@@ -18,6 +18,7 @@ type ParkingLot = {
 
 type ApiLot = Pick<ParkingLot, "id" | "name"> &
   Partial<Pick<ParkingLot, "available" | "capacity">>;
+    const theme = React.useContext(ThemeContext);
 
 const INITIAL_PARKING_LOTS: ParkingLot[] = [
   {

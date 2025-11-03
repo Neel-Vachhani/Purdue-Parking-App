@@ -1,6 +1,7 @@
 // components/CalendarView.tsx
 import * as React from "react";
 import { View, Text, FlatList, StyleSheet } from "react-native";
+import { ThemeContext } from "../theme/ThemeProvider";
 
 // Strict type definitions
 type EventType = "lecture" | "lab" | "discussion";
@@ -68,10 +69,8 @@ const COLOR_MAP: Record<EventType | "default", string> = {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121314",
   },
   header: {
-    color: "white",
     fontSize: 32,
     fontWeight: "700",
     margin: 16,
@@ -81,7 +80,6 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     padding: 16,
     borderRadius: 14,
-    backgroundColor: "#202225",
     borderWidth: 2,
     shadowColor: "#000",
     shadowOpacity: 0.2,
@@ -93,16 +91,13 @@ const styles = StyleSheet.create({
     elevation: 3, // For Android shadow
   },
   courseText: {
-    color: "white",
     fontSize: 18,
     fontWeight: "600",
   },
   timeText: {
-    color: "#cfd2d6",
     marginTop: 4,
   },
   locationText: {
-    color: "#9ca3af",
     marginTop: 2,
   },
   listContent: {
@@ -115,18 +110,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyText: {
-    color: "#9ca3af",
     fontSize: 16,
     textAlign: "center",
     lineHeight: 24,
   },
 });
 
-export default function CalendarView({ data = SAMPLE_SCHEDULE }: CalendarViewProps): React.JSX.Element {
+export default function CalendarView(): React.JSX.Element {
   // Safe data handling with fallback
-  const displayData = React.useMemo(() => {
-    return Array.isArray(data) ? data : SAMPLE_SCHEDULE;
-  }, [data]);
+  const displayData = SAMPLE_SCHEDULE;
+
+  const theme = React.useContext(ThemeContext);
+
+  const headerColor = theme.text;
+  const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
+  const courseColor = theme.text;
+  const timeColor = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
+  const locationColor = theme.mode === "dark" ? "#9ca3af" : "#6b7280";
+  const emptyColor = theme.mode === "dark" ? "#9ca3af" : "#6b7280";
 
   const getBorderColor = React.useCallback((type?: EventType): string => {
     if (type && type in COLOR_MAP) {
@@ -142,16 +143,16 @@ export default function CalendarView({ data = SAMPLE_SCHEDULE }: CalendarViewPro
       <View
         style={[
           styles.eventCard,
-          { borderColor } // Dynamic border color
+          { borderColor, backgroundColor: cardBg } // Dynamic border and background
         ]}
       >
-       <Text style={styles.courseText}>
+       <Text style={[styles.courseText, { color: courseColor }]}>
         {item.course}
         </Text>
-        <Text style={styles.timeText}>
+        <Text style={[styles.timeText, { color: timeColor }]}>
         {item.time}
         </Text>
-        <Text style={styles.locationText}>
+        <Text style={[styles.locationText, { color: locationColor }]}>
         {item.location}
         </Text>
       </View>
@@ -165,16 +166,16 @@ export default function CalendarView({ data = SAMPLE_SCHEDULE }: CalendarViewPro
   const renderEmptyState = React.useCallback((): React.JSX.Element => {
     return (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyText}>
+        <Text style={[styles.emptyText, { color: emptyColor }] }>
           No classes scheduled for today
         </Text>
       </View>
     );
-  }, []);
+  }, [emptyColor]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <Text style={[styles.header, { color: headerColor }] }>
         Today
       </Text>
       <FlatList
