@@ -1,6 +1,5 @@
 import * as React from "react";
-import { View, Text, ActivityIndicator } from "react-native";
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { View, ActivityIndicator } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -24,7 +23,6 @@ import ParkingWS from "./components/ParkingWS";
 type TabKey = "garages" | "map" | "settings" | "calendar" | "insights";
 
 export default function App() {
-
   const [tab, setTab] = React.useState<TabKey>("garages");
   const [expoPushToken, setExpoPushToken] = React.useState<string | null>(null);
   const [booting, setBooting] = React.useState(true);
@@ -73,25 +71,12 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <SafeAreaProvider>
-          <View style={{ flex: 1 }}>
-            {booting ? (
-              <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                <ActivityIndicator />
-              </View>
-            ) : isAuthed ? (
-              <Tabs />
-            ) : (
-              <AuthScreen pushToken={expoPushToken} onAuthed={() => setIsAuthed(true)} />
-            )}
+    <ThemeProvider>
+      <SafeAreaProvider>
+        {booting ? (
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+            <ActivityIndicator />
           </View>
-<<<<<<< HEAD
-        </SafeAreaProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
-=======
         ) : isAuthed ? (
           <>
             <Tabs />
@@ -102,6 +87,5 @@ export default function App() {
         )}
       </SafeAreaProvider>
     </ThemeProvider>
->>>>>>> remotes/origin/main
   );
 }
