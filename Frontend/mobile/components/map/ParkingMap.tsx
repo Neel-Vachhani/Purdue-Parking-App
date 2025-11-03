@@ -4,6 +4,8 @@ import MapView, { Region, MapViewProps } from "react-native-maps";
 import { INITIAL_REGION, MIN_ZOOM_LEVEL, MAX_ZOOM_LEVEL } from "../../constants/map";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../../theme/ThemeProvider";
+import { Config}  from "react-native-config";
+import GooglePlacesTextInput from "react-native-google-places-textinput";
 
 // Public props for the reusable map component.
 // - initialRegion: allow callers to override where the camera starts.
@@ -20,6 +22,7 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
 
   return (
     <View style={styles.container}>
+        {/*<script asyncmsrc={Config.GOOGLE_MAPS_URL}></script>*/}
       {/* Base map. Keep config minimal; avoid coupling to data here. */}
       <MapView
         ref={mapRef}
@@ -57,6 +60,12 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         {/* Purdue gold icon for brand consistency */}
         <MaterialIcons name="my-location" size={22} color={theme.primary} />
       </Pressable>
+      <GooglePlacesTextInput 
+        apiKey={Config.GOOGLE_MAPS_API!} //TODO: Figure this out
+        onPlaceSelect={ handlePlaceSelect }>
+
+        </GooglePlacesTextInput>
+
     </View>
   );
 }
@@ -83,3 +92,6 @@ const styles = StyleSheet.create({
 });
 
 
+const handlePlaceSelect = (place: any) => {
+    console.log('Selected place:', place);
+  };
