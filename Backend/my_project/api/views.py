@@ -20,14 +20,7 @@ import jwt
 logger = logging.getLogger(__name__)
 
 
-PARKING_LOTS: List[Dict[str, Any]] = [
-    {"id": 1, "name": "Harrison Garage", "redis_key": "PGH_availability"},
-    {"id": 2, "name": "Grant Street Garage", "redis_key": "PGG_availability"},
-    {"id": 3, "name": "University Street Garage", "redis_key": "PGU_availability"},
-    {"id": 4, "name": "Northwestern Garage", "redis_key": "PGNW_availability"},
-    # Update redis_key if a different counter is used for DS/AI lot
-    {"id": 5, "name": "DS/AI Lot", "redis_key": "DISC_ABC_availability"},
-]
+
 
 
 def _redis_connection() -> redis.Redis:
@@ -126,6 +119,14 @@ def get_postgres_parking_data(request):
 
 @api_view(['GET'])
 def get_parking_availability(request):
+    PARKING_LOTS: List[Dict[str, Any]] = [
+        {"id": 1, "name": "Harrison Garage", "redis_key": "PGH_availability"},
+        {"id": 2, "name": "Grant Street Garage", "redis_key": "PGG_availability"},
+        {"id": 3, "name": "University Street Garage", "redis_key": "PGU_availability"},
+        {"id": 4, "name": "Northwestern Garage", "redis_key": "PGNW_availability"},
+        # Update redis_key if a different counter is used for DS/AI lot
+        {"id": 5, "name": "DS/AI Lot", "redis_key": "DISC_ABC_availability"},
+    ]
     try:
         client = _redis_connection()
         lots_payload = []
