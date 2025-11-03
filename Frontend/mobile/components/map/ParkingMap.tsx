@@ -7,6 +7,7 @@ import { ThemeContext } from "../../theme/ThemeProvider";
 import { Config}  from "react-native-config";
 import GooglePlacesTextInput from "react-native-google-places-textinput";
 
+
 // Public props for the reusable map component.
 // - initialRegion: allow callers to override where the camera starts.
 // Future stories can extend this interface (e.g., markers, onMarkerPress).
@@ -61,8 +62,17 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         <MaterialIcons name="my-location" size={22} color={theme.primary} />
       </Pressable>
       <GooglePlacesTextInput 
-        apiKey={Config.GOOGLE_MAPS_API!} //TODO: Figure this out
-        onPlaceSelect={ handlePlaceSelect }>
+        apiKey="APIKEY"//TODO
+        placeHolderText="Search for a garage"
+        fetchDetails={true}
+        detailsFields={['formattedAddress', 'location']}
+        locationRestriction={{
+          rectangle: {
+            low: { latitude: 40.39286, longitude: -86.954622},
+            high: { latitude: 40.466874, longitude: -86.871755 }
+          }
+        }}
+        onPlaceSelect={ handlePlaceSelect }  >
 
         </GooglePlacesTextInput>
 
@@ -93,5 +103,5 @@ const styles = StyleSheet.create({
 
 
 const handlePlaceSelect = (place: any) => {
-    console.log('Selected place:', place);
+    console.log('Selected place:', place.details.formattedAddress);
   };
