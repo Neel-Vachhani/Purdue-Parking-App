@@ -48,6 +48,7 @@ CHANNEL_LAYERS = {
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -59,7 +60,7 @@ INSTALLED_APPS = [
     "channels",
     'boiler_park_backend',
     "fcm_django",
-
+    "django.contrib.sites",
 ]
 
 MIDDLEWARE = [
