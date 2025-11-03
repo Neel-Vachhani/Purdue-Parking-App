@@ -1,11 +1,20 @@
 // components/GarageList.tsx
 import Constants from "expo-constants";
 import * as React from "react";
-import { Platform, View, Text, FlatList, TouchableOpacity, TextInput } from "react-native";
+import {
+  Platform,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  TouchableWithoutFeedback,
+} from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
-import PaidLot from "./PaidLot";
+type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall";
 
 type Garage = {
   id: string;
@@ -17,6 +26,7 @@ type Garage = {
   favorite?: boolean;
   lat?: number;
   lng?: number;
+  passes: ParkingPass[];
 };
 
 type GarageDefinition = {
@@ -26,37 +36,39 @@ type GarageDefinition = {
   favorite?: boolean;
   lat?: number;
   lng?: number;
+  passes: ParkingPass[];
 };
+const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall"];
 
 const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true },
-  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true },
-  { code: "PGU", name: "University Street Parking Garage", paid: true },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true },
-  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true },
-  { code: "PGW", name: "Wood Street Parking Garage", paid: true },
-  { code: "PGGH", name: "Graduate House Parking Garage", paid: true },
-  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true },
-  { code: "LOT_R", name: "Lot R (North of Ross-Ade)" },
-  { code: "LOT_H", name: "Lot H (North of Football Practice Field)" },
-  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)" },
-  { code: "KFPC", name: "Kozuch Football Performance Complex Lot" },
-  { code: "LOT_A", name: "Lot A (North of Cary Quad)" },
-  { code: "CREC", name: "Co-Rec Parking Lots" },
-  { code: "LOT_O", name: "Lot O (East of Rankin Track)" },
-  { code: "TARK_WILY", name: "Tarkington & Wiley Lots" },
-  { code: "LOT_AA", name: "Lot AA (6th & Russell)" },
-  { code: "LOT_BB", name: "Lot BB (6th & Waldron)" },
-  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot" },
-  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot" },
-  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot" },
-  { code: "DUHM", name: "Duhme Hall Parking Lot" },
-  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true },
-  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot" },
-  { code: "DISC_A", name: "Discovery Lot (A Permit)" },
-  { code: "DISC_AB", name: "Discovery Lot (AB Permit)" },
-  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)" },
-  { code: "AIRPORT", name: "Airport Parking Lots" },
+  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, passes: ["A", "B"] },
+  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, passes: ["A", "B"] },
+  { code: "PGU", name: "University Street Parking Garage", paid: true, passes: ["A", "SG"] },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, passes: ["A", "SG"] },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, passes: ["Residence Hall"] },
+  { code: "PGW", name: "Wood Street Parking Garage", paid: true, passes: ["A", "SG"] },
+  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, passes: ["Grad House"] },
+  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, passes: ["A"] },
+  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", passes: ["A", "B", "C"] },
+  { code: "LOT_H", name: "Lot H (North of Football Practice Field)", passes: ["A", "B", "C"] },
+  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", passes: ["A", "B"] },
+  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", passes: ["A", "B"] },
+  { code: "LOT_A", name: "Lot A (North of Cary Quad)", passes: ["A", "B"] },
+  { code: "CREC", name: "Co-Rec Parking Lots", passes: ["A", "B", "C"] },
+  { code: "LOT_O", name: "Lot O (East of Rankin Track)", passes: ["A", "B", "C"] },
+  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", passes: ["A", "B"] },
+  { code: "LOT_AA", name: "Lot AA (6th & Russell)", passes: ["A", "B"] },
+  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", passes: ["A", "B"] },
+  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", passes: ["A", "B"] },
+  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", passes: ["A", "B"] },
+  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", passes: ["A", "B"] },
+  { code: "DUHM", name: "Duhme Hall Parking Lot", passes: ["A", "B"] },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, passes: ["A", "B"] },
+  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", passes: ["A"] },
+  { code: "DISC_A", name: "Discovery Lot (A Permit)", passes: ["A"] },
+  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", passes: ["A", "B"] },
+  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", passes: ["A", "B", "C"] },
+  { code: "AIRPORT", name: "Airport Parking Lots", passes: ["A", "B", "C"] },
 ];
 
 const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
@@ -71,6 +83,7 @@ const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => 
     total: initialCounts.total,
     lat: definition.lat,
     lng: definition.lng,
+    passes: definition.passes,
   };
 });
 
@@ -130,6 +143,8 @@ export default function GarageList({
     })
   );
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [selectedPasses, setSelectedPasses] = React.useState<ParkingPass[]>([]);
+  const [isFilterVisible, setIsFilterVisible] = React.useState(false);
 
   React.useEffect(() => {
     setGarages(data);
@@ -244,20 +259,41 @@ export default function GarageList({
 
   const visibleGarages = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) {
-      return garages;
+
+    let filtered = garages;
+
+    if (query) {
+      filtered = filtered.filter((garage) => {
+        const nameMatches = garage.name.toLowerCase().includes(query);
+        const codeMatches = garage.code.toLowerCase().includes(query);
+        return nameMatches || codeMatches;
+      });
     }
-    return garages.filter((garage) => {
-      const nameMatches = garage.name.toLowerCase().includes(query);
-      const codeMatches = garage.code.toLowerCase().includes(query);
-      return nameMatches || codeMatches;
-    });
-  }, [garages, searchQuery]);
+
+    if (selectedPasses.length > 0) {
+      filtered = filtered.filter((garage) =>
+        garage.passes.some((pass) => selectedPasses.includes(pass))
+      );
+    }
+
+    return filtered;
+  }, [garages, searchQuery, selectedPasses]);
+
+  const togglePassFilter = React.useCallback((pass: ParkingPass) => {
+    setSelectedPasses((prev) =>
+      prev.includes(pass) ? prev.filter((item) => item !== pass) : [...prev, pass]
+    );
+  }, []);
+
+  const clearPassFilters = React.useCallback(() => {
+    setSelectedPasses([]);
+  }, []);
 
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
     const pct = Math.min(item.current / total, 1);
     const colors = getColors(pct);
+    const passesLabel = item.passes.join(", ");
 
 
     const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
@@ -286,10 +322,12 @@ export default function GarageList({
           </View>
 
           <View style={{ alignItems: "flex-end" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               {item.paid ? (
                 <FontAwesome name="usd" size={20} color={theme.primary} />
-              ) : null}
+              ) : (
+                <View style={{ width: 20 }} />
+              )}
 
               <TouchableOpacity
                 onPress={() => handleOpenInMaps(item)}
@@ -315,6 +353,10 @@ export default function GarageList({
 
         <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
           Code: {item.code}
+        </Text>
+
+        <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
+          Passes: {passesLabel}
         </Text>
 
         <Text style={{ color: secondaryText, marginTop: 4 }}>
@@ -394,7 +436,7 @@ export default function GarageList({
             borderRadius: 12,
             paddingHorizontal: 12,
             paddingVertical: 10,
-            gap: 8,
+            gap: 10,
           }}
         >
           <Ionicons
@@ -409,8 +451,138 @@ export default function GarageList({
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          <TouchableOpacity
+            onPress={() => setIsFilterVisible(true)}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: theme.mode === "dark" ? "#2a2d33" : "#e5e7eb",
+              position: "relative",
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name="filter"
+              size={18}
+              color={selectedPasses.length > 0 ? theme.primary : theme.text}
+            />
+            {selectedPasses.length > 0 && (
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: theme.primary,
+                  position: "absolute",
+                  top: 6,
+                  right: 6,
+                }}
+              />
+            )}
+          </TouchableOpacity>
         </View>
       </View>
+
+      <Modal
+        transparent
+        visible={isFilterVisible}
+        animationType="fade"
+        onRequestClose={() => setIsFilterVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setIsFilterVisible(false)}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.45)",
+              justifyContent: "center",
+              alignItems: "center",
+              paddingHorizontal: 24,
+            }}
+          >
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View
+                style={{
+                  width: "100%",
+                  backgroundColor: theme.mode === "dark" ? "#1b1d21" : "#ffffff",
+                  borderRadius: 16,
+                  padding: 20,
+                  gap: 16,
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 18, fontWeight: "600" }}>
+                  Filter by Parking Pass
+                </Text>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 12,
+                  }}
+                >
+                  {PASS_OPTIONS.map((pass) => {
+                    const isSelected = selectedPasses.includes(pass);
+                    const backgroundColor = isSelected
+                      ? theme.primary
+                      : theme.mode === "dark"
+                        ? "#2a2d33"
+                        : "#e5e7eb";
+                    const textColor = isSelected ? "#ffffff" : theme.text;
+                    return (
+                      <TouchableOpacity
+                        key={pass}
+                        onPress={() => togglePassFilter(pass)}
+                        style={{
+                          paddingVertical: 8,
+                          paddingHorizontal: 14,
+                          borderRadius: 999,
+                          backgroundColor,
+                        }}
+                      >
+                        <Text style={{ color: textColor, fontWeight: "500" }}>{pass}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "flex-end",
+                    gap: 12,
+                  }}
+                >
+                  <TouchableOpacity
+                    onPress={clearPassFilters}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 14,
+                      borderRadius: 999,
+                      backgroundColor: theme.mode === "dark" ? "#24262c" : "#f3f4f6",
+                    }}
+                  >
+                    <Text style={{ color: theme.text, fontWeight: "500" }}>Clear</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setIsFilterVisible(false)}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 20,
+                      borderRadius: 999,
+                      backgroundColor: theme.primary,
+                    }}
+                  >
+                    <Text style={{ color: "#ffffff", fontWeight: "600" }}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
       <FlatList
         data={visibleGarages}
