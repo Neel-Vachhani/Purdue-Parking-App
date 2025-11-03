@@ -6,6 +6,7 @@ import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
 import PaidLot from "./PaidLot";
+import Config from "react-native-config";
 
 type Garage = {
   id: string;

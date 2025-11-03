@@ -23,7 +23,6 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
   return (
     <View style={styles.container}>
         {/*<script asyncmsrc={Config.GOOGLE_MAPS_URL}></script>*/}
-      <GooglePlacesTextInput apiKey={ Config.GOOGLE_MAPS_URL! } onPlaceSelect={ handlePlaceSelect }></GooglePlacesTextInput>
       {/* Base map. Keep config minimal; avoid coupling to data here. */}
       <MapView
         ref={mapRef}
@@ -61,6 +60,12 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         {/* Purdue gold icon for brand consistency */}
         <MaterialIcons name="my-location" size={22} color={theme.primary} />
       </Pressable>
+      <GooglePlacesTextInput 
+        apiKey={Config.GOOGLE_MAPS_API!} //TODO: Figure this out
+        onPlaceSelect={ handlePlaceSelect }>
+
+        </GooglePlacesTextInput>
+
     </View>
   );
 }
