@@ -76,7 +76,6 @@ export default function InsightsScreen() {
           try {
             const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=day`);
             const data = await res.json();
-            console.log(`${lotName} data:`, data);
             
             // Get the initial garage data to use correct totals
             const initialGarage = INITIAL_GARAGES.find(g => g.name === lotName);
@@ -89,7 +88,6 @@ export default function InsightsScreen() {
             // Calculate occupied spots: total - available = occupied
             const occupied = total - availableSpots;
             
-            console.log(`${lotName}: ${occupied} occupied out of ${total} (${availableSpots} available)`);
             
             return {
               id: idx.toString(),
@@ -106,9 +104,7 @@ export default function InsightsScreen() {
           }
         })
       );
-      console.log(mappedGarages)
       setGarages(mappedGarages);
-      console.log(garages)
       if (!selectedLotId && mappedGarages.length > 0) setSelectedLotId("0");
     } catch (err) {
       console.error("Error fetching current parking data:", err);
