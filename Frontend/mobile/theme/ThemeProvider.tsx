@@ -14,7 +14,7 @@ export default function ThemeProvider({ children }: React.PropsWithChildren) {
   const [mode, setMode] = React.useState<ThemeMode>("dark");
   const toggle = React.useCallback(() => setMode((m) => (m === "dark" ? "light" : "dark")), []);
   const palette = mode === "dark" ? darkTheme : lightTheme;
-  const currentTheme: AppTheme = { ...palette, mode, toggle };
+  const currentTheme: AppTheme = React.useMemo(() => ({ ...palette, mode, toggle }), [mode, palette]);
   
   // Provide the theme to all child components
   return (

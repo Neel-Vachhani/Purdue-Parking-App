@@ -98,9 +98,22 @@ const getApiBaseUrl = (): string => {
 };
 
 export default function ParkingListScreen() {
+  console.log('Rendering ParkingListScreen');
   const theme = React.useContext(ThemeContext);
+  console.log('Theme context:', theme);
+  
+  React.useEffect(() => {
+    if (!theme) {
+      console.error('Theme context is undefined');
+    }
+  }, [theme]);
+
   const [parkingLots, setParkingLots] = useState<ParkingLot[]>(INITIAL_PARKING_LOTS);
   const [showOnlyAda, setShowOnlyAda] = useState(false);
+  const [minAdaSpaces, setMinAdaSpaces] = useState(0);
+  
+  // Calculate the maximum ADA spaces available across all lots
+  const maxAdaSpaces = Math.max(...INITIAL_PARKING_LOTS.map(lot => lot.adaSpaces || 0));
 
   useEffect(() => {
     let isMounted = true;
@@ -193,56 +206,128 @@ export default function ParkingListScreen() {
     timeZoneName: "short",
   });
 
-  const filteredParkingLots = showOnlyAda
-    ? parkingLots.filter(lot => lot.hasAdaAccess)
-    : parkingLots;
+  const filteredParkingLots = parkingLots.filter(lot => {
+    if (showOnlyAda && !lot.hasAdaAccess) return false;
+    if (minAdaSpaces > 0 && (!lot.adaSpaces || lot.adaSpaces < minAdaSpaces)) return false;
+    return true;
+  });
 
   return (
     <ThemedView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60, paddingBottom: 24 }}>
-      <ThemedView style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <ThemedText style={{ fontSize: 24, fontWeight: "bold" }}>
-          Parking Garages
-        </ThemedText>
-        <ThemedView 
-          style={{ 
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            backgroundColor: theme.mode === "dark" ? "#374151" : "#e5e7eb",
-            padding: 8,
-            borderRadius: 8
-          }}
-        >
-          <ThemedText style={{ marginRight: 8, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
-            ADA Only
+      <ThemedView style={{ marginBottom: 24 }}>
+        <ThemedView style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <ThemedText style={{ fontSize: 24, fontWeight: "bold" }}>
+            Parking Garages
           </ThemedText>
           <ThemedView 
             style={{ 
-              width: 40, 
-              height: 24, 
-              backgroundColor: showOnlyAda ? "#22c55e" : (theme.mode === "dark" ? "#1f2937" : "#d1d5db"),
-              borderRadius: 12,
-              padding: 2,
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              backgroundColor: theme.mode === "dark" ? "#374151" : "#e5e7eb",
+              padding: 8,
+              borderRadius: 8
             }}
           >
+            <ThemedText style={{ marginRight: 8, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
+              ADA Only
+            </ThemedText>
             <ThemedView 
-              style={{
-                width: 20,
-                height: 20,
-                backgroundColor: "#fff",
-                borderRadius: 10,
-                transform: [{ translateX: showOnlyAda ? 16 : 0 }],
+              style={{ 
+                width: 40, 
+                height: 24, 
+                backgroundColor: showOnlyAda ? "#22c55e" : (theme.mode === "dark" ? "#1f2937" : "#d1d5db"),
+                borderRadius: 12,
+                padding: 2,
+              }}
+            >
+              <ThemedView 
+                style={{
+                  width: 20,
+                  height: 20,
+                  backgroundColor: "#fff",
+                  borderRadius: 10,
+                  transform: [{ translateX: showOnlyAda ? 16 : 0 }],
+                }}
+              />
+            </ThemedView>
+            <ThemedText 
+              onPress={() => setShowOnlyAda(!showOnlyAda)}
+              style={{ 
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                opacity: 0
               }}
             />
           </ThemedView>
-          <ThemedText 
-            onPress={() => setShowOnlyAda(!showOnlyAda)}
-            style={{ 
+        </ThemedView>
+
+        <ThemedView 
+          style={{ 
+            backgroundColor: theme.mode === "dark" ? "#374151" : "#e5e7eb",
+            padding: 16,
+            borderRadius: 12
+          }}
+        >
+          <ThemedView style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <ThemedText style={{ color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
+              Minimum ADA Spaces: {minAdaSpaces}
+            </ThemedText>
+            {minAdaSpaces > 0 && (
+              <ThemedText 
+                onPress={() => setMinAdaSpaces(0)}
+                style={{ 
+                  color: theme.primary,
+                  fontSize: 14,
+                  textDecorationLine: 'underline'
+                }}
+              >
+                Clear
+              </ThemedText>
+            )}
+          </ThemedView>
+
+          <ThemedView style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ThemedText style={{ color: theme.mode === "dark" ? "#9ca3af" : "#6b7280", width: 20 }}>0</ThemedText>
+            <ThemedView style={{ flex: 1, height: 2, backgroundColor: theme.mode === "dark" ? "#4b5563" : "#d1d5db" }}>
+              <ThemedView
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: -8,
+                  width: `${(minAdaSpaces / maxAdaSpaces) * 100}%`,
+                }}
+              >
+                <ThemedView
+                  style={{
+                    width: 18,
+                    height: 18,
+                    backgroundColor: theme.primary,
+                    borderRadius: 9,
+                    borderWidth: 2,
+                    borderColor: theme.mode === "dark" ? "#111827" : "#fff",
+                  }}
+                />
+              </ThemedView>
+            </ThemedView>
+            <ThemedText style={{ color: theme.mode === "dark" ? "#9ca3af" : "#6b7280", width: 20 }}>{maxAdaSpaces}</ThemedText>
+          </ThemedView>
+
+          <ThemedView
+            style={{
               position: 'absolute',
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              opacity: 0
+            }}
+            onTouchStart={(e) => {
+              const { locationX, pageX } = e.nativeEvent;
+              const percentage = Math.max(0, Math.min(1, locationX / 300)); // Using a fixed width for simplicity
+              const newValue = Math.round(percentage * maxAdaSpaces);
+              setMinAdaSpaces(newValue);
             }}
           />
         </ThemedView>
