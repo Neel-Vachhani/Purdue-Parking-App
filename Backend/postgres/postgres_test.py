@@ -21,6 +21,5 @@ columns = cursor.fetchall()
 print("All columns:")
 for column in columns:
     print(f"- {column[0]}")
-
 cursor.close()
 conn.close()

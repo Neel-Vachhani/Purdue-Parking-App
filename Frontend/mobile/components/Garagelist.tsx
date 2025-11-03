@@ -122,7 +122,7 @@ const getApiBaseUrl = (): string => {
     }
   }
 
-  return `http://${host}:8000`;
+  return "http://localhost:7500";
 };
 
 export default function GarageList({
@@ -191,6 +191,7 @@ export default function GarageList({
         }
 
         const payload: { lots?: ApiLot[] } = await response.json();
+        console.log(payload)
         const lots = Array.isArray(payload?.lots) ? payload.lots : undefined;
         if (!lots || lots.length === 0 || !isMounted) {
           return;
