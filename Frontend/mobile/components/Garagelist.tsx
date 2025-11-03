@@ -14,6 +14,8 @@ import {
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
+import PaidLot from "./PaidLot";
+import Config from "react-native-config";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall";
 
 type Garage = {
@@ -337,6 +339,7 @@ export default function GarageList({
               </TouchableOpacity>
             </View>
 
+          <View style={{ alignItems: "flex-end" }}>
             <TouchableOpacity
               onPress={() => handleToggleFavorite(item)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -381,6 +384,8 @@ export default function GarageList({
           />
         </View>
       </View>
+    </View>
+
     );
   };
 
@@ -604,6 +609,7 @@ export default function GarageList({
     </View>
   );
 }
+
 
 function getColors(pct: number) {
   if (pct >= 0.8) return { border: "#f91e1eff", fill: "#f91e1eff" };
