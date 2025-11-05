@@ -12,6 +12,7 @@ export interface TravelTimeResult {
   duration: number; // in minutes
   formattedDistance: string;
   formattedDuration: string;
+  originType?: "saved" | "current"; // Track which origin was used
 }
 
 /**
@@ -233,7 +234,7 @@ export async function getTravelTimeFromDefaultOrigin(
 ): Promise<TravelTimeResult | null> {
   try {
     // Get API base URL
-    const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:8000" : "http://localhost:8000";
+    const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
     
     let origin: string | Coordinate | null = null;
     let originType: "saved" | "current" = "saved";
@@ -275,9 +276,14 @@ export async function getTravelTimeFromDefaultOrigin(
     
     if (result) {
       console.log(`Travel time from ${originType} location: ${result.formattedDuration} (${result.formattedDistance})`);
+      // Add originType to the result
+      return {
+        ...result,
+        originType
+      };
     }
     
-    return result;
+    return null;
   } catch (error) {
     console.error("Error getting travel time:", error);
     return null;

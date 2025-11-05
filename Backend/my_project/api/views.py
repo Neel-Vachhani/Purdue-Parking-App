@@ -396,12 +396,119 @@ def accept_ical_file(request):
 
 @api_view(['POST'])
 def accept_notification_token(request):
-    username = request.data["username"]
-    token = request.data["token"]
-    user = User.objects.get(name=username)
-    user.notification_token = token
-    user.save()
-    return Response("Token received")
+    email = request.data.get("email") or request.data.get("username")  # Support both for backwards compatibility
+    token = request.data.get("token", "")
+    
+    if not email:
+        return Response({"detail": "email is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email)
+        user.notification_token = token
+        user.save(update_fields=["notification_token"])
+        return Response({"status": "ok", "message": "Token saved successfully"})
+    except User.DoesNotExist:
+        return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+def notification_disable(request):
+    """
+    Disable push notifications by clearing the user's notification token.
+    Used by User Story #2 - AC2 (disable notifications).
+    
+    Body:
+        email: User's email address
+    
+    Returns:
+        status: ok if successful
+    """
+    email = request.data.get("email")
+    
+    if not email:
+        return Response({"detail": "email is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email)
+        user.notification_token = None
+        user.save(update_fields=["notification_token"])
+        logger.info(f"Notifications disabled for user {email}")
+        return Response({"status": "ok", "message": "Notifications disabled successfully"})
+    except User.DoesNotExist:
+        return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+def notification_test(request):
+    """
+    Send a test notification to verify the user's push token works.
+    Used by User Story #2 - AC1 (test notification after enabling).
+    
+    Body:
+        email: User's email address
+    
+    Returns:
+        status: ok if notification sent successfully
+        error: if notification failed
+    """
+    from .push_notifications import send_push_message
+    
+    email = request.data.get("email")
+    
+    if not email:
+        return Response({"detail": "email is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email)
+        
+        if not user.notification_token:
+            return Response(
+                {"detail": "User has no notification token registered"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Send test notification
+        name = (user.name or user.email or "Boilermaker").split()[0]
+        test_message = f"Hi {name}! Test notification successful. You're all set to receive parking pass sale alerts."
+        
+        try:
+            send_push_message(
+                token=user.notification_token,
+                message=test_message,
+                extra={"type": "test", "user_id": user.id}
+            )
+            
+            # Log the test notification
+            NotificationLog.objects.create(
+                user=user,
+                notification_type='pass_sale',  # Using pass_sale type for consistency
+                message=test_message,
+                success=True
+            )
+            
+            logger.info(f"Test notification sent to user {email}")
+            return Response({"status": "ok", "message": "Test notification sent successfully"})
+            
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Failed to send test notification to {email}: {error_msg}")
+            
+            # Log the failed notification
+            NotificationLog.objects.create(
+                user=user,
+                notification_type='pass_sale',
+                message=test_message,
+                success=False,
+                error_message=error_msg
+            )
+            
+            return Response(
+                {"detail": "Failed to send test notification", "error": error_msg}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    except User.DoesNotExist:
+        return Response({"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
 
 @api_view(['GET'])

@@ -7,6 +7,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { icsToJson } from "ics-to-json";
 import { Ionicons } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
 
 import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
@@ -24,6 +26,7 @@ type NotifPrefs = {
   permitExpiring: boolean;
   eventClosures: boolean;
   priceDrop: boolean;
+  passOnSale: boolean;
   frequency: Frequency;
 };
 
@@ -32,10 +35,11 @@ const DEFAULT_PREFS: NotifPrefs = {
   permitExpiring: true,
   eventClosures: true,
   priceDrop: false,
+  passOnSale: false,
   frequency: "realtime",
 };
 
-const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:8000" : "http://localhost:8000";
+const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
 
 export default function SettingsScreen({ onLogout }: Props) {
   const theme = React.useContext(ThemeContext);
@@ -159,7 +163,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       await AsyncStorage.setItem("notification_prefs", JSON.stringify(prefs));
       
       // If all notifications are disabled, clear the push token
-      const allDisabled = !prefs.garageFull && !prefs.permitExpiring && !prefs.eventClosures && !prefs.priceDrop;
+      const allDisabled = !prefs.garageFull && !prefs.permitExpiring && !prefs.eventClosures && !prefs.priceDrop && !prefs.passOnSale;
       if (allDisabled) {
         const userJson = await SecureStore.getItemAsync("user");
         const user = userJson ? JSON.parse(userJson) : null;
@@ -179,6 +183,111 @@ export default function SettingsScreen({ onLogout }: Props) {
       Alert.alert("Save failed", e?.message ?? "Unknown error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // -------- Parking Pass Sale Notifications Toggle Handler --------
+  const handlePassOnSaleToggle = async (enabled: boolean) => {
+    const userJson = await SecureStore.getItemAsync("user");
+    const user = userJson ? JSON.parse(userJson) : null;
+    const email = user?.email;
+
+    if (!email) {
+      Alert.alert("Not logged in", "Please log in to enable notifications.");
+      return;
+    }
+
+    if (enabled) {
+      // ENABLE FLOW: Request permissions, get token, send to backend, trigger test
+      try {
+        if (!Device.isDevice) {
+          Alert.alert(
+            "Physical Device Required", 
+            "Push notifications don't work on simulators/emulators. Please use a physical device."
+          );
+          return;
+        }
+
+        // Request notification permissions
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        
+        if (existingStatus !== "granted") {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+
+        if (finalStatus !== "granted") {
+          Alert.alert(
+            "Permission Denied",
+            "Please enable notifications in your device settings to receive parking pass sale alerts."
+          );
+          return;
+        }
+
+        // Get Expo push token
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+        const pushToken = tokenData.data;
+
+        // Send token to backend
+        await axios.post(`${API_BASE}/notification_token/`, {
+          email,
+          token: pushToken
+        });
+
+        // Trigger test notification
+        const testResponse = await axios.post(`${API_BASE}/notification_test/`, {
+          email
+        });
+
+        // Update state
+        setPrefs(p => ({ ...p, passOnSale: true }));
+        
+        // Save to AsyncStorage
+        const newPrefs = { ...prefs, passOnSale: true };
+        await AsyncStorage.setItem("notification_prefs", JSON.stringify(newPrefs));
+
+        Alert.alert(
+          "Notifications Enabled! 🎉",
+          "You'll now receive alerts when parking passes go on sale. Check your notifications for a test message!"
+        );
+
+      } catch (error: any) {
+        console.error("Failed to enable notifications:", error);
+        const errorMsg = error?.response?.data?.detail || error?.message || "Unknown error";
+        Alert.alert(
+          "Setup Failed",
+          `Could not enable notifications: ${errorMsg}\n\nMake sure the backend is running.`
+        );
+      }
+
+    } else {
+      // DISABLE FLOW: Clear token on backend
+      try {
+        await axios.post(`${API_BASE}/notification_disable/`, {
+          email
+        });
+
+        // Update state
+        setPrefs(p => ({ ...p, passOnSale: false }));
+        
+        // Save to AsyncStorage
+        const newPrefs = { ...prefs, passOnSale: false };
+        await AsyncStorage.setItem("notification_prefs", JSON.stringify(newPrefs));
+
+        Alert.alert(
+          "Notifications Disabled",
+          "You will no longer receive parking pass sale alerts."
+        );
+
+      } catch (error: any) {
+        console.error("Failed to disable notifications:", error);
+        const errorMsg = error?.response?.data?.detail || error?.message || "Unknown error";
+        Alert.alert(
+          "Disable Failed",
+          `Could not disable notifications: ${errorMsg}`
+        );
+      }
     }
   };
 
@@ -212,7 +321,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       console.log(jsonData);
 
       // NOTE: if this is local dev and you're on Android emulator, use 10.0.2.2 instead of localhost
-      await axios.post(`${API_BASE.replace(":8000", ":7500")}/test/`, jsonData);
+      await axios.post(`${API_BASE}/test/`, jsonData);
 
       // Convert JSON to ClassEvent[]
 
@@ -406,6 +515,13 @@ export default function SettingsScreen({ onLogout }: Props) {
             <Switch
               value={prefs.priceDrop}
               onValueChange={(v) => setToggle("priceDrop", v)}
+            />
+          </Row>
+
+          <Row label="Parking Pass Sale Notifications">
+            <Switch
+              value={prefs.passOnSale}
+              onValueChange={handlePassOnSaleToggle}
             />
           </Row>
 

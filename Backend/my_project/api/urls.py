@@ -9,6 +9,8 @@ urlpatterns = [
     path('login/', views.log_in),
     path('apple/', views.apple_sign_in),
     path('notification_token/', views.accept_notification_token),
+    path('notification_disable/', views.notification_disable),
+    path('notification_test/', views.notification_test),
     path('user/origin/', views.user_origin),
     
     # Lot events (User Story #10)

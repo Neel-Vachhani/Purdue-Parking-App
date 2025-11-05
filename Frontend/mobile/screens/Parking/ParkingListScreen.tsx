@@ -1,8 +1,9 @@
 import Constants from "expo-constants";
 import React, { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { Platform, TouchableOpacity } from "react-native";
 import { View } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { Ionicons } from "@expo/vector-icons";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
@@ -98,13 +99,14 @@ const getApiBaseUrl = (): string => {
     }
   }
 
-  return `http://${host}:8000`;
+  return `http://${host}:7500`;
 };
 
 export default function ParkingListScreen() {
   const [parkingLots, setParkingLots] = useState<ParkingLot[]>(
     INITIAL_PARKING_LOTS
   );
+  const [originType, setOriginType] = useState<"saved" | "current" | "none">("none");
 
   useEffect(() => {
     let isMounted = true;
@@ -187,6 +189,7 @@ export default function ParkingListScreen() {
         }
 
         // Calculate travel times for each lot
+        let detectedOriginType: "saved" | "current" | "none" = "none";
         const travelTimePromises = parkingLots.map(async (lot) => {
           if (!lot.lat || !lot.lng) {
             return { ...lot, travelTime: null };
@@ -197,6 +200,11 @@ export default function ParkingListScreen() {
             email
           );
 
+          // Capture the origin type from the first successful result
+          if (travelTime?.originType && detectedOriginType === "none") {
+            detectedOriginType = travelTime.originType;
+          }
+
           return { ...lot, travelTime };
         });
 
@@ -204,6 +212,7 @@ export default function ParkingListScreen() {
 
         if (isMounted) {
           setParkingLots(lotsWithTravelTimes);
+          setOriginType(detectedOriginType);
         }
       } catch (error) {
         console.error("Failed to load travel times", error);
@@ -245,9 +254,44 @@ export default function ParkingListScreen() {
 
   return (
     <ThemedView style={{ flex: 1, paddingHorizontal: 24, paddingTop: 60, paddingBottom: 24 }}>
-      <ThemedText style={{ fontSize: 24, fontWeight: "bold", marginBottom: 24 }}>
+      <ThemedText style={{ fontSize: 24, fontWeight: "bold", marginBottom: 16 }}>
         Parking Garages
       </ThemedText>
+
+      {/* Banner showing current location usage */}
+      {originType === "current" && (
+        <View style={{
+          backgroundColor: "#3b82f6",
+          padding: 12,
+          borderRadius: 8,
+          marginBottom: 16,
+          flexDirection: "row",
+          alignItems: "center",
+        }}>
+          <Ionicons name="information-circle" size={20} color="white" />
+          <ThemedText style={{ color: "white", marginLeft: 8, flex: 1, fontSize: 13 }}>
+            Using your current location for travel times.{"\n"}
+            Set a starting location in Settings for more accurate estimates.
+          </ThemedText>
+        </View>
+      )}
+
+      {/* Success banner showing saved location usage */}
+      {originType === "saved" && (
+        <View style={{
+          backgroundColor: "#22c55e",
+          padding: 12,
+          borderRadius: 8,
+          marginBottom: 16,
+          flexDirection: "row",
+          alignItems: "center",
+        }}>
+          <Ionicons name="checkmark-circle" size={20} color="white" />
+          <ThemedText style={{ color: "white", marginLeft: 8, flex: 1, fontSize: 13 }}>
+            Travel times calculated from your saved starting location
+          </ThemedText>
+        </View>
+      )}
 
       {parkingLots.map((lot) => (
         <ThemedView
@@ -282,9 +326,16 @@ export default function ParkingListScreen() {
                 {lot.available}/{lot.capacity}
               </ThemedText>
               {lot.travelTime && (
-                <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
-                  {lot.travelTime.formattedDuration} ({lot.travelTime.formattedDistance})
-                </ThemedText>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Ionicons 
+                    name={originType === "saved" ? "home" : "location"} 
+                    size={12} 
+                    color={theme.mode === "dark" ? "#9ca3af" : "#6b7280"} 
+                  />
+                  <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
+                    {lot.travelTime.formattedDuration} ({lot.travelTime.formattedDistance})
+                  </ThemedText>
+                </View>
               )}
             </ThemedView>
             <ThemedView style={{ width: "100%", height: 12, backgroundColor: theme.mode === "dark" ? "#374151" : "#e5e7eb", borderRadius: 6, overflow: "hidden" }}>
