@@ -76,7 +76,6 @@ export default function InsightsScreen() {
           try {
             const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=day`);
             const data = await res.json();
-            console.log(`${lotName} data:`, data);
             
             // Get the initial garage data to use correct totals
             const initialGarage = INITIAL_GARAGES.find(g => g.name === lotName);
@@ -89,7 +88,6 @@ export default function InsightsScreen() {
             // Calculate occupied spots: total - available = occupied
             const occupied = total - availableSpots;
             
-            console.log(`${lotName}: ${occupied} occupied out of ${total} (${availableSpots} available)`);
             
             return {
               id: idx.toString(),
@@ -106,7 +104,6 @@ export default function InsightsScreen() {
           }
         })
       );
-      console.log(mappedGarages)
       setGarages(mappedGarages);
       console.log(garages)
       if (!selectedLotId && mappedGarages.length > 0) setSelectedLotId("0");
@@ -166,10 +163,24 @@ export default function InsightsScreen() {
 
   const currentStatus = garages[parseInt(selectedLotId)] || garages[0];
 
-  const getChartData = () => ({
+  const getChartData = () => {
+  return {
     labels: historicalData.map((d) => d.label),
-    datasets: [{ data: historicalData.map((d) => d.occupancy_percentage) }],
-  });
+    datasets: [
+      {
+        data: historicalData.map((d) => Math.round(d.occupancy_percentage)),
+        colors: historicalData.map((d) => {
+          const value = d.occupancy_percentage;
+
+          if (value < 50) return (opacity = 1) => `rgba(76, 175, 80, ${opacity})`;      // 🟢 green
+          if (value < 80) return (opacity = 1) => `rgba(255, 193, 7, ${opacity})`;     // 🟡 yellow
+          return (opacity = 1) => `rgba(244, 67, 54, ${opacity})`;                     // 🔴 red
+        }),
+      },
+    ],
+  };
+};
+
 
   const getOccupancyColor = (percentage: number) => {
     if (percentage >= 90) return "#ef4444";
@@ -434,6 +445,8 @@ export default function InsightsScreen() {
               width={width - 80}
               height={240}
               yAxisSuffix="%"
+              yAxisInterval={1}
+              segments={4}
               chartConfig={{
                 backgroundColor: cardBg,
                 backgroundGradientFrom: cardBg,
@@ -453,6 +466,8 @@ export default function InsightsScreen() {
               fromZero
               style={{ borderRadius: 16, marginVertical: 8 }}
               showValuesOnTopOfBars
+              withCustomBarColorFromData
+              flatColor
             />
           </View>
         )}
