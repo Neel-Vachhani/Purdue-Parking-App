@@ -14,8 +14,8 @@ const TAB_LABELS: Record<TabKey, string> = {
   map: "Map",
   calendar: "Calendar",
   settings: "Settings",
-  insights: "Insights",
-  predictions: "User Insights"
+  insights: "Data",
+  predictions: "Insights"
 };
 
 export default function BottomBar({ active, onChange }: Props) {

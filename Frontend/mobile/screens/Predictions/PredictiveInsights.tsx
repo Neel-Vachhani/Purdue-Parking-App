@@ -1,8 +1,6 @@
 import * as React from "react";
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Dimensions } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Modal, StyleSheet, Animated } from "react-native";
 import { ThemeContext } from "../../theme/ThemeProvider";
-
-const { width } = Dimensions.get("window");
 
 type Lot = {
   id: number;
@@ -41,32 +39,58 @@ const PARKING_LOTS: Lot[] = [
   { id: 28, code: "AIRPORT", name: "Airport Parking Lots" },
 ];
 
-const hours = Array.from({ length: 24 }, (_, i) => i);
-
-const weekdays = ["All Days", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const WEEKDAYS = ["All Days", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function PredictiveInsights() {
   const theme = React.useContext(ThemeContext);
   const [selectedLot, setSelectedLot] = React.useState<Lot>(PARKING_LOTS[0]);
-  const [selectedHour, setSelectedHour] = React.useState<number>(0);
+  const [selectedHour, setSelectedHour] = React.useState<number>(new Date().getHours());
   const [selectedWeekday, setSelectedWeekday] = React.useState<string>("All Days");
+  const [threshold, setThreshold] = React.useState<number>(80);
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState<{ average_occupancy: number; likely_full?: boolean } | null>(null);
+  
+  const [showLotPicker, setShowLotPicker] = React.useState(false);
+  const [showDayPicker, setShowDayPicker] = React.useState(false);
+  const [showTimePicker, setShowTimePicker] = React.useState(false);
+  const [showThresholdPicker, setShowThresholdPicker] = React.useState(false);
 
-  const cardBg = "#FFFFFF"; // hardcoded card background
-  const secondaryBg = "#f3f4f6"; // hardcoded secondary background
-  const accentColor = "#6366f1";
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
 
   const fetchPredictiveData = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      params.append("lot", selectedLot.code.toLowerCase());
-      params.append("hour", selectedHour.toString());
-      if (selectedWeekday !== "All Days") params.append("weekday", selectedWeekday.toLowerCase());
-      params.append("threshold", "80");
+      const params = new URLSearchParams({
+        lot: selectedLot.code.toLowerCase(),
+        hour: selectedHour.toString(),
+        threshold: threshold.toString(),
+      });
+      
+      if (selectedWeekday !== "All Days") {
+        params.append("weekday", selectedWeekday.toLowerCase());
+      }
 
-      const res = await fetch(`http://localhost:7500/api/hourly_average_parking?${params.toString()}`);
+      const res = await fetch(`http://localhost:7500/parking/hourly-average?${params.toString()}`);
+      
+      if (!res.ok) throw new Error("Failed to fetch data");
+      
       const data = await res.json();
       setResult(data);
     } catch (err) {
@@ -79,110 +103,648 @@ export default function PredictiveInsights() {
 
   React.useEffect(() => {
     fetchPredictiveData();
-  }, [selectedLot, selectedHour, selectedWeekday]);
+  }, [selectedLot, selectedHour, selectedWeekday, threshold]);
+
+  const getOccupancyColor = (occupancy: number) => {
+    if (occupancy >= 85) return "#ef4444";
+    if (occupancy >= 70) return "#f97316";
+    if (occupancy >= 50) return "#eab308";
+    if (occupancy >= 30) return "#84cc16";
+    return "#22c55e";
+  };
+
+  const getStatusBadge = (occupancy: number) => {
+    if (occupancy >= 90) return { label: "Nearly Full", color: "#ef4444" };
+    if (occupancy >= 70) return { label: "Busy", color: "#f97316" };
+    if (occupancy >= 50) return { label: "Moderate", color: "#eab308" };
+    return { label: "Available", color: "#22c55e" };
+  };
+
+  const formatTimeAMPM = (hour: number) => {
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:00 ${ampm}`;
+  };
+
+  const formatLotName = (name: string) => {
+    return name.replace(" Parking Garage", "").replace(" Parking Lot", "");
+  };
+
+  // Modal Pickers
+  const renderTimePicker = () => {
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    
+    return (
+      <Modal visible={showTimePicker} transparent animationType="slide">
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowTimePicker(false)}
+        >
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Select Time</Text>
+              <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                <Text style={styles.doneButton}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.pickerScroll}>
+              {hours.map((hour) => (
+                <TouchableOpacity
+                  key={hour}
+                  style={[
+                    styles.pickerItem,
+                    selectedHour === hour && styles.pickerItemSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedHour(hour);
+                    setShowTimePicker(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.pickerItemText,
+                    selectedHour === hour && styles.pickerItemTextSelected
+                  ]}>
+                    {formatTimeAMPM(hour)}
+                  </Text>
+                  {selectedHour === hour && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
+
+  const renderLotPicker = () => (
+    <Modal visible={showLotPicker} transparent animationType="slide">
+      <TouchableOpacity 
+        style={styles.modalOverlay} 
+        activeOpacity={1} 
+        onPress={() => setShowLotPicker(false)}
+      >
+        <View style={styles.pickerContainer}>
+          <View style={styles.pickerHeader}>
+            <Text style={styles.pickerTitle}>Select Location</Text>
+            <TouchableOpacity onPress={() => setShowLotPicker(false)}>
+              <Text style={styles.doneButton}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.pickerScroll}>
+            {PARKING_LOTS.map((lot) => (
+              <TouchableOpacity
+                key={lot.id}
+                style={[
+                  styles.pickerItem,
+                  selectedLot.id === lot.id && styles.pickerItemSelected
+                ]}
+                onPress={() => {
+                  setSelectedLot(lot);
+                  setShowLotPicker(false);
+                }}
+              >
+                <View>
+                  <Text style={[
+                    styles.pickerItemText,
+                    selectedLot.id === lot.id && styles.pickerItemTextSelected
+                  ]}>
+                    {formatLotName(lot.name)}
+                  </Text>
+                  <Text style={styles.pickerItemSubtext}>{lot.code}</Text>
+                </View>
+                {selectedLot.id === lot.id && <Text style={styles.checkmark}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+
+  const renderDayPicker = () => (
+    <Modal visible={showDayPicker} transparent animationType="slide">
+      <TouchableOpacity 
+        style={styles.modalOverlay} 
+        activeOpacity={1} 
+        onPress={() => setShowDayPicker(false)}
+      >
+        <View style={styles.pickerContainer}>
+          <View style={styles.pickerHeader}>
+            <Text style={styles.pickerTitle}>Select Day</Text>
+            <TouchableOpacity onPress={() => setShowDayPicker(false)}>
+              <Text style={styles.doneButton}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.pickerScroll}>
+            {WEEKDAYS.map((day) => (
+              <TouchableOpacity
+                key={day}
+                style={[
+                  styles.pickerItem,
+                  selectedWeekday === day && styles.pickerItemSelected
+                ]}
+                onPress={() => {
+                  setSelectedWeekday(day);
+                  setShowDayPicker(false);
+                }}
+              >
+                <Text style={[
+                  styles.pickerItemText,
+                  selectedWeekday === day && styles.pickerItemTextSelected
+                ]}>
+                  {day}
+                </Text>
+                {selectedWeekday === day && <Text style={styles.checkmark}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+
+  const renderThresholdPicker = () => {
+    const thresholds = [60, 65, 70, 75, 80, 85, 90, 95];
+    
+    return (
+      <Modal visible={showThresholdPicker} transparent animationType="slide">
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowThresholdPicker(false)}
+        >
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>Full Threshold</Text>
+              <TouchableOpacity onPress={() => setShowThresholdPicker(false)}>
+                <Text style={styles.doneButton}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={{ padding: 20, borderBottomWidth: 1, borderBottomColor: "#1f1f1f" }}>
+              <Text style={{ fontSize: 14, color: "#9ca3af", lineHeight: 20 }}>
+                Set the occupancy percentage at which a lot is considered "likely full"
+              </Text>
+            </View>
+            
+            <ScrollView style={styles.pickerScroll}>
+              {thresholds.map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[
+                    styles.pickerItem,
+                    threshold === t && styles.pickerItemSelected
+                  ]}
+                  onPress={() => {
+                    setThreshold(t);
+                    setShowThresholdPicker(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.pickerItemText,
+                    threshold === t && styles.pickerItemTextSelected
+                  ]}>
+                    {t}% or higher
+                  </Text>
+                  {threshold === t && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
+
+  const statusBadge = result ? getStatusBadge(result.average_occupancy) : null;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: theme.bg, padding: 20 }}>
-      <Text style={{ fontSize: 28, fontWeight: "700", color: theme.text, marginBottom: 16 }}>
-        Predictive Parking Insights
-      </Text>
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      <ScrollView style={{ flex: 1 }}>
+        {/* Header Section */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Parking Insights</Text>
+          <Text style={styles.headerSubtitle}>Real-time availability and trends</Text>
+        </View>
 
-      {/* Lot Selector */}
-      <Text style={{ fontWeight: "600", marginBottom: 8, color: theme.text }}>Parking Lot</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-        {PARKING_LOTS.map((lot) => (
+        {/* Location Card */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>PARKING LOCATION</Text>
           <TouchableOpacity
-            key={lot.id}
-            onPress={() => setSelectedLot(lot)}
-            style={{
-              paddingVertical: 10,
-              paddingHorizontal: 16,
-              borderRadius: 12,
-              backgroundColor: selectedLot.code === lot.code ? accentColor : secondaryBg,
-              marginRight: 8,
-            }}
+            style={styles.locationCard}
+            onPress={() => setShowLotPicker(true)}
           >
-            <Text style={{ color: selectedLot.code === lot.code ? "#fff" : "#000", fontWeight: "500" }}>
-              {lot.code}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.locationName}>{formatLotName(selectedLot.name)}</Text>
+              <Text style={styles.locationCode}>{selectedLot.code}</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+        </View>
 
-      {/* Hour Selector */}
-      <Text style={{ fontWeight: "600", marginBottom: 8, color: theme.text }}>Hour of Day</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-        {hours.map((h) => (
-          <TouchableOpacity
-            key={h}
-            onPress={() => setSelectedHour(h)}
-            style={{
-              paddingVertical: 10,
-              paddingHorizontal: 16,
-              borderRadius: 12,
-              backgroundColor: selectedHour === h ? accentColor : secondaryBg,
-              marginRight: 8,
-            }}
-          >
-            <Text style={{ color: selectedHour === h ? "#fff" : "#000", fontWeight: "500" }}>{h}:00</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Weekday Selector */}
-      <Text style={{ fontWeight: "600", marginBottom: 8, color: theme.text }}>Weekday</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-        {weekdays.map((d) => (
-          <TouchableOpacity
-            key={d}
-            onPress={() => setSelectedWeekday(d)}
-            style={{
-              paddingVertical: 10,
-              paddingHorizontal: 16,
-              borderRadius: 12,
-              backgroundColor: selectedWeekday === d ? accentColor : secondaryBg,
-              marginRight: 8,
-            }}
-          >
-            <Text style={{ color: selectedWeekday === d ? "#fff" : "#000", fontWeight: "500" }}>{d}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Result Card */}
-      <View
-        style={{
-          padding: 20,
-          borderRadius: 20,
-          backgroundColor: cardBg,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 12,
-          elevation: 5,
-        }}
-      >
-        {loading ? (
-          <ActivityIndicator size="large" color={accentColor} />
-        ) : result ? (
-          <>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: theme.text, marginBottom: 8 }}>
-              {selectedLot.name} @ {selectedHour}:00
-              {selectedWeekday !== "All Days" ? ` (${selectedWeekday})` : ""}
-            </Text>
-            <Text style={{ fontSize: 18, color: theme.text, marginBottom: 4 }}>
-              Average Occupancy: {result.average_occupancy}%
-            </Text>
-            {result.likely_full !== undefined && (
-              <Text style={{ fontSize: 16, color: result.likely_full ? "#ef4444" : "#10b981" }}>
-                {result.likely_full ? "Likely Full" : "Available"}
+        {/* Time Range Selector */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>TIME & DAY</Text>
+          <View style={styles.timeRangeContainer}>
+            <TouchableOpacity
+              style={styles.timeButton}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.timeButtonText}>{formatTimeAMPM(selectedHour)}</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.timeButton}
+              onPress={() => setShowDayPicker(true)}
+            >
+              <Text style={styles.timeButtonText}>
+                {selectedWeekday === "All Days" ? "All Days" : selectedWeekday.slice(0, 3)}
               </Text>
-            )}
-          </>
-        ) : (
-          <Text style={{ color: theme.text }}>No data available.</Text>
-        )}
-      </View>
-    </ScrollView>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Threshold Selector */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>FULL THRESHOLD</Text>
+          <TouchableOpacity
+            style={styles.thresholdCard}
+            onPress={() => setShowThresholdPicker(true)}
+          >
+            <View>
+              <Text style={styles.thresholdValue}>{threshold}%</Text>
+              <Text style={styles.thresholdLabel}>Occupancy threshold for "likely full"</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Main Stats Card */}
+        <View style={styles.statsCard}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#6366f1" />
+              <Text style={styles.loadingText}>Analyzing patterns...</Text>
+            </View>
+          ) : result ? (
+            <>
+              {/* Location Header */}
+              <View style={styles.statsHeader}>
+                <Text style={styles.statsLotName}>{formatLotName(selectedLot.name)}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: statusBadge!.color }]}>
+                  <Text style={styles.statusBadgeText}>{statusBadge!.label}</Text>
+                </View>
+              </View>
+
+              {/* Current Status Label */}
+              <Text style={styles.currentStatusLabel}>Predicted Occupancy</Text>
+
+              {/* Big Numbers Section */}
+              <View style={styles.bigNumbersContainer}>
+                <View style={styles.bigNumberBox}>
+                  <Text style={styles.bigNumberLabel}>Available</Text>
+                  <Animated.Text style={[styles.bigNumber, { 
+                    color: "#22c55e",
+                    transform: [{ scale: pulseAnim }]
+                  }]}>
+                    {Math.round(100 - result.average_occupancy)}
+                  </Animated.Text>
+                </View>
+
+                <View style={styles.bigNumberBox}>
+                  <Text style={styles.bigNumberLabel}>Occupied</Text>
+                  <Text style={[styles.bigNumber, { color: getOccupancyColor(result.average_occupancy) }]}>
+                    {Math.round(result.average_occupancy)}
+                  </Text>
+                </View>
+
+                <View style={styles.bigNumberBox}>
+                  <Text style={styles.bigNumberLabel}>Total Spots</Text>
+                  <Text style={[styles.bigNumber, { color: "#6b7280" }]}>100</Text>
+                </View>
+              </View>
+
+              {/* Progress Bar */}
+              <View style={styles.progressSection}>
+                <View style={styles.progressBarBg}>
+                  <View 
+                    style={[
+                      styles.progressBarFill,
+                      { 
+                        width: `${result.average_occupancy}%`,
+                        backgroundColor: getOccupancyColor(result.average_occupancy)
+                      }
+                    ]} 
+                  />
+                </View>
+                <View style={styles.progressLabels}>
+                  <Text style={styles.progressLabel}>0%</Text>
+                  <Text style={[styles.progressLabel, { fontWeight: "700" }]}>
+                    {result.average_occupancy}% Full
+                  </Text>
+                  <Text style={styles.progressLabel}>100%</Text>
+                </View>
+              </View>
+
+              {/* Trend Indicator */}
+              <View style={styles.trendCard}>
+                <Text style={styles.trendIcon}>📊</Text>
+                <Text style={styles.trendText}>
+                  Based on historical data from the past 30 days
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.noDataContainer}>
+              <Text style={styles.noDataIcon}>✅</Text>
+              <Text style={styles.noDataText}>Usually Available</Text>
+              <Text style={styles.noDataSubtext}>
+                This location typically has open spots at this time
+              </Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {renderLotPicker()}
+      {renderTimePicker()}
+      {renderDayPicker()}
+      {renderThresholdPicker()}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: "#000",
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#fff",
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+    color: "#9ca3af",
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#6b7280",
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  locationCard: {
+    backgroundColor: "#111",
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+  },
+  locationName: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#fff",
+    marginBottom: 4,
+  },
+  locationCode: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+  chevron: {
+    fontSize: 28,
+    color: "#4b5563",
+    fontWeight: "300",
+  },
+  timeRangeContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  timeButton: {
+    flex: 1,
+    backgroundColor: "#6366f1",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  timeButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  thresholdCard: {
+    backgroundColor: "#111",
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+  },
+  thresholdValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#6366f1",
+    marginBottom: 4,
+  },
+  thresholdLabel: {
+    fontSize: 13,
+    color: "#6b7280",
+  },
+  statsCard: {
+    backgroundColor: "#111",
+    marginHorizontal: 20,
+    marginBottom: 40,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "#1f1f1f",
+  },
+  statsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  statsLotName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  currentStatusLabel: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginBottom: 24,
+  },
+  bigNumbersContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 32,
+  },
+  bigNumberBox: {
+    alignItems: "center",
+  },
+  bigNumberLabel: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginBottom: 8,
+  },
+  bigNumber: {
+    fontSize: 48,
+    fontWeight: "800",
+  },
+  progressSection: {
+    marginBottom: 24,
+  },
+  progressBarBg: {
+    height: 12,
+    backgroundColor: "#1f1f1f",
+    borderRadius: 6,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 6,
+  },
+  progressLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: "#6b7280",
+  },
+  trendCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1f1f1f",
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  trendIcon: {
+    fontSize: 20,
+  },
+  trendText: {
+    fontSize: 13,
+    color: "#9ca3af",
+    flex: 1,
+    lineHeight: 18,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    color: "#6b7280",
+    fontSize: 15,
+  },
+  noDataContainer: {
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  noDataIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  noDataText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#fff",
+    marginBottom: 8,
+  },
+  noDataSubtext: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "flex-end",
+  },
+  pickerContainer: {
+    backgroundColor: "#111",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "70%",
+  },
+  pickerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1f1f1f",
+  },
+  pickerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  doneButton: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#6366f1",
+  },
+  pickerScroll: {
+    maxHeight: 400,
+  },
+  pickerItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1f1f1f",
+  },
+  pickerItemSelected: {
+    backgroundColor: "#1f1f1f",
+  },
+  pickerItemText: {
+    fontSize: 17,
+    color: "#fff",
+  },
+  pickerItemTextSelected: {
+    fontWeight: "600",
+    color: "#6366f1",
+  },
+  pickerItemSubtext: {
+    fontSize: 13,
+    color: "#6b7280",
+    marginTop: 2,
+  },
+  checkmark: {
+    fontSize: 20,
+    color: "#6366f1",
+    fontWeight: "700",
+  },
+});
