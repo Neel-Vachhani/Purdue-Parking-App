@@ -322,6 +322,14 @@ export default function GarageList({
             <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
               {item.name}
             </Text>
+
+            <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
+              Code: {item.code}
+            </Text>
+
+            <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
+              Passes: {passesLabel}
+            </Text>
           </View>
 
           <View style={{ alignItems: "flex-end" }}>
@@ -340,7 +348,6 @@ export default function GarageList({
               </TouchableOpacity>
             </View>
 
-          <View style={{ alignItems: "flex-end" }}>
             <TouchableOpacity
               onPress={() => handleToggleFavorite(item)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -355,15 +362,7 @@ export default function GarageList({
           </View>
         </View>
 
-        <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
-          Code: {item.code}
-        </Text>
-
-        <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
-          Passes: {passesLabel}
-        </Text>
-
-        <Text style={{ color: secondaryText, marginTop: 4 }}>
+        <Text style={{ color: secondaryText, marginTop: 8 }}>
           {item.current}/{item.total}
         </Text>
 
@@ -385,8 +384,6 @@ export default function GarageList({
           />
         </View>
       </View>
-    </View>
-
     );
   };
 
