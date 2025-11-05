@@ -708,3 +708,40 @@ def check_user_notifications(request):
     
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=404)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])  # TODO: tighten to IsAuthenticated once auth is finalized
+def closure_notifications_toggle(request):
+    """
+    Get or set user's closure notification preference.
+    Used by User Story #11 - Opt-in/opt-out for closure alerts.
+    
+    GET:  /closure-notifications/?email=<email>
+    POST: { email, enabled: true/false }
+    
+    Returns:
+        closure_notifications_enabled: boolean
+    """
+    email = request.data.get("email") if request.method == 'POST' else request.query_params.get("email")
+    if not email:
+        return Response({"detail": "email required"}, status=400)
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response({"detail": "user not found"}, status=404)
+
+    if request.method == 'GET':
+        return Response({
+            "closure_notifications_enabled": user.closure_notifications_enabled
+        })
+
+    # POST - update preference
+    enabled = request.data.get("enabled", True)
+    user.closure_notifications_enabled = bool(enabled)
+    user.save(update_fields=["closure_notifications_enabled"]) 
+    
+    return Response({
+        "status": "ok",
+        "closure_notifications_enabled": user.closure_notifications_enabled
+    })
