@@ -62,9 +62,10 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         <MaterialIcons name="my-location" size={22} color={theme.primary} />
       </Pressable>
       <GooglePlacesTextInput 
-        apiKey="APIKEY"//TODO
+        apiKey="AIzaSyBxhVBBpvDijJaLO9m9ZlgsQbo4CcVUi4o"//TODO
         placeHolderText="Search for a garage"
         fetchDetails={true}
+        types={["parking"]}
         detailsFields={['formattedAddress', 'location']}
         locationRestriction={{
           rectangle: {
@@ -75,7 +76,8 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         onPlaceSelect={ handlePlaceSelect }  >
 
         </GooglePlacesTextInput>
-
+        
+        
     </View>
   );
 }
