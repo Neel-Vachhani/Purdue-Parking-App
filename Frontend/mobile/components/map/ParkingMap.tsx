@@ -1,11 +1,11 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import MapView, { Region, MapViewProps } from "react-native-maps";
 import { INITIAL_REGION, MIN_ZOOM_LEVEL, MAX_ZOOM_LEVEL } from "../../constants/map";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import GooglePlacesTextInput from "react-native-google-places-textinput";
-import Card from "../Card";
+
 
 
 // Public props for the reusable map component.
@@ -15,11 +15,53 @@ interface ParkingMapProps extends MapViewProps {
   children?: React.ReactNode;
 }
 
+
+
 // Renders a themed, full-bleed map with sane defaults for Boiler Park.
 export default function ParkingMap({ children, initialRegion }: ParkingMapProps) {
   const region: Region = initialRegion ?? INITIAL_REGION;
   const mapRef = useRef<MapView>(null);
   const theme = React.useContext(ThemeContext);
+  const [place, setPlace] = useState();
+
+  const  handlePlaceSelect = async (place: any) => {
+    setPlace(place);
+    const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': 'APIKEY',
+              'X-Goog-FieldMask': 'routes.duration'
+            },
+            body: JSON.stringify({
+                origin: {
+                    location: {
+                        latLng: {
+                            latitude: 40.43318472429998,
+                            longitude: -86.92189194353148
+                        }
+                    }
+                },
+                destination: {
+                    location: {
+                        latLng: {
+                            latitude: place.details.location.latitude,
+                            longitude: place.details.location.longitude
+                        }
+                    }
+                },
+                travelMode: "DRIVE",
+            }
+            ),
+          });
+        const duration = await response.json();
+        const secsString = duration.routes[0].duration;
+        const secs = secsString.slice(0, -1); 
+        const eta = (Math.ceil(secs / 60));
+        console.log("Your ETA is: " + String(eta) + " minutes");
+  };
+
 
 
   return (
@@ -75,9 +117,7 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         }}
         onPlaceSelect={ handlePlaceSelect }  >
 
-        </GooglePlacesTextInput>
-        
-        
+        </GooglePlacesTextInput>     
     </View>
   );
 }
@@ -104,7 +144,9 @@ const styles = StyleSheet.create({
 });
 
 
-const handlePlaceSelect = (place: any) => {
-    console.log('Selected place:', place.details);
-    return Card(place);
-  };
+
+
+  
+  
+  
+

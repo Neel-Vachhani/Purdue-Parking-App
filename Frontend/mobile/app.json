@@ -16,7 +16,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourname.boilerpark",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription":"This app needs to get your location to navigate to garages"
+      }
     },
     "android": {
       "adaptiveIcon": {
