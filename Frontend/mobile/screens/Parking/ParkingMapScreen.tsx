@@ -14,13 +14,20 @@
 import React, { useEffect, useState } from "react";
 import { View, Text } from "react-native";
 import { Marker, Callout } from "react-native-maps";
+import * as SecureStore from "expo-secure-store";
 import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
 import { INITIAL_REGION } from "../../constants/map";
 import { PARKING_LOCATIONS, loadParkingLocations, ParkingLocation } from "./parkingLocationsData";
+import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../../utils/travelTime";
+
+// Extend ParkingLocation to include travel time
+interface ParkingLocationWithTravel extends ParkingLocation {
+  travelTime?: TravelTimeResult | null;
+}
 
 export default function ParkingMapScreen() {
-  const [locations, setLocations] = useState<ParkingLocation[]>(PARKING_LOCATIONS);
+  const [locations, setLocations] = useState<ParkingLocationWithTravel[]>(PARKING_LOCATIONS);
 
   useEffect(() => {
     let isMounted = true;
@@ -43,6 +50,48 @@ export default function ParkingMapScreen() {
     };
   }, []);
 
+  // Load travel times from default origin
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTravelTimes = async () => {
+      try {
+        // Get user email from secure storage
+        const userJson = await SecureStore.getItemAsync("user");
+        const user = userJson ? JSON.parse(userJson) : null;
+        const email = user?.email;
+        
+        if (!email) {
+          return;
+        }
+
+        // Calculate travel times for each location
+        const travelTimePromises = locations.map(async (location) => {
+          const travelTime = await getTravelTimeFromDefaultOrigin(
+            location.coordinate,
+            email
+          );
+
+          return { ...location, travelTime };
+        });
+
+        const locationsWithTravelTimes = await Promise.all(travelTimePromises);
+
+        if (isMounted) {
+          setLocations(locationsWithTravelTimes);
+        }
+      } catch (error) {
+        console.error("Failed to load travel times", error);
+      }
+    };
+
+    loadTravelTimes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <ThemedView>
       <ParkingMap initialRegion={INITIAL_REGION}>
@@ -54,6 +103,11 @@ export default function ParkingMapScreen() {
                 <Text style={{ marginTop: 4 }}>
                   {location.description || "Availability unavailable"}
                 </Text>
+                {location.travelTime && (
+                  <Text style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+                    {location.travelTime.formattedDuration} ({location.travelTime.formattedDistance})
+                  </Text>
+                )}
               </View>
             </Callout>
           </Marker>

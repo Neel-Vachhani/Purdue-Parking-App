@@ -15,7 +15,6 @@ import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
 import PaidLot from "./PaidLot";
-import Config from "react-native-config";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall";
 
 type Garage = {
@@ -122,7 +121,7 @@ const getApiBaseUrl = (): string => {
     }
   }
 
-  return `http://${host}:8000`;
+  return "http://localhost:7500";
 };
 
 export default function GarageList({
@@ -191,6 +190,7 @@ export default function GarageList({
         }
 
         const payload: { lots?: ApiLot[] } = await response.json();
+        console.log(payload)
         const lots = Array.isArray(payload?.lots) ? payload.lots : undefined;
         if (!lots || lots.length === 0 || !isMounted) {
           return;
@@ -321,6 +321,14 @@ export default function GarageList({
             <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
               {item.name}
             </Text>
+
+            <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
+              Code: {item.code}
+            </Text>
+
+            <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
+              Passes: {passesLabel}
+            </Text>
           </View>
 
           <View style={{ alignItems: "flex-end" }}>
@@ -339,7 +347,6 @@ export default function GarageList({
               </TouchableOpacity>
             </View>
 
-          <View style={{ alignItems: "flex-end" }}>
             <TouchableOpacity
               onPress={() => handleToggleFavorite(item)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -354,15 +361,7 @@ export default function GarageList({
           </View>
         </View>
 
-        <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
-          Code: {item.code}
-        </Text>
-
-        <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
-          Passes: {passesLabel}
-        </Text>
-
-        <Text style={{ color: secondaryText, marginTop: 4 }}>
+        <Text style={{ color: secondaryText, marginTop: 8 }}>
           {item.current}/{item.total}
         </Text>
 
@@ -384,8 +383,6 @@ export default function GarageList({
           />
         </View>
       </View>
-    </View>
-
     );
   };
 

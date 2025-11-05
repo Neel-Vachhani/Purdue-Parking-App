@@ -92,7 +92,7 @@ const getApiBaseUrl = (): string => {
     }
   }
 
-  return `http://${host}:8000`;
+  return `http://${host}:7500`;
 };
 
 const cache: { locations: ParkingLocation[] | null; timestamp: number | null } = {

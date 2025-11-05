@@ -21,7 +21,7 @@ const ParkingWS: React.FC = () => {
       }
     }
 
-    return `ws://${host}:8000/ws/parking/`;
+    return `ws://${host}:7500/ws/parking/`;
   };
 
   const connect = () => {
