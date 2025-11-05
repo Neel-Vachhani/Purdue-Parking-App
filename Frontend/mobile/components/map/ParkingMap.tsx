@@ -4,8 +4,8 @@ import MapView, { Region, MapViewProps } from "react-native-maps";
 import { INITIAL_REGION, MIN_ZOOM_LEVEL, MAX_ZOOM_LEVEL } from "../../constants/map";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../../theme/ThemeProvider";
-import { Config}  from "react-native-config";
 import GooglePlacesTextInput from "react-native-google-places-textinput";
+import Card from "../Card";
 
 
 // Public props for the reusable map component.
@@ -21,9 +21,9 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
   const mapRef = useRef<MapView>(null);
   const theme = React.useContext(ThemeContext);
 
+
   return (
     <View style={styles.container}>
-        {/*<script asyncmsrc={Config.GOOGLE_MAPS_URL}></script>*/}
       {/* Base map. Keep config minimal; avoid coupling to data here. */}
       <MapView
         ref={mapRef}
@@ -62,7 +62,7 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         <MaterialIcons name="my-location" size={22} color={theme.primary} />
       </Pressable>
       <GooglePlacesTextInput 
-        apiKey="AIzaSyBxhVBBpvDijJaLO9m9ZlgsQbo4CcVUi4o"//TODO
+        apiKey="APIKEY"//TODO
         placeHolderText="Search for a garage"
         fetchDetails={true}
         types={["parking"]}
@@ -105,5 +105,6 @@ const styles = StyleSheet.create({
 
 
 const handlePlaceSelect = (place: any) => {
-    console.log('Selected place:', place.details.formattedAddress);
+    console.log('Selected place:', place.details);
+    return Card(place);
   };
