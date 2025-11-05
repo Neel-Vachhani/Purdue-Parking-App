@@ -1,4 +1,5 @@
 import logging
+from statistics import mean
 from typing import List, Dict, Any, Optional
 
 import bcrypt
@@ -132,14 +133,20 @@ def get_postgres_parking_data(request):
     period = 'day', 'week', 'month'
     """
     # Define lot names and totals inside the function
-    lot = request.GET.get("lot")
+    lot_code = request.GET.get("lot")
     period = request.GET.get("period", "day").lower()
 
-    if not lot:
+    if not lot_code:
         return Response({"error": "Missing 'lot' query parameter."}, status=400)
-
+    else:
+        lot_code = lot_code.upper()
     if period not in ["day", "week", "month"]:
         return Response({"error": "Invalid period. Must be 'day', 'week', or 'month'."}, status=400)
+    lot_entry = next((lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
+    if not lot_entry:
+        return Response({"error": f"Lot '{lot_code}' not found."}, status=404)
+
+    column_name = lot_entry["redis_key"]
 
     # Connect to Postgres
     conn = psycopg2.connect(
@@ -159,7 +166,7 @@ def get_postgres_parking_data(request):
     }[period]
 
     query = f"""
-        SELECT id, timestamp, {lot}_availability
+        SELECT id, timestamp, {column_name}
         FROM parking_availability_data
         WHERE timestamp >= NOW() - INTERVAL '{interval}'
         ORDER BY timestamp ASC;
@@ -173,6 +180,106 @@ def get_postgres_parking_data(request):
     results = [{"id": r[0], "timestamp": r[1], "availability": r[2]} for r in rows]
 
     return Response(results)
+
+@api_view(["GET"])
+def get_hourly_average_parking(request):
+    """
+    Returns average occupancy for a given lot at a specific hour, 
+    optionally filtered by weekday, based on past 30 days of data.
+
+    Query Params:
+      - lot (str): e.g., 'pgmd', 'lot_a', etc. [required]
+      - hour (int): 0–23 [required]
+      - weekday (str): optional, e.g., 'monday', 'tuesday', etc.
+      - threshold (float): optional, e.g., 80 (to flag full lots)
+    """
+    lot_code = request.GET.get("lot")
+    hour_param = request.GET.get("hour")
+    weekday_param = request.GET.get("weekday")
+    threshold_param = request.GET.get("threshold")
+
+    # Validate inputs
+    if not lot_code or hour_param is None:
+        return Response({"error": "Missing required parameters 'lot' or 'hour'."}, status=400)
+    else:
+        lot_code = lot_code.upper()
+    try:
+        hour = int(hour_param)
+        if not (0 <= hour <= 23):
+            raise ValueError
+    except ValueError:
+        return Response({"error": "Invalid 'hour'. Must be an integer between 0 and 23."}, status=400)
+
+    # Optional: normalize weekday name
+    weekdays_map = {
+        "monday": 0, "tuesday": 1, "wednesday": 2,
+        "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6
+    }
+    weekday_index = None
+    if weekday_param:
+        weekday_param = weekday_param.lower()
+        if weekday_param not in weekdays_map:
+            return Response({"error": "Invalid 'weekday' parameter."}, status=400)
+        weekday_index = weekdays_map[weekday_param]
+    lot_entry = next((lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
+    if not lot_entry:
+        return Response({"error": f"Lot '{lot_code}' not found."}, status=404)
+    column_name = lot_entry["redis_key"]
+
+    # Connect to Postgres
+    conn = psycopg2.connect(
+        host=config("DB_HOST"),
+        port=config("DB_PORT"),
+        database=config("DB_NAME"),
+        user=config("DB_USERNAME"),
+        password=config("DB_PASSWORD")
+    )
+    cursor = conn.cursor()
+
+    # Build SQL query
+    query = f"""
+        SELECT timestamp, {column_name}
+        FROM parking_availability_data
+        WHERE timestamp >= NOW() - INTERVAL '30 days';
+    """
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    print(rows)
+    cursor.close()
+    conn.close()
+
+    if not rows:
+        return Response({"error": "No data found for this lot."}, status=404)
+
+    # Filter by hour and optional weekday
+    filtered = []
+    for ts, avail in rows:
+        if ts.hour == hour:
+            if weekday_index is None or ts.weekday() == weekday_index:
+                filtered.append(avail)
+
+    if not filtered:
+        return Response({"error": "No matching data for that hour/weekday."}, status=404)
+
+    avg_occupancy = mean(filtered)
+
+    # Optional threshold logic
+    result = {
+        "lot": lot_code.lower(),
+        "hour": hour,
+        "weekday": weekday_param or "all_days",
+        "average_occupancy": round(avg_occupancy, 2),
+    }
+
+    if threshold_param:
+        try:
+            threshold = float(threshold_param)
+            result["likely_full"] = avg_occupancy >= threshold
+        except ValueError:
+            return Response({"error": "Invalid threshold. Must be a number."}, status=400)
+
+    return Response(result)
+
 
 @api_view(['GET'])
 def get_parking_availability(request):
