@@ -22,6 +22,7 @@ urlpatterns = [
     path('notifications/history/', views.notification_history),
     path('notifications/stats/', views.notification_stats),
     path('notifications/check/', views.check_user_notifications),
+    path('closure-notifications/', views.closure_notifications_toggle),
     path("postgres-parking/", views.get_postgres_parking_data),
     path("parking/hourly-average/", views.get_hourly_average_parking),
 ]
