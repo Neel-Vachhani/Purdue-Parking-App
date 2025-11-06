@@ -2,6 +2,8 @@ import React, { useContext } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, Image } from "react-native";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "../components/ThemedIcons";
+import * as SecureStore from "expo-secure-store";
+import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../utils/travelTime";
 
 export type Amenity =
   | "covered"
@@ -30,6 +32,8 @@ export interface Garage {
   id: string;
   name: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   distanceMeters?: number;
   isOpen?: boolean;
   totalSpots?: number;
@@ -199,6 +203,65 @@ export default function GarageDetail({
   const p = percent(garage.occupiedSpots, garage.totalSpots);
   const pctStr = `${Math.round(p * 100)}%`;
 
+  // State for travel time (User Story #9)
+  const [travelTime, setTravelTime] = React.useState<TravelTimeResult | null>(null);
+  const [loadingTravel, setLoadingTravel] = React.useState(false);
+
+  // Load travel time when garage changes (User Story #9 - AC3)
+  React.useEffect(() => {
+    let isMounted = true;
+    
+    async function loadTravelTime() {
+      // Need coordinates to calculate travel time
+      const lat = garage.latitude;
+      const lng = garage.longitude;
+      
+      if (!lat || !lng) {
+        if (isMounted) setTravelTime(null);
+        return;
+      }
+      
+      try {
+        if (isMounted) setLoadingTravel(true);
+        const userJson = await SecureStore.getItemAsync("user");
+        const email = userJson ? JSON.parse(userJson).email : null;
+        
+        if (!email) {
+          if (isMounted) setTravelTime(null);
+          return;
+        }
+        
+        const result = await getTravelTimeFromDefaultOrigin(
+          { latitude: lat, longitude: lng },
+          email
+        );
+        
+        if (isMounted) {
+          // Only set travel time if we got valid data
+          if (result && result.distance > 0 && result.duration > 0) {
+            setTravelTime(result);
+          } else {
+            console.log("No valid travel time available - hiding travel info");
+            setTravelTime(null);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load travel time for detailed view:", error);
+        if (isMounted) setTravelTime(null);
+      } finally {
+        if (isMounted) setLoadingTravel(false);
+      }
+    }
+    
+    // Clear old travel time first
+    setTravelTime(null);
+    loadTravelTime();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [garage.id, garage.latitude, garage.longitude]);
+
   return (
     <View style={styles.root}>
       <View style={styles.header}>
@@ -231,10 +294,20 @@ export default function GarageDetail({
             <Text style={styles.name}>{garage.name}</Text>
             <Text style={styles.address} numberOfLines={2}>{garage.address}</Text>
             <View style={styles.summaryRow}>
-              {miles && (
+              {loadingTravel && (
                 <Pill>
-                  <Ionicons name="navigate" size={14} /> {miles} mi
+                  <Ionicons name="hourglass-outline" size={14} /> Calculating...
                 </Pill>
+              )}
+              {!loadingTravel && travelTime && (
+                <>
+                  <Pill>
+                    <Ionicons name="navigate" size={14} /> {travelTime.formattedDistance}
+                  </Pill>
+                  <Pill>
+                    <Ionicons name={travelTime.originType === "saved" ? "home" : "location"} size={14} /> {travelTime.formattedDuration}
+                  </Pill>
+                </>
               )}
               <Pill>
                 <Ionicons name={garage.isOpen ? "time" : "close"} size={14} /> {garage.isOpen ? "Open" : "Closed"}

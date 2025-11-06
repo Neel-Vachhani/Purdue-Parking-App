@@ -72,8 +72,11 @@ function formatDuration(minutes: number): string {
   }
 }
 
+// Google Maps API Key for geocoding
+const GOOGLE_MAPS_API_KEY = "AIzaSyDkc3WA8HoqkoHEWogkZhSAO_2Du6wo-x4";
+
 /**
- * Geocode an address to coordinates using a free geocoding service
+ * Geocode an address to coordinates using Google Maps Geocoding API
  * Returns null if geocoding fails
  * Prioritizes results near West Lafayette, Indiana for better accuracy
  */
@@ -95,53 +98,67 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
     
     // Only append West Lafayette if address seems incomplete (no city/state/zip)
     if (!hasCity && !hasState && !hasZip && !lowerAddress.includes("lafayette")) {
-      searchAddress = `${searchAddress}, West Lafayette, Indiana`;
-      console.log(`Geocoding (added context): "${searchAddress}"`);
+      // For Purdue buildings/landmarks, add "Purdue University" for better results
+      if (lowerAddress.includes("purdue") || 
+          lowerAddress.includes("memorial union") || 
+          lowerAddress.includes("lawson") ||
+          lowerAddress.includes("krannert") ||
+          lowerAddress.includes("stewart center") ||
+          lowerAddress.includes("pmucorr") ||
+          lowerAddress.includes("recwell") ||
+          lowerAddress.includes("corec")) {
+        searchAddress = `${searchAddress}, Purdue University, West Lafayette, IN`;
+        console.log(`Geocoding (Purdue landmark): "${searchAddress}"`);
+      } else {
+        searchAddress = `${searchAddress}, West Lafayette, Indiana`;
+        console.log(`Geocoding (added context): "${searchAddress}"`);
+      }
     } else {
       console.log(`Geocoding: "${searchAddress}"`);
     }
     
-    // Using Nominatim (OpenStreetMap) for free geocoding
-    // For production, consider using Google Maps Geocoding API with API key
+    // Using Google Maps Geocoding API
     const encodedAddress = encodeURIComponent(searchAddress);
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=5&countrycodes=us`,
-      {
-        headers: {
-          "User-Agent": "BoilerParkApp/1.0",
-        },
-      }
-    );
+    const googleUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${GOOGLE_MAPS_API_KEY}&bounds=40.39286,-86.954622|40.466874,-86.871755&region=us`;
+    
+    console.log("Geocoding with Google Maps API...");
+    const response = await fetch(googleUrl);
     
     if (!response.ok) {
-      console.error("Geocoding request failed:", response.status);
+      console.error("Google Maps API request failed:", response.status);
       return null;
     }
     
     const data = await response.json();
     
-    if (data && data.length > 0) {
+    if (data.status === "OK" && data.results && data.results.length > 0) {
       // Log all results for debugging
-      console.log(`Found ${data.length} geocoding results:`);
-      data.forEach((result: any, i: number) => {
-        console.log(`  ${i + 1}. ${result.display_name} (${result.lat}, ${result.lon})`);
+      console.log(`✅ Found ${data.results.length} result(s) from Google Maps:`);
+      data.results.forEach((result: any, i: number) => {
+        const loc = result.geometry.location;
+        console.log(`  ${i + 1}. ${result.formatted_address}`);
+        console.log(`     (${loc.lat}, ${loc.lng})`);
       });
       
+      const location = data.results[0].geometry.location;
       const coords = {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon),
+        latitude: location.lat,
+        longitude: location.lng,
       };
       
-      console.log(`Using: ${data[0].display_name}`);
-      console.log(`   Coords: ${coords.latitude}, ${coords.longitude}`);
+      console.log(`✓ Using: ${data.results[0].formatted_address}`);
+      console.log(`  Coords: ${coords.latitude}, ${coords.longitude}`);
       
       return coords;
+    } else if (data.status === "ZERO_RESULTS") {
+      console.error("❌ No results found for:", searchAddress);
+      return null;
+    } else {
+      console.error("❌ Google Maps API error:", data.status, data.error_message || "");
+      return null;
     }
-    
-    console.error("No geocoding results found for:", searchAddress);
-    return null;
   } catch (error) {
-    console.error("Geocoding error:", error);
+    console.error("❌ Geocoding error:", error);
     return null;
   }
 }
@@ -256,19 +273,10 @@ export async function getTravelTimeFromDefaultOrigin(
       console.warn("Failed to fetch saved location:", error);
     }
     
-    // Fallback to current location if no saved origin
+    // If no saved origin, don't show travel time (User Story #9 - AC4)
     if (!origin) {
-      console.log("No saved starting location, using current device location...");
-      const currentLocation = await getCurrentLocation();
-      
-      if (currentLocation) {
-        origin = currentLocation;
-        originType = "current";
-        console.log(`Using current location: ${currentLocation.latitude}, ${currentLocation.longitude}`);
-      } else {
-        console.log("No starting location available (neither saved nor current)");
-        return null;
-      }
+      console.log("No saved starting location - not displaying travel time (per AC4)");
+      return null;
     }
     
     // Calculate travel time

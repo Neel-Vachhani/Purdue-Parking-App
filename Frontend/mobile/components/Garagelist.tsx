@@ -17,7 +17,7 @@ import {
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
-import GarageDetail from "./DetailedGarage";
+import GarageDetail from "./detailedGarage";
 import PaidLot from "./PaidLot";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall";
 
@@ -60,6 +60,8 @@ export interface GarageDetailType {
   id: string;
   name: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   distanceMeters?: number;
   isOpen?: boolean;
   totalSpots?: number;
@@ -87,34 +89,34 @@ type GarageDefinition = {
 const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall"];
 
 const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, passes: ["A", "B"] },
-  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, passes: ["A", "B"] },
-  { code: "PGU", name: "University Street Parking Garage", paid: true, passes: ["A", "SG"] },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, passes: ["A", "SG"] },
-  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, passes: ["Residence Hall"] },
-  { code: "PGW", name: "Wood Street Parking Garage", paid: true, passes: ["A", "SG"] },
-  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, passes: ["Grad House"] },
-  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, passes: ["A"] },
-  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", passes: ["A", "B", "C"] },
-  { code: "LOT_H", name: "Lot H (North of Football Practice Field)", passes: ["A", "B", "C"] },
-  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", passes: ["A", "B"] },
-  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", passes: ["A", "B"] },
-  { code: "LOT_A", name: "Lot A (North of Cary Quad)", passes: ["A", "B"] },
-  { code: "CREC", name: "Co-Rec Parking Lots", passes: ["A", "B", "C"] },
-  { code: "LOT_O", name: "Lot O (East of Rankin Track)", passes: ["A", "B", "C"] },
-  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", passes: ["A", "B"] },
-  { code: "LOT_AA", name: "Lot AA (6th & Russell)", passes: ["A", "B"] },
-  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", passes: ["A", "B"] },
-  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", passes: ["A", "B"] },
-  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", passes: ["A", "B"] },
-  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", passes: ["A", "B"] },
-  { code: "DUHM", name: "Duhme Hall Parking Lot", passes: ["A", "B"] },
-  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, passes: ["A", "B"] },
-  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", passes: ["A"] },
-  { code: "DISC_A", name: "Discovery Lot (A Permit)", passes: ["A"] },
-  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", passes: ["A", "B"] },
-  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", passes: ["A", "B", "C"] },
-  { code: "AIRPORT", name: "Airport Parking Lots", passes: ["A", "B", "C"] },
+  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B"] },
+  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B"] },
+  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG"] },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG"] },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall"] },
+  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG"] },
+  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, lat: 40.43095, lng: -86.91625, passes: ["Grad House"] },
+  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A"] },
+  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"] },
+  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"] },
+  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"] },
+  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"] },
+  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"] },
+  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"] },
+  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"] },
+  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"] },
+  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"] },
+  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"] },
+  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"] },
+  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"] },
+  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"] },
+  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"] },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B"] },
+  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"] },
+  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"] },
+  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"] },
+  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"] },
+  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"] },
 ];
 
 const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
@@ -700,12 +702,14 @@ export default function GarageList({
 }
 
 // quick adapter from list item to GarageDetail props
-function mapListGarageToDetail(g:   Garage): GarageDetailType {
+function mapListGarageToDetail(g: Garage): GarageDetailType {
   const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
   return {
     id: g.id,
     name: g.name,
     address: "Address coming from API", // replace with real field if you have it
+    latitude: g.lat, // Pass latitude for travel time calculation (User Story #9)
+    longitude: g.lng, // Pass longitude for travel time calculation (User Story #9)
     totalSpots: g.total,
     occupiedSpots: occupied,
     covered: true,

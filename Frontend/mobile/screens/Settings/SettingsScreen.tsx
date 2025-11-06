@@ -49,6 +49,7 @@ export default function SettingsScreen({ onLogout }: Props) {
   const [prefs, setPrefs] = React.useState<NotifPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = React.useState(false);
   const [origin, setOrigin] = React.useState("");
+  const [savedOrigin, setSavedOrigin] = React.useState(""); // Track what's actually saved
   const [originLoading, setOriginLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -71,9 +72,10 @@ export default function SettingsScreen({ onLogout }: Props) {
       const email = user?.email;
       if (!email) return;
       const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
-      const savedOrigin = res?.data?.default_origin ?? "";
-      setOrigin(savedOrigin);
-      console.log("Loaded starting location:", savedOrigin || "(none)");
+      const loadedOrigin = res?.data?.default_origin ?? "";
+      setOrigin(loadedOrigin);
+      setSavedOrigin(loadedOrigin); // Track saved value separately
+      console.log("Loaded starting location:", loadedOrigin || "(none)");
     } catch (err) {
       console.error("Failed to load starting location:", err);
     } finally {
@@ -99,6 +101,9 @@ export default function SettingsScreen({ onLogout }: Props) {
       const trimmedOrigin = origin.trim();
       console.log("Saving starting location:", trimmedOrigin || "(clearing)");
       await axios.post(`${API_BASE}/user/origin/`, { email, default_origin: trimmedOrigin });
+      
+      // Update saved origin state
+      setSavedOrigin(trimmedOrigin);
       
       if (trimmedOrigin) {
         Alert.alert(
@@ -136,6 +141,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       console.log("Clearing starting location");
       await axios.post(`${API_BASE}/user/origin/`, { email, default_origin: "" });
       setOrigin("");
+      setSavedOrigin(""); // Clear saved origin state
       
       Alert.alert(
         "Cleared Successfully",
@@ -416,40 +422,95 @@ export default function SettingsScreen({ onLogout }: Props) {
         </Row>
 
         {/* Starting Location (for travel time calculations) */}
-        <View style={{ marginTop: 12, gap: 10 }}>
-          <ThemedText style={{ fontSize: 18, fontWeight: "700" }}>Starting Location</ThemedText>
-          <ThemedText style={{ fontSize: 14, opacity: 0.7, marginBottom: 4 }}>
-            Where are you traveling from?
+        <View style={{ 
+          marginTop: 20, 
+          backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+          padding: 16,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: theme.mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"
+        }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Ionicons name="home" size={22} color={theme.primary} />
+            <ThemedText style={{ fontSize: 18, fontWeight: "700" }}>Starting Location</ThemedText>
+          </View>
+          
+          <ThemedText style={{ fontSize: 14, opacity: 0.65, marginBottom: 16, lineHeight: 20 }}>
+            Set your default starting point for travel time estimates
           </ThemedText>
+          
+          {/* Status Message at Top - Only show if there's a saved location */}
+          {savedOrigin ? (
+            <View style={{ 
+              flexDirection: "row", 
+              alignItems: "center", 
+              gap: 8,
+              padding: 12,
+              backgroundColor: theme.mode === "dark" ? "rgba(34, 197, 94, 0.15)" : "rgba(34, 197, 94, 0.1)",
+              borderRadius: 10,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: "rgba(34, 197, 94, 0.3)"
+            }}>
+              <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={{ fontSize: 11, opacity: 0.7, fontWeight: "600", marginBottom: 2 }}>
+                  SAVED LOCATION
+                </ThemedText>
+                <ThemedText style={{ fontSize: 13, fontWeight: "500" }}>
+                  {savedOrigin}
+                </ThemedText>
+              </View>
+            </View>
+          ) : (
+            <View style={{ 
+              flexDirection: "row", 
+              alignItems: "center", 
+              gap: 8,
+              padding: 12,
+              backgroundColor: theme.mode === "dark" ? "rgba(59, 130, 246, 0.15)" : "rgba(59, 130, 246, 0.1)",
+              borderRadius: 10,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: "rgba(59, 130, 246, 0.3)"
+            }}>
+              <Ionicons name="location" size={20} color="#3b82f6" />
+              <ThemedText style={{ fontSize: 13, opacity: 0.85, flex: 1, lineHeight: 18 }}>
+                Not set - travel times will not be displayed
+              </ThemedText>
+            </View>
+          )}
           
           {/* Address Format Guide */}
           <View style={{ 
-            backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
-            padding: 10,
-            borderRadius: 8,
-            marginBottom: 4
+            backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+            padding: 12,
+            borderRadius: 10,
+            marginBottom: 12,
+            borderLeftWidth: 3,
+            borderLeftColor: theme.primary
           }}>
-            <ThemedText style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
-              Format examples:
+            <ThemedText style={{ fontSize: 12, fontWeight: "600", opacity: 0.7, marginBottom: 8 }}>
+              FORMAT EXAMPLES:
             </ThemedText>
-            <ThemedText style={{ fontSize: 11, opacity: 0.6, fontFamily: "monospace" }}>
-              • Street Address, City, State ZIP
+            <ThemedText style={{ fontSize: 12, opacity: 0.65, lineHeight: 18, marginBottom: 4 }}>
+              • <ThemedText style={{ fontWeight: "500" }}>Street Address:</ThemedText> 201 Grant St, West Lafayette, IN 47906
             </ThemedText>
-            <ThemedText style={{ fontSize: 11, opacity: 0.6, fontFamily: "monospace" }}>
-              • Building Name, West Lafayette
+            <ThemedText style={{ fontSize: 12, opacity: 0.65, lineHeight: 18, marginBottom: 4 }}>
+              • <ThemedText style={{ fontWeight: "500" }}>Building Name:</ThemedText> Memorial Union
             </ThemedText>
-            <ThemedText style={{ fontSize: 11, opacity: 0.6, fontFamily: "monospace" }}>
-              • Landmark or POI Name
+            <ThemedText style={{ fontSize: 12, opacity: 0.65, lineHeight: 18 }}>
+              • <ThemedText style={{ fontWeight: "500" }}>Landmark:</ThemedText> Lawson Computer Science Building
             </ThemedText>
           </View>
 
           {/* Input with Clear Button */}
-          <View style={{ position: "relative" }}>
+          <View style={{ position: "relative", marginBottom: 12 }}>
             <AuthInput
-              placeholder="e.g., 201 Grant St, West Lafayette, IN 47906"
+              placeholder="Enter your starting location..."
               value={origin}
               onChangeText={setOrigin}
-              style={{ paddingRight: origin ? 40 : 12 }}
+              style={{ paddingRight: origin ? 50 : 12, fontSize: 15 }}
             />
             {origin && (
               <TouchableOpacity
@@ -457,18 +518,22 @@ export default function SettingsScreen({ onLogout }: Props) {
                 style={{
                   position: "absolute",
                   right: 12,
-                  top: 0,
-                  bottom: 0,
+                  top: "50%",
+                  transform: [{ translateY: -12 }],
+                  width: 24,
+                  height: 24,
                   justifyContent: "center",
-                  padding: 4,
+                  alignItems: "center",
+                  backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+                  borderRadius: 12
                 }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 disabled={originLoading}
               >
                 <Ionicons 
-                  name="close-circle" 
-                  size={20} 
-                  color={originLoading ? "#d1d5db" : (theme.mode === "dark" ? "#9ca3af" : "#6b7280")} 
+                  name="close" 
+                  size={16} 
+                  color={originLoading ? "#9CA3AF" : (theme.mode === "dark" ? "#D1D5DB" : "#6B7280")} 
                 />
               </TouchableOpacity>
             )}
@@ -481,37 +546,6 @@ export default function SettingsScreen({ onLogout }: Props) {
               disabled={originLoading || !origin.trim()} 
             />
           </View>
-          
-          {/* Status Message */}
-          {origin ? (
-            <View style={{ 
-              flexDirection: "row", 
-              alignItems: "center", 
-              gap: 6,
-              padding: 8,
-              backgroundColor: theme.mode === "dark" ? "rgba(34, 197, 94, 0.1)" : "rgba(34, 197, 94, 0.05)",
-              borderRadius: 6
-            }}>
-              <Ionicons name="checkmark-circle" size={16} color="#22c55e" />
-              <ThemedText style={{ fontSize: 12, opacity: 0.8, flex: 1 }}>
-                Saved: {origin}
-              </ThemedText>
-            </View>
-          ) : (
-            <View style={{ 
-              flexDirection: "row", 
-              alignItems: "center", 
-              gap: 6,
-              padding: 8,
-              backgroundColor: theme.mode === "dark" ? "rgba(59, 130, 246, 0.1)" : "rgba(59, 130, 246, 0.05)",
-              borderRadius: 6
-            }}>
-              <Ionicons name="location" size={16} color="#3b82f6" />
-              <ThemedText style={{ fontSize: 12, opacity: 0.8, flex: 1 }}>
-                Not set - will use your current device location
-              </ThemedText>
-            </View>
-          )}
         </View>
 
         {/* Notification Preferences */}
