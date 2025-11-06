@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, FlatList, StyleSheet } from 'react-native'
 import GooglePlacesTextInput from './map/GooglePlacesInput';
+import StyledGooglePlacesTextInput from './map/GooglePlacesInput';
 
 const NavigationView = () => {
   const [places, setPlaces] = React.useState<any[]>([]);
@@ -11,7 +12,7 @@ const NavigationView = () => {
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': 'AIzaSyDkc3WA8HoqkoHEWogkZhSAO_2Du6wo-x4',
+              'X-Goog-Api-Key': 'APIKEY',
               'X-Goog-FieldMask': 'places.displayName,places.name,places.googleMapsUri'
             },
             body: JSON.stringify({
