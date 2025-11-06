@@ -5,6 +5,7 @@ import { INITIAL_REGION, MIN_ZOOM_LEVEL, MAX_ZOOM_LEVEL } from "../../constants/
 import { MaterialIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import GooglePlacesTextInput from "react-native-google-places-textinput";
+import StyledGooglePlacesTextInput from "./GooglePlacesInput";
 
 
 
@@ -24,43 +25,7 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
   const theme = React.useContext(ThemeContext);
   const [place, setPlace] = useState();
 
-  const  handlePlaceSelect = async (place: any) => {
-    setPlace(place);
-    const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
-            method: 'POST',
-            headers: {
-              Accept: 'application/json',
-              'Content-Type': 'application/json',
-              'X-Goog-Api-Key': 'APIKEY',
-              'X-Goog-FieldMask': 'routes.duration'
-            },
-            body: JSON.stringify({
-                origin: {
-                    location: {
-                        latLng: {
-                            latitude: 40.43318472429998,
-                            longitude: -86.92189194353148
-                        }
-                    }
-                },
-                destination: {
-                    location: {
-                        latLng: {
-                            latitude: place.details.location.latitude,
-                            longitude: place.details.location.longitude
-                        }
-                    }
-                },
-                travelMode: "DRIVE",
-            }
-            ),
-          });
-        const duration = await response.json();
-        const secsString = duration.routes[0].duration;
-        const secs = secsString.slice(0, -1); 
-        const eta = (Math.ceil(secs / 60));
-        console.log("Your ETA is: " + String(eta) + " minutes");
-  };
+  
 
 
 
@@ -103,6 +68,7 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         {/* Purdue gold icon for brand consistency */}
         <MaterialIcons name="my-location" size={22} color={theme.primary} />
       </Pressable>
+      {/*
       <GooglePlacesTextInput 
         apiKey="APIKEY"//TODO
         placeHolderText="Search for a garage"
@@ -118,6 +84,8 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         onPlaceSelect={ handlePlaceSelect }  >
 
         </GooglePlacesTextInput>     
+        */}
+        <StyledGooglePlacesTextInput></StyledGooglePlacesTextInput>
     </View>
   );
 }
