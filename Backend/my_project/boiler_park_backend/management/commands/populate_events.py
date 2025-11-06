@@ -10,18 +10,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write(self.style.WARNING('Starting to populate events...'))
         
-        # Calculate tomorrow's date for test event
-        from datetime import datetime, timedelta
-        tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-        
         # Football games affecting parking
         football_events = [
-            {
-                "title": "TEST: Maintenance Closure",
-                "description": "Test event for notification testing. Parking restricted for maintenance work.",
-                "start_time": f"{tomorrow} 08:00:00",
-                "end_time": f"{tomorrow} 17:00:00",
-            },
             {
                 "title": "Football Game: Purdue vs #1 Ohio State",
                 "description": "Parking restricted for home football game. Event parking starts at 8 AM. Tow time begins at 6 AM.",

@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable, Image } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform } from "react-native";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "../components/ThemedIcons";
 import * as SecureStore from "expo-secure-store";
@@ -28,8 +28,18 @@ export interface HoursBlock {
   close: string; // "22:00" or "24/7"
 }
 
+export interface LotEvent {
+  id: number;
+  lot_code: string;
+  title: string;
+  description: string;
+  start_time: string;
+  end_time: string;
+}
+
 export interface Garage {
   id: string;
+  code?: string; // Lot code for fetching events
   name: string;
   address: string;
   latitude?: number;
@@ -80,6 +90,18 @@ function formatTime(iso?: string) {
     return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } catch {
     return null;
+  }
+}
+
+function formatEventDate(iso: string) {
+  try {
+    const d = new Date(iso);
+    const month = d.toLocaleDateString('en-US', { month: 'short' });
+    const day = d.getDate();
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return `${month} ${day}, ${time}`;
+  } catch {
+    return iso;
   }
 }
 
@@ -207,6 +229,10 @@ export default function GarageDetail({
   const [travelTime, setTravelTime] = React.useState<TravelTimeResult | null>(null);
   const [loadingTravel, setLoadingTravel] = React.useState(false);
 
+  // State for events (User Story #10)
+  const [events, setEvents] = React.useState<LotEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = React.useState(false);
+
   // Load travel time when garage changes (User Story #9 - AC3)
   React.useEffect(() => {
     let isMounted = true;
@@ -261,6 +287,50 @@ export default function GarageDetail({
       isMounted = false;
     };
   }, [garage.id, garage.latitude, garage.longitude]);
+
+  // Load events when garage changes (User Story #10)
+  React.useEffect(() => {
+    let isMounted = true;
+    
+    async function loadEvents() {
+      const lotCode = garage.code;
+      
+      if (!lotCode) {
+        if (isMounted) setEvents([]);
+        return;
+      }
+      
+      try {
+        if (isMounted) setLoadingEvents(true);
+        const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+        const response = await fetch(`${API_BASE}/lots/${lotCode}/events/`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (isMounted) {
+            setEvents(Array.isArray(data) ? data : []);
+            console.log(`Loaded ${data.length} events for ${lotCode}`);
+          }
+        } else {
+          console.error(`Failed to fetch events for ${lotCode}:`, response.status);
+          if (isMounted) setEvents([]);
+        }
+      } catch (error) {
+        console.error("Error fetching events:", error);
+        if (isMounted) setEvents([]);
+      } finally {
+        if (isMounted) setLoadingEvents(false);
+      }
+    }
+    
+    // Clear old events first
+    setEvents([]);
+    loadEvents();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [garage.id, garage.code]);
 
   return (
     <View style={styles.root}>
@@ -388,6 +458,72 @@ export default function GarageDetail({
               <React.Fragment key={`${a}-${i}`}><AmenityItem a={a} /></React.Fragment>
             ))}
           </View>
+        </View>
+
+        {/* Upcoming Events (User Story #10) */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Ionicons name="calendar" size={18} color={theme.primary} />
+            <Text style={styles.sectionTitle}>Upcoming Events</Text>
+          </View>
+          
+          {loadingEvents ? (
+            <View style={{ paddingVertical: 12, alignItems: "center" }}>
+              <Text style={{ color: theme.text, opacity: 0.6 }}>Loading events...</Text>
+            </View>
+          ) : events.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              {events.map((event, i) => (
+                <View 
+                  key={event.id} 
+                  style={{ 
+                    padding: 12, 
+                    backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                    borderRadius: 10,
+                    borderLeftWidth: 3,
+                    borderLeftColor: theme.primary
+                  }}
+                >
+                  <Text style={{ 
+                    color: theme.text, 
+                    fontWeight: "700", 
+                    fontSize: 14, 
+                    marginBottom: 4 
+                  }}>
+                    {event.title}
+                  </Text>
+                  <Text style={{ 
+                    color: theme.text, 
+                    opacity: 0.7, 
+                    fontSize: 12, 
+                    marginBottom: 6,
+                    lineHeight: 16
+                  }}>
+                    {event.description}
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Ionicons name="time-outline" size={14} color={theme.primary} />
+                    <Text style={{ color: theme.primary, fontSize: 12, fontWeight: "600" }}>
+                      {formatEventDate(event.start_time)} - {formatEventDate(event.end_time)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={{ 
+              paddingVertical: 16,
+              paddingHorizontal: 12,
+              alignItems: "center",
+              backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+              borderRadius: 10
+            }}>
+              <Ionicons name="calendar-outline" size={32} color={theme.text} style={{ opacity: 0.3, marginBottom: 8 }} />
+              <Text style={{ color: theme.text, opacity: 0.6, fontSize: 13, textAlign: "center" }}>
+                No upcoming closures or events
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Actions */}

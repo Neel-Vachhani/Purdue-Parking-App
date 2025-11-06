@@ -58,6 +58,7 @@ export interface HoursBlock {
 
 export interface GarageDetailType {
   id: string;
+  code?: string; // Lot code for fetching events (User Story #10)
   name: string;
   address: string;
   latitude?: number;
@@ -706,6 +707,7 @@ function mapListGarageToDetail(g: Garage): GarageDetailType {
   const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
   return {
     id: g.id,
+    code: g.code, // Pass lot code for fetching events (User Story #10)
     name: g.name,
     address: "Address coming from API", // replace with real field if you have it
     latitude: g.lat, // Pass latitude for travel time calculation (User Story #9)
