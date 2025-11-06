@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/NormalIcon.svg",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/NormalIcon.svg",
       "resizeMode": "contain",
@@ -29,7 +28,6 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.anthonymccrovitz.boilerpark",
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
@@ -48,8 +46,7 @@
             "DEFAULT"
           ]
         }
-      ],
-      "predictiveBackGestureEnabled": false
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -59,7 +56,8 @@
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static"
+            "useFrameworks": "static",
+            "deploymentTarget": "15.1"
           }
         }
       ],

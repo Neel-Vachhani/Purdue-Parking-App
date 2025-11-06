@@ -7,8 +7,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": true,
-        "resourceClass": "m-medium"
+        "simulator": false,
+        "resourceClass": "m-medium",
+        "buildConfiguration": "Debug"
       },
       "android": {
         "buildType": "apk",
