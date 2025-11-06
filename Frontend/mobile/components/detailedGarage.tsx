@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useContext } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, Image } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
+import { Ionicons, MaterialCommunityIcons } from "../components/ThemedIcons";
 
 export type Amenity =
   | "covered"
@@ -78,20 +79,108 @@ function formatTime(iso?: string) {
   }
 }
 
-const Pill = ({ children }: { children: React.ReactNode }) => (
-  <View style={styles.pill}><Text style={styles.pillText}>{children}</Text></View>
-);
+const makeStyles = (theme: AppTheme) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: theme.bg },
+  header: {
+    height: 56,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  headerLeft: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerRight: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700", color: theme.text },
+  scroll: { padding: 16 },
+  hero: { width: "100%", height: 160, borderRadius: 16 },
+  heroPlaceholder: { backgroundColor: theme.bg, alignItems: "center", justifyContent: "center", borderRadius: 16 },
+
+  summaryCard: {
+    marginTop: 12,
+    backgroundColor: theme.bg,
+    borderRadius: 16,
+    padding: 16,
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.border,
+  },
+  name: { fontSize: 20, fontWeight: "800", color: theme.text },
+  address: { fontSize: 13, color: theme.text },
+  summaryRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 6 },
+  pill: { backgroundColor: theme.bg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9999, flexDirection: "row", gap: 6, alignItems: "center" },
+  pillText: { color: theme.text, fontSize: 12, fontWeight: "600" },
+
+  card: {
+    marginTop: 12,
+    backgroundColor: theme.bg,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.border,
+  },
+  sectionTitle: { color: theme.text, fontSize: 16, fontWeight: "700", marginBottom: 8 },
+
+  occRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  occBarOuter: { flex: 1, height: 14, backgroundColor: theme.bg, borderRadius: 999, overflow: "hidden" },
+  occBarFill: { height: 14, backgroundColor: theme.primary },
+  occPct: { width: 48, textAlign: "right", color: theme.text, fontWeight: "700" },
+  occCaption: { marginTop: 6, color: theme.text, fontSize: 12 },
+  updated: { marginTop: 2, color: theme.text, fontSize: 11 },
+
+  priceRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
+  priceLabel: { color: theme.text },
+  priceAmt: { color: theme.text, fontWeight: "700" },
+
+  hoursRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  hoursDays: { color: theme.text },
+  hoursTime: { color: theme.text },
+
+  amenitiesWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  amenity: { backgroundColor: theme.bg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 6 },
+  amenityText: { color: theme.text, fontSize: 12, fontWeight: "600" },
+
+  actionsCard: { gap: 12 },
+  actionBtn: { height: 48, borderRadius: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
+  primary: { backgroundColor: theme.primary },
+  actionText: { color: theme.text, fontWeight: "800", fontSize: 16 },
+  actionsRow: { flexDirection: "row", justifyContent: "space-between" },
+  iconBtn: { flex: 1, height: 44, borderRadius: 10, backgroundColor: theme.bg, alignItems: "center", justifyContent: "center", gap: 6 },
+  iconBtnLabel: { color: theme.text, fontSize: 12, fontWeight: "700" },
+
+  line: { height: StyleSheet.hairlineWidth, backgroundColor: theme.border },
+
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "flex-end" },
+  loadingPill: { marginBottom: 24, backgroundColor: theme.bg, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 },
+  loadingText: { color: theme.text, fontWeight: "700" },
+});
+
+const Pill = ({ children }: { children: React.ReactNode }) => {
+  const theme = useContext(ThemeContext);
+  const styles = makeStyles(theme);
+  return (
+    <View style={styles.pill}>
+      <Text style={styles.pillText}>{children}</Text>
+    </View>
+  );
+};
 
 // Badge shown when a lot is shaded by trees/buildings but not truly covered by a roof
-const ShadeBadge = () => (
-  <View style={styles.pill}>
-    <Ionicons name="umbrella" size={14} />
-    <Text style={styles.pillText}>Shaded (No Roof)</Text>
-  </View>
-);
+const ShadeBadge = () => {
+  const theme = useContext(ThemeContext);
+  const styles = makeStyles(theme);
+  return (
+    <View style={styles.pill}>
+      <Ionicons name="umbrella" size={14} />
+      <Text style={styles.pillText}>Shaded (No Roof)</Text>
+    </View>
+  );
+};
 
-
-const Line = () => <View style={styles.line} />;
+const Line = () => {
+  const theme = useContext(ThemeContext);
+  const styles = makeStyles(theme);
+  return <View style={styles.line} />;
+};
 
 export default function GarageDetail({
   garage,
@@ -104,13 +193,14 @@ export default function GarageDetail({
   onStartParking,
   onShare,
 }: GarageDetailProps) {
+  const theme = useContext(ThemeContext);
+  const styles = makeStyles(theme);
   const miles = toMiles(garage.distanceMeters);
   const p = percent(garage.occupiedSpots, garage.totalSpots);
   const pctStr = `${Math.round(p * 100)}%`;
 
   return (
     <View style={styles.root}>
-      {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={onBack} hitSlop={12} style={styles.headerLeft}>
           <Ionicons name="chevron-back" size={24} />
@@ -126,14 +216,14 @@ export default function GarageDetail({
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Hero */}
+        {/* Hero
         {garage.heroImageUrl ? (
           <Image source={{ uri: garage.heroImageUrl }} style={styles.hero} resizeMode="cover" />
         ) : (
           <View style={[styles.hero, styles.heroPlaceholder]}>
             <MaterialCommunityIcons name="parking" size={64} />
           </View>
-        )}
+        )} */}
 
         {/* Top summary */}
         <View style={styles.summaryCard}>
@@ -211,10 +301,10 @@ export default function GarageDetail({
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Amenities</Text>
           <View style={styles.amenitiesWrap}>
-            {renderAmenity(garage.covered ? "covered" : undefined)}
-            {garage.evPorts ? renderAmenity("ev", `${garage.evPorts} ports`) : null}
-            {garage.accessibleSpots ? renderAmenity("accessible", `${garage.accessibleSpots} ADA`) : null}
-            {garage.heightClearanceMeters ? renderAmenity("heightClearance", `${garage.heightClearanceMeters} m`) : null}
+            <AmenityItem a={garage.covered ? "covered" : undefined} />
+            {garage.evPorts ? <AmenityItem a="ev" labelOverride={`${garage.evPorts} ports`} /> : null}
+            {garage.accessibleSpots ? <AmenityItem a="accessible" labelOverride={`${garage.accessibleSpots} ADA`} /> : null}
+            {garage.heightClearanceMeters ? <AmenityItem a="heightClearance" labelOverride={`${garage.heightClearanceMeters} m`} /> : null}
             {garage.shaded ? (
               <View style={styles.amenity}>
                 <Ionicons name="leaf" size={16} />
@@ -222,13 +312,13 @@ export default function GarageDetail({
               </View>
             ) : null}
             {(garage.amenities ?? []).map((a, i) => (
-              <React.Fragment key={`${a}-${i}`}>{renderAmenity(a)}</React.Fragment>
+              <React.Fragment key={`${a}-${i}`}><AmenityItem a={a} /></React.Fragment>
             ))}
           </View>
         </View>
 
         {/* Actions */}
-        <View style={[styles.card, styles.actionsCard]}>
+        {/* <View style={[styles.card, styles.actionsCard]}>
           <Pressable style={[styles.actionBtn, styles.primary]} onPress={() => onStartParking?.(garage)}>
             <Ionicons name="car" size={18} />
             <Text style={styles.actionText}>Start Parking</Text>
@@ -248,7 +338,7 @@ export default function GarageDetail({
               <Text style={styles.iconBtnLabel}>Refresh</Text>
             </Pressable>
           </View>
-        </View>
+        </View> */}
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -264,10 +354,12 @@ export default function GarageDetail({
   );
 }
 
-function renderAmenity(a?: Amenity, labelOverride?: string) {
+const AmenityItem = ({ a, labelOverride }: { a?: Amenity; labelOverride?: string }) => {
   if (!a) return null;
+  const theme = useContext(ThemeContext);
+  const styles = makeStyles(theme);
   const iconFor: Record<Amenity, React.ComponentProps<typeof Ionicons>["name"]> = {
-    covered: "home", // using home to suggest roof
+    covered: "home",
     ev: "flash",
     accessible: "accessibility",
     cameras: "videocam",
@@ -294,79 +386,6 @@ function renderAmenity(a?: Amenity, labelOverride?: string) {
       <Text style={styles.amenityText}>{labelOverride ?? labelMap[a]}</Text>
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0B0B0C" },
-  header: {
-    height: 56,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  headerLeft: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  headerRight: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700", color: "#fff" },
-  scroll: { padding: 16 },
-  hero: { width: "100%", height: 160, borderRadius: 16 },
-  heroPlaceholder: { backgroundColor: "#151518", alignItems: "center", justifyContent: "center", borderRadius: 16 },
 
-  summaryCard: {
-    marginTop: 12,
-    backgroundColor: "#0F0F12",
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#1c1c20",
-  },
-  name: { fontSize: 20, fontWeight: "800", color: "#fff" },
-  address: { fontSize: 13, color: "#B8BAC2" },
-  summaryRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 6 },
-  pill: { backgroundColor: "#17171B", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9999, flexDirection: "row", gap: 6, alignItems: "center" },
-  pillText: { color: "#E8E9EE", fontSize: 12, fontWeight: "600" },
-
-  card: {
-    marginTop: 12,
-    backgroundColor: "#0F0F12",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#1c1c20",
-  },
-  sectionTitle: { color: "#E8E9EE", fontSize: 16, fontWeight: "700", marginBottom: 8 },
-
-  occRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  occBarOuter: { flex: 1, height: 14, backgroundColor: "#1A1B20", borderRadius: 999, overflow: "hidden" },
-  occBarFill: { height: 14, backgroundColor: "#2A41E3" },
-  occPct: { width: 48, textAlign: "right", color: "#E8E9EE", fontWeight: "700" },
-  occCaption: { marginTop: 6, color: "#B8BAC2", fontSize: 12 },
-  updated: { marginTop: 2, color: "#7A7D87", fontSize: 11 },
-
-  priceRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
-  priceLabel: { color: "#E8E9EE" },
-  priceAmt: { color: "#E8E9EE", fontWeight: "700" },
-
-  hoursRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  hoursDays: { color: "#E8E9EE" },
-  hoursTime: { color: "#B8BAC2" },
-
-  amenitiesWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  amenity: { backgroundColor: "#17171B", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 6 },
-  amenityText: { color: "#E8E9EE", fontSize: 12, fontWeight: "600" },
-
-  actionsCard: { gap: 12 },
-  actionBtn: { height: 48, borderRadius: 12, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
-  primary: { backgroundColor: "#6C16E9" },
-  actionText: { color: "white", fontWeight: "800", fontSize: 16 },
-  actionsRow: { flexDirection: "row", justifyContent: "space-between" },
-  iconBtn: { flex: 1, height: 44, borderRadius: 10, backgroundColor: "#17171B", alignItems: "center", justifyContent: "center", gap: 6 },
-  iconBtnLabel: { color: "#E8E9EE", fontSize: 12, fontWeight: "700" },
-
-  line: { height: StyleSheet.hairlineWidth, backgroundColor: "#1c1c20" },
-
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "flex-end" },
-  loadingPill: { marginBottom: 24, backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 },
-  loadingText: { color: "#fff", fontWeight: "700" },
-});

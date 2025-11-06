@@ -11,14 +11,14 @@
 //   );
 // }
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Marker } from 'react-native-maps';
 import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
 import { INITIAL_REGION } from "../../constants/map";
 import { PARKING_LOCATIONS, loadParkingLocations, ParkingLocation } from "./parkingLocationsData";
 
-export default function ParkingMapScreen() {
+export default function ParkingMapScreen({view, setView} : {view: string, setView: React.Dispatch<React.SetStateAction<"garage" | "map">>}) {
   const [locations, setLocations] = useState<ParkingLocation[]>(PARKING_LOCATIONS);
 
   useEffect(() => {

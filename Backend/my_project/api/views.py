@@ -2,9 +2,9 @@ import logging
 from typing import List, Dict, Any, Optional
 
 import bcrypt
-from httpcore import Response
 import redis
 from decouple import config
+from rest_framework.response import Response
 from redis.exceptions import RedisError
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework import status, serializers
