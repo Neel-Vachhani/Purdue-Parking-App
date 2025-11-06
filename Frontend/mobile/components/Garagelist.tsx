@@ -40,14 +40,15 @@ type GarageDefinition = {
   lat?: number;
   lng?: number;
   passes: ParkingPass[];
+  adaSpaces?: number;
 };
 const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall"];
 
 const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, passes: ["A", "B"] },
-  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, passes: ["A", "B"] },
-  { code: "PGU", name: "University Street Parking Garage", paid: true, passes: ["A", "SG"] },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, passes: ["A", "SG"] },
+  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, passes: ["A", "B"], adaSpaces: 24 },
+  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, passes: ["A", "B"], adaSpaces: 18 },
+  { code: "PGU", name: "University Street Parking Garage", paid: true, passes: ["A", "SG"], adaSpaces: 20 },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, passes: ["A", "SG"], adaSpaces: 16 },
   { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, passes: ["Residence Hall"] },
   { code: "PGW", name: "Wood Street Parking Garage", paid: true, passes: ["A", "SG"] },
   { code: "PGGH", name: "Graduate House Parking Garage", paid: true, passes: ["Grad House"] },
@@ -87,6 +88,7 @@ const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => 
     lat: definition.lat,
     lng: definition.lng,
     passes: definition.passes,
+    adaSpaces: definition.adaSpaces,
   };
 });
 
@@ -355,6 +357,11 @@ export default function GarageList({
             <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
               Passes: {passesLabel}
             </Text>
+            {item.adaSpaces !== undefined && (
+              <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
+                ADA Spots: {item.adaSpaces}
+              </Text>
+            )}
           </View>
 
           <View style={{ alignItems: "flex-end" }}>
