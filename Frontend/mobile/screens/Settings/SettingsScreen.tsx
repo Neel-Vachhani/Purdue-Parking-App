@@ -87,6 +87,61 @@ export default function SettingsScreen({ onLogout }: Props) {
     loadOrigin();
   }, [loadOrigin]);
 
+  // Load closure notification preference from backend (User Story #11)
+  React.useEffect(() => {
+    async function loadClosurePreference() {
+      try {
+        const userJson = await SecureStore.getItemAsync("user");
+        const user = userJson ? JSON.parse(userJson) : null;
+        const email = user?.email;
+        
+        if (!email) return;
+        
+        const res = await axios.get(`${API_BASE}/closure-notifications/`, {
+          params: { email }
+        });
+        
+        const enabled = res?.data?.closure_notifications_enabled ?? true;
+        setPrefs(p => ({ ...p, eventClosures: enabled }));
+        console.log(`Loaded closure notification preference: ${enabled}`);
+      } catch (error) {
+        console.error("Failed to load closure notification preference:", error);
+        // Default to enabled if we can't load
+      }
+    }
+    
+    loadClosurePreference();
+  }, []);
+
+  // Load push notification status from backend (User Story #2)
+  // This ensures the toggle reflects whether the user has a valid push token
+  React.useEffect(() => {
+    async function loadPushNotificationStatus() {
+      try {
+        const userJson = await SecureStore.getItemAsync("user");
+        const user = userJson ? JSON.parse(userJson) : null;
+        const email = user?.email;
+        
+        if (!email) return;
+        
+        // Fetch user's notification token status from backend
+        const res = await axios.get(`${API_BASE}/notifications/check/`, {
+          params: { email }
+        });
+        
+        const hasToken = res?.data?.opted_in ?? false;
+        setPrefs(p => ({ ...p, passOnSale: hasToken }));
+        console.log(`Loaded push notification status: ${hasToken ? 'enabled (has token)' : 'disabled (no token)'}`);
+      } catch (error) {
+        console.error("Failed to load push notification status:", error);
+        // Default to disabled if we can't load
+        setPrefs(p => ({ ...p, passOnSale: false }));
+      }
+    }
+    
+    loadPushNotificationStatus();
+  }, []);
+
   const saveOrigin = async () => {
     try {
       setOriginLoading(true);
@@ -432,7 +487,7 @@ export default function SettingsScreen({ onLogout }: Props) {
         }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <Ionicons name="home" size={22} color={theme.primary} />
-            <ThemedText style={{ fontSize: 18, fontWeight: "700" }}>Starting Location</ThemedText>
+          <ThemedText style={{ fontSize: 18, fontWeight: "700" }}>Starting Location</ThemedText>
           </View>
           
           <ThemedText style={{ fontSize: 14, opacity: 0.65, marginBottom: 16, lineHeight: 20 }}>

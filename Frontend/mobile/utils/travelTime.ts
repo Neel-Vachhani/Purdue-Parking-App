@@ -110,8 +110,8 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
         searchAddress = `${searchAddress}, Purdue University, West Lafayette, IN`;
         console.log(`Geocoding (Purdue landmark): "${searchAddress}"`);
       } else {
-        searchAddress = `${searchAddress}, West Lafayette, Indiana`;
-        console.log(`Geocoding (added context): "${searchAddress}"`);
+      searchAddress = `${searchAddress}, West Lafayette, Indiana`;
+      console.log(`Geocoding (added context): "${searchAddress}"`);
       }
     } else {
       console.log(`Geocoding: "${searchAddress}"`);
@@ -152,7 +152,7 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
       return coords;
     } else if (data.status === "ZERO_RESULTS") {
       console.error("❌ No results found for:", searchAddress);
-      return null;
+    return null;
     } else {
       console.error("❌ Google Maps API error:", data.status, data.error_message || "");
       return null;
@@ -276,7 +276,7 @@ export async function getTravelTimeFromDefaultOrigin(
     // If no saved origin, don't show travel time (User Story #9 - AC4)
     if (!origin) {
       console.log("No saved starting location - not displaying travel time (per AC4)");
-      return null;
+        return null;
     }
     
     // Calculate travel time
