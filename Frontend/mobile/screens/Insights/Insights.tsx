@@ -491,6 +491,7 @@ export default function InsightsScreen() {
               height={240}
               yAxisSuffix="%"
               yAxisInterval={1}
+              //yAxisLabel="Test"
               segments={4}
               chartConfig={{
                 backgroundColor: cardBg,
