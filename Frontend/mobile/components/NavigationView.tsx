@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, TextInput, FlatList, StyleSheet } from 'react-native'
-import GooglePlacesTextInput from './map/GooglePlacesInput';
-import StyledGooglePlacesTextInput from './map/GooglePlacesInput';
+import GooglePlacesTextInput from 'react-native-google-places-textinput';
 
 const NavigationView = () => {
   const [places, setPlaces] = React.useState<any[]>([]);
@@ -68,7 +67,19 @@ const NavigationView = () => {
 
   return (
     <View>
-        <GooglePlacesTextInput></GooglePlacesTextInput>
+        <GooglePlacesTextInput
+        apiKey="APIKEY"//TODO
+        placeHolderText="Search for a garage"
+        fetchDetails={true}
+        detailsFields={['formattedAddress', 'location']}
+        locationRestriction={{
+          rectangle: {
+            low: { latitude: 40.39286, longitude: -86.954622},
+            high: { latitude: 40.466874, longitude: -86.871755 }
+          }
+        }}
+        onPlaceSelect={ handlePlaceSelect }
+        ></GooglePlacesTextInput>
         {places && places.length > 0 && (
         <NavigationListView places={places} /> )}
     </View>
