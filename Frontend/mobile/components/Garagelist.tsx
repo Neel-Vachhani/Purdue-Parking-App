@@ -10,10 +10,14 @@ import {
   TextInput,
   Modal,
   TouchableWithoutFeedback,
+  Dimensions,
+  Animated,
+  Easing,
 } from "react-native";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
+import GarageDetail from "./DetailedGarage";
 import PaidLot from "./PaidLot";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall";
 
@@ -29,7 +33,48 @@ type Garage = {
   lng?: number;
   passes: ParkingPass[];
 };
+export type Amenity =
+  | "covered"
+  | "ev"
+  | "accessible"
+  | "cameras"
+  | "restrooms"
+  | "security"
+  | "lighting"
+  | "bike"
+  | "heightClearance";
 
+export interface PriceTier {
+  label: string; // e.g., "First hour", "Daily max"
+  amount: number; // in USD
+  unit?: string; // e.g., "/hr", "/day"
+}
+
+export interface HoursBlock {
+  days: string; // e.g., "Mon–Fri" or "Sat–Sun"
+  open: string; // "07:00"
+  close: string; // "22:00" or "24/7"
+}
+
+export interface GarageDetailType {
+  id: string;
+  name: string;
+  address: string;
+  distanceMeters?: number;
+  isOpen?: boolean;
+  totalSpots?: number;
+  occupiedSpots?: number;
+  covered?: boolean;
+  shaded?: boolean;
+  amenities?: Amenity[];
+  price?: PriceTier[];
+  hours?: HoursBlock[];
+  lastUpdatedIso?: string;
+  heroImageUrl?: string;
+  heightClearanceMeters?: number;
+  evPorts?: number;
+  accessibleSpots?: number;
+}
 type GarageDefinition = {
   code: string;
   name: string;
@@ -106,32 +151,31 @@ const getApiBaseUrl = (): string => {
   const manifestExtra = manifest?.extra;
 
   const override = configExtra?.apiBaseUrl || manifestExtra?.apiBaseUrl;
-  if (override) {
-    return override.replace(/\/$/, "");
-  }
+  if (override) return override.replace(/\/$/, "");
 
   let host = "localhost";
-
-  if (Platform.OS === "android") {
-    host = "10.0.2.2";
-  } else {
-    const debuggerHost = Constants.expoConfig?.hostUri || manifest?.debuggerHost;
-    if (debuggerHost) {
-      host = debuggerHost.split(":")[0];
-    }
+  if (Platform.OS === "android") host = "10.0.2.2";
+  else {
+    const dbg = Constants.expoConfig?.hostUri || manifest?.debuggerHost;
+    if (dbg) host = dbg.split(":")[0];
   }
 
   return "http://localhost:7500";
 };
 
+const SCREEN_WIDTH = Dimensions.get("window").width;
+
 export default function GarageList({
   data = INITIAL_GARAGES,
   onToggleFavorite,
   onOpenInMaps,
+  view, setView,
 }: {
   data?: Garage[];
   onToggleFavorite?: (g: Garage) => void;
   onOpenInMaps?: (g: Garage) => void;
+  view: string;
+  setView: React.Dispatch<React.SetStateAction<"garage" | "map">>;
 }) {
   const theme = React.useContext(ThemeContext);
   const [garages, setGarages] = React.useState<Garage[]>(data);
@@ -147,9 +191,11 @@ export default function GarageList({
   const [selectedPasses, setSelectedPasses] = React.useState<ParkingPass[]>([]);
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
 
-  React.useEffect(() => {
-    setGarages(data);
-  }, [data]);
+  // detail panel state
+  const [selected, setSelected] = React.useState<Garage | null>(null);
+  const translateX = React.useRef(new Animated.Value(SCREEN_WIDTH)).current;
+
+  React.useEffect(() => setGarages(data), [data]);
 
   const handleToggleFavorite = React.useCallback(
     (garage: Garage) => {
@@ -172,9 +218,7 @@ export default function GarageList({
   }, []);
 
   const handleOpenInMaps = React.useCallback(
-    (garage: Garage) => {
-      onOpenInMaps?.(garage);
-    },
+    (garage: Garage) => onOpenInMaps?.(garage),
     [onOpenInMaps]
   );
 
@@ -192,9 +236,7 @@ export default function GarageList({
         const payload: { lots?: ApiLot[] } = await response.json();
         console.log(payload)
         const lots = Array.isArray(payload?.lots) ? payload.lots : undefined;
-        if (!lots || lots.length === 0 || !isMounted) {
-          return;
-        }
+        if (!lots || lots.length === 0 || !isMounted) return;
 
         const updatesById = new Map<string, ApiLot>();
         const updatesByCode = new Map<string, ApiLot>();
@@ -221,20 +263,14 @@ export default function GarageList({
               updatesById.get(garage.id) ||
               updatesByName.get(garage.name.toLowerCase());
 
-            if (!update) {
-              return garage;
-            }
+            if (!update) return garage;
 
             return {
               ...garage,
               current:
-                typeof update.available === "number"
-                  ? update.available
-                  : garage.current,
+                typeof update.available === "number" ? update.available : garage.current,
               total:
-                typeof update.capacity === "number"
-                  ? update.capacity
-                  : garage.total,
+                typeof update.capacity === "number" ? update.capacity : garage.total,
             };
           })
         );
@@ -253,12 +289,32 @@ export default function GarageList({
     };
 
     loadAvailability();
-
     return () => {
       isMounted = false;
     };
   }, []);
 
+  const openDetail = (g: Garage) => {
+    setSelected(g);
+    translateX.setValue(SCREEN_WIDTH);
+    Animated.timing(translateX, {
+      toValue: 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeDetail = () => {
+    Animated.timing(translateX, {
+      toValue: SCREEN_WIDTH,
+      duration: 200,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) setSelected(null);
+    });
+  };
   const visibleGarages = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -297,30 +353,39 @@ export default function GarageList({
     const colors = getColors(pct);
     const passesLabel = item.passes.join(", ");
 
-
     const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
     const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
 
     return (
-      <View
-        style={{
-          marginHorizontal: 16,
-          marginVertical: 10,
-          padding: 16,
-          borderRadius: 14,
-          backgroundColor: cardBg,
-          borderWidth: 2,
-          borderColor: colors.border,
-          shadowColor: "#000",
-          shadowOpacity: 0.2,
-          shadowRadius: 6,
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
-              {item.name}
-            </Text>
+      <TouchableOpacity activeOpacity={0.9} onPress={() => openDetail(item)}>
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginVertical: 10,
+            padding: 16,
+            borderRadius: 14,
+            backgroundColor: cardBg,
+            borderWidth: 2,
+            borderColor: colors.border,
+            shadowColor: "#000",
+            shadowOpacity: 0.2,
+            shadowRadius: 6,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={{ flex: 1, flexDirection: "row" }}>
+              <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600", marginRight: 8 }}>
+                {item.name}
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => handleOpenInMaps(item)}
+                style={{ marginRight: 12 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="location-outline" size={20} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
 
             <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
               Code: {item.code}
@@ -359,30 +424,30 @@ export default function GarageList({
               />
             </TouchableOpacity>
           </View>
-        </View>
 
-        <Text style={{ color: secondaryText, marginTop: 8 }}>
-          {item.current}/{item.total}
-        </Text>
+          <Text style={{ color: secondaryText, marginTop: 8 }}>
+            {item.current}/{item.total}
+          </Text>
 
-        <View
-          style={{
-            height: 14,
-            backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#d9d9d9",
-            borderRadius: 8,
-            marginTop: 10,
-            overflow: "hidden",
-          }}
-        >
           <View
             style={{
-              width: `${pct * 100}%`,
-              height: "100%",
-              backgroundColor: colors.fill,
+              height: 14,
+              backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#d9d9d9",
+              borderRadius: 8,
+              marginTop: 10,
+              overflow: "hidden",
             }}
-          />
+          >
+            <View
+              style={{
+                width: `${pct * 100}%`,
+                height: "100%",
+                backgroundColor: colors.fill,
+              }}
+            />
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -401,19 +466,18 @@ export default function GarageList({
             Parking Lots
           </Text>
           <TouchableOpacity
-            onPress={() => router.push("/map")}
-            style={{
-              padding: 10,
-              borderRadius: 50,
-              backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
-              shadowColor: "#000",
-              shadowOpacity: 0.25,
-              shadowRadius: 4,
-            }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="map-outline" size={26} color={theme.primary} />
-          </TouchableOpacity>
+          onPress={() => {setView("map")}}
+          style={{
+            padding: 10,
+            borderRadius: 50,
+            backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+            shadowColor: "#000",
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
+          }}
+        >
+          <Ionicons name="map-outline" size={26} color={theme.primary} />
+        </TouchableOpacity>
           <TouchableOpacity
             onPress={() => sortGaragesByPrice()}
             style={{
@@ -601,12 +665,57 @@ export default function GarageList({
           marginBottom: 16,
         }}
       >
-          Last Updated: {lastUpdated}
+        Last Updated: {lastUpdated}
       </Text>
+
+      {/* Slide-over detail panel */}
+      {selected && (
+        <Animated.View
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            width: "100%",
+            transform: [{ translateX }],
+            backgroundColor: "#0B0B0C",
+            elevation: 6,
+          }}
+        >
+          <GarageDetail
+            garage={mapListGarageToDetail(selected)}
+            isFavorite={!!selected.favorite}
+            onBack={closeDetail}
+            onRefresh={() => {}}
+            onToggleFavorite={(id, next) =>
+              handleToggleFavorite({ ...selected, id, favorite: next })
+            }
+            onStartNavigation={() => handleOpenInMaps(selected)}
+            onStartParking={() => {}}
+            onShare={() => {}}
+          />
+        </Animated.View>
+      )}
     </View>
   );
 }
 
+// quick adapter from list item to GarageDetail props
+function mapListGarageToDetail(g:   Garage): GarageDetailType {
+  const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
+  return {
+    id: g.id,
+    name: g.name,
+    address: "Address coming from API", // replace with real field if you have it
+    totalSpots: g.total,
+    occupiedSpots: occupied,
+    covered: true,
+    shaded: true,
+    amenities: ["covered", "lighting"],
+    price: [{ label: "Per hour", amount: 2.0, unit: "/hr" }],
+    hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
+    lastUpdatedIso: new Date().toISOString(),
+  };
+}
 
 function getColors(pct: number) {
   if (pct >= 0.8) return { border: "#f91e1eff", fill: "#f91e1eff" };
