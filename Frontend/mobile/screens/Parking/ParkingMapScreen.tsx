@@ -12,17 +12,26 @@
 // }
 
 import { useContext, useEffect, useState } from "react";
-import { Marker } from 'react-native-maps';
+import { View, Text } from "react-native";
+import { Marker, Callout } from "react-native-maps";
+import * as SecureStore from "expo-secure-store";
 import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
 import { INITIAL_REGION } from "../../constants/map";
 import { PARKING_LOCATIONS, loadParkingLocations, ParkingLocation } from "./parkingLocationsData";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import { TouchableOpacity } from "react-native";
-import { Ionicons } from "../../components/ThemedIcons";
+import { Ionicons } from "../../components/ThemedIcons";        
+import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../../utils/travelTime";
+        
+        // Extend ParkingLocation to include travel time
+interface ParkingLocationWithTravel extends ParkingLocation {
+  travelTime?: TravelTimeResult | null;
+}
 
 export default function ParkingMapScreen({view, setView} : {view: string, setView: React.Dispatch<React.SetStateAction<"garage" | "map">>}) {
-  const [locations, setLocations] = useState<ParkingLocation[]>(PARKING_LOCATIONS);
+  
+  const [locations, setLocations] = useState<ParkingLocationWithTravel[]>(PARKING_LOCATIONS);
 
   const theme = useContext(ThemeContext);
 
@@ -41,6 +50,48 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
     };
 
     refreshLocations();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Load travel times from default origin
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTravelTimes = async () => {
+      try {
+        // Get user email from secure storage
+        const userJson = await SecureStore.getItemAsync("user");
+        const user = userJson ? JSON.parse(userJson) : null;
+        const email = user?.email;
+        
+        if (!email) {
+          return;
+        }
+
+        // Calculate travel times for each location
+        const travelTimePromises = locations.map(async (location) => {
+          const travelTime = await getTravelTimeFromDefaultOrigin(
+            location.coordinate,
+            email
+          );
+
+          return { ...location, travelTime };
+        });
+
+        const locationsWithTravelTimes = await Promise.all(travelTimePromises);
+
+        if (isMounted) {
+          setLocations(locationsWithTravelTimes);
+        }
+      } catch (error) {
+        console.error("Failed to load travel times", error);
+      }
+    };
+
+    loadTravelTimes();
 
     return () => {
       isMounted = false;
@@ -69,12 +120,21 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
           <Ionicons name="home" size={26} color={theme.primary} />
         </TouchableOpacity>
         {locations.map((location) => (
-          <Marker
-            key={location.id}
-            coordinate={location.coordinate}
-            title={location.title}
-            description={location.description}
-          />
+          <Marker key={location.id} coordinate={location.coordinate}>
+            <Callout tooltip={false}>
+              <View style={{ padding: 6, maxWidth: 220 }}>
+                <Text style={{ fontWeight: "600" }}>{location.title}</Text>
+                <Text style={{ marginTop: 4 }}>
+                  {location.description || "Availability unavailable"}
+                </Text>
+                {location.travelTime && (
+                  <Text style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+                    {location.travelTime.formattedDuration} ({location.travelTime.formattedDistance})
+                  </Text>
+                )}
+              </View>
+            </Callout>
+          </Marker>
         ))}
       </ParkingMap>
     </ThemedView>
