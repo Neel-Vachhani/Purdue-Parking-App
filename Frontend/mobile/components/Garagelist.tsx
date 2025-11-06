@@ -29,6 +29,7 @@ type Garage = {
   lat?: number;
   lng?: number;
   passes: ParkingPass[];
+  adaSpaces?: number;
 };
 
 type GarageDefinition = {
@@ -169,6 +170,29 @@ export default function GarageList({
     setGarages((prev) => {
       const sorted = [...prev];
       sorted.sort((a, b) => Number(b.paid) - Number(a.paid));
+      return sorted;
+    });
+  }, []);
+
+  const sortGaragesByFavorites = React.useCallback(() => {
+    setGarages((prev) => {
+      const sorted = [...prev];
+      sorted.sort((a, b) => {
+        if (a.favorite === b.favorite) return 0;
+        return a.favorite ? -1 : 1;
+      });
+      return sorted;
+    });
+  }, []);
+
+  const sortGaragesByADA = React.useCallback(() => {
+    setGarages((prev) => {
+      const sorted = [...prev];
+      sorted.sort((a, b) => {
+        const aSpaces = a.adaSpaces || 0;
+        const bSpaces = b.adaSpaces || 0;
+        return bSpaces - aSpaces;
+      });
       return sorted;
     });
   }, []);
@@ -429,6 +453,34 @@ export default function GarageList({
             }}
           >
             <FontAwesome name="usd" size={26} color={theme.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => sortGaragesByFavorites()}
+            style={{
+              padding: 10,
+              borderRadius: 50,
+              backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+              shadowColor: "#000",
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+              marginLeft: 5
+            }}
+          >
+            <Ionicons name="star" size={26} color={theme.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => sortGaragesByADA()}
+            style={{
+              padding: 10,
+              borderRadius: 50,
+              backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+              shadowColor: "#000",
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+              marginLeft: 5
+            }}
+          >
+            <FontAwesome name="wheelchair" size={26} color={theme.primary} />
           </TouchableOpacity>
         </View>
 
