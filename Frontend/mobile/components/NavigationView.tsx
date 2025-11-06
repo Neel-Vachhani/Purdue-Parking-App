@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, TextInput, FlatList, StyleSheet } from 'react-native'
-import GooglePlacesTextInput from 'react-native-google-places-textinput'
+import GooglePlacesTextInput from './map/GooglePlacesInput';
 
 const NavigationView = () => {
-  const [places, setPlaces] = React.useState();
+  const [places, setPlaces] = React.useState<any[]>([]);
 
   const  handlePlaceSelect = async (place: any) => {
     const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
@@ -35,7 +35,7 @@ const NavigationView = () => {
         console.log(duration.places);
   };
 
-  const NavigationListView = (places: [any]) => {
+  const NavigationListView = ({ places }: { places: any[] }) => {
     return (
     <View>
       <FlatList
@@ -67,20 +67,9 @@ const NavigationView = () => {
 
   return (
     <View>
-        <GooglePlacesTextInput 
-        apiKey="AIzaSyDkc3WA8HoqkoHEWogkZhSAO_2Du6wo-x4"//TODO
-        placeHolderText="Search for a location"
-        fetchDetails={true}
-        detailsFields={['formattedAddress', 'location']}
-        locationRestriction={{
-          rectangle: {
-            low: { latitude: 40.39286, longitude: -86.954622},
-            high: { latitude: 40.466874, longitude: -86.871755 }
-          }
-        }}
-        onPlaceSelect={ handlePlaceSelect }  >
-
-        </GooglePlacesTextInput>   
+        <GooglePlacesTextInput></GooglePlacesTextInput>
+        {places && places.length > 0 && (
+        <NavigationListView places={places} /> )}
     </View>
   )
 }
