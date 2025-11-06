@@ -73,20 +73,32 @@ export default function SignupScreen({ onSignup, pushToken }: SignupScreenProps)
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        textContentType="emailAddress"
+        autoComplete="email"
+        inputMode="email"
       />
       <AuthInput
         placeholder="Password"
-        secureTextEntry
+        secure
         value={password}
         onChangeText={setPassword}
-        secure
+        autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="password"
+        autoComplete="password"
       />
       <AuthInput
         placeholder="Confirm Password"
-        secureTextEntry
+        secure
         value={confirm_password}
         onChangeText={setConfirmPassword}
-        secure
+        autoCapitalize="none"
+        autoCorrect={false}
+        textContentType="password"
+        autoComplete="password"
       />
 
       {error ? <Text style={{ color: 'red', marginBottom: 10 }}>{error}</Text> : null}

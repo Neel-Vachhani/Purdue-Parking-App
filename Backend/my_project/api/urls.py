@@ -11,4 +11,5 @@ urlpatterns = [
     path('notification_token/', views.accept_notification_token),
     path('login/', views.log_in),
     path("postgres-parking/", views.get_postgres_parking_data),
+    path("parking/hourly-average/", views.get_hourly_average_parking),
 ]

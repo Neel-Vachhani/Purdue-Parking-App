@@ -1,4 +1,5 @@
 import logging
+from statistics import mean
 from typing import List, Dict, Any, Optional
 
 import bcrypt
@@ -16,17 +17,67 @@ from .services import verify_apple_identity, issue_session_token
 import jwt
 
 
-
 logger = logging.getLogger(__name__)
 
 
+
 PARKING_LOTS: List[Dict[str, Any]] = [
-    {"id": 1, "name": "Harrison Garage", "redis_key": "PGH_availability"},
-    {"id": 2, "name": "Grant Street Garage", "redis_key": "PGG_availability"},
-    {"id": 3, "name": "University Street Garage", "redis_key": "PGU_availability"},
-    {"id": 4, "name": "Northwestern Garage", "redis_key": "PGNW_availability"},
-    # Update redis_key if a different counter is used for DS/AI lot
-    {"id": 5, "name": "DS/AI Lot", "redis_key": "DISC_ABC_availability"},
+    {"id": 1, "code": "PGH", "name": "Harrison Street Parking Garage",
+        "redis_key": "PGH_availability"},
+    {"id": 2, "code": "PGG", "name": "Grant Street Parking Garage",
+        "redis_key": "PGG_availability"},
+    {"id": 3, "code": "PGU", "name": "University Street Parking Garage",
+        "redis_key": "PGU_availability"},
+    {"id": 4, "code": "PGNW", "name": "Northwestern Avenue Parking Garage",
+        "redis_key": "PGNW_availability"},
+    {"id": 5, "code": "PGMD", "name": "McCutcheon Drive Parking Garage",
+        "redis_key": "PGMD_availability"},
+    {"id": 6, "code": "PGW", "name": "Wood Street Parking Garage",
+        "redis_key": "PGW_availability"},
+    {"id": 7, "code": "PGGH", "name": "Graduate House Parking Garage",
+        "redis_key": "PGGH_availability"},
+    {"id": 8, "code": "PGM", "name": "Marsteller Street Parking Garage",
+        "redis_key": "PGM_availability"},
+    {"id": 9, "code": "LOT_R",
+        "name": "Lot R (North of Ross-Ade)", "redis_key": "LOT_R_availability"},
+    {"id": 10, "code": "LOT_H",
+        "name": "Lot H (North of Football Practice Field)", "redis_key": "LOT_H_availability"},
+    {"id": 11, "code": "LOT_FB",
+        "name": "Lot FB (East of Football Practice Field)", "redis_key": "LOT_FB_availability"},
+    {"id": 12, "code": "KFPC", "name": "Kozuch Football Performance Complex Lot",
+        "redis_key": "KFPC_availability"},
+    {"id": 13, "code": "LOT_A",
+        "name": "Lot A (North of Cary Quad)", "redis_key": "LOT_A_availability"},
+    {"id": 14, "code": "CREC", "name": "Co-Rec Parking Lots",
+        "redis_key": "CREC_availability"},
+    {"id": 15, "code": "LOT_O",
+        "name": "Lot O (East of Rankin Track)", "redis_key": "LOT_O_availability"},
+    {"id": 16, "code": "TARK_WILY", "name": "Tarkington Wiley Parking Lots",
+        "redis_key": "TARK_WILY_availability"},
+    {"id": 17, "code": "LOT_AA",
+        "name": "Lot AA (6th & Russell)", "redis_key": "LOT_AA_availability"},
+    {"id": 18, "code": "LOT_BB",
+        "name": "Lot BB (6th & Waldron)", "redis_key": "LOT_BB_availability"},
+    {"id": 19, "code": "WND_KRACH", "name": "Windsor & Krach Shared Parking Lot",
+        "redis_key": "WND_KRACH_availability"},
+    {"id": 20, "code": "SHRV_ERHT_MRDH", "name": "Shreve, Earhart & Meredith Shared Lot",
+        "redis_key": "SHRV_ERHT_MRDH_availability"},
+    {"id": 21, "code": "MCUT_HARR_HILL", "name": "McCutcheon, Harrison & Hillenbrand Shared Lot",
+        "redis_key": "MCUT_HARR_HILL_availability"},
+    {"id": 22, "code": "DUHM", "name": "Duhme Hall Parking Lot",
+        "redis_key": "DUHM_availability"},
+    {"id": 23, "code": "PIERCE_ST", "name": "Pierce Street Parking Lot",
+        "redis_key": "PIERCE_ST_availability"},
+    {"id": 24, "code": "SMTH_BCHM", "name": "Smith & Biochemistry Lot",
+        "redis_key": "SMTH_BCHM_availability"},
+    {"id": 25, "code": "DISC_A",
+        "name": "Discovery Lot (A Permit)", "redis_key": "DISC_A_availability"},
+    {"id": 26, "code": "DISC_AB",
+        "name": "Discovery Lot (AB Permit)", "redis_key": "DISC_AB_availability"},
+    {"id": 27, "code": "DISC_ABC",
+        "name": "Discovery Lot (ABC Permit)", "redis_key": "DISC_ABC_availability"},
+    {"id": 28, "code": "AIRPORT", "name": "Airport Parking Lots",
+        "redis_key": "AIRPORT_availability"},
 ]
 
 
@@ -82,14 +133,20 @@ def get_postgres_parking_data(request):
     period = 'day', 'week', 'month'
     """
     # Define lot names and totals inside the function
-    lot = request.GET.get("lot")
+    lot_code = request.GET.get("lot")
     period = request.GET.get("period", "day").lower()
 
-    if not lot:
+    if not lot_code:
         return Response({"error": "Missing 'lot' query parameter."}, status=400)
-
+    else:
+        lot_code = lot_code.upper()
     if period not in ["day", "week", "month"]:
         return Response({"error": "Invalid period. Must be 'day', 'week', or 'month'."}, status=400)
+    lot_entry = next((lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
+    if not lot_entry:
+        return Response({"error": f"Lot '{lot_code}' not found."}, status=404)
+
+    column_name = lot_entry["redis_key"]
 
     # Connect to Postgres
     conn = psycopg2.connect(
@@ -109,7 +166,7 @@ def get_postgres_parking_data(request):
     }[period]
 
     query = f"""
-        SELECT id, timestamp, {lot}_availability
+        SELECT id, timestamp, {column_name}
         FROM parking_availability_data
         WHERE timestamp >= NOW() - INTERVAL '{interval}'
         ORDER BY timestamp ASC;
@@ -124,6 +181,106 @@ def get_postgres_parking_data(request):
 
     return Response(results)
 
+@api_view(["GET"])
+def get_hourly_average_parking(request):
+    """
+    Returns average occupancy for a given lot at a specific hour, 
+    optionally filtered by weekday, based on past 30 days of data.
+
+    Query Params:
+      - lot (str): e.g., 'pgmd', 'lot_a', etc. [required]
+      - hour (int): 0–23 [required]
+      - weekday (str): optional, e.g., 'monday', 'tuesday', etc.
+      - threshold (float): optional, e.g., 80 (to flag full lots)
+    """
+    lot_code = request.GET.get("lot")
+    hour_param = request.GET.get("hour")
+    weekday_param = request.GET.get("weekday")
+    threshold_param = request.GET.get("threshold")
+
+    # Validate inputs
+    if not lot_code or hour_param is None:
+        return Response({"error": "Missing required parameters 'lot' or 'hour'."}, status=400)
+    else:
+        lot_code = lot_code.upper()
+    try:
+        hour = int(hour_param)
+        if not (0 <= hour <= 23):
+            raise ValueError
+    except ValueError:
+        return Response({"error": "Invalid 'hour'. Must be an integer between 0 and 23."}, status=400)
+
+    # Optional: normalize weekday name
+    weekdays_map = {
+        "monday": 0, "tuesday": 1, "wednesday": 2,
+        "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6
+    }
+    weekday_index = None
+    if weekday_param:
+        weekday_param = weekday_param.lower()
+        if weekday_param not in weekdays_map:
+            return Response({"error": "Invalid 'weekday' parameter."}, status=400)
+        weekday_index = weekdays_map[weekday_param]
+    lot_entry = next((lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
+    if not lot_entry:
+        return Response({"error": f"Lot '{lot_code}' not found."}, status=404)
+    column_name = lot_entry["redis_key"]
+
+    # Connect to Postgres
+    conn = psycopg2.connect(
+        host=config("DB_HOST"),
+        port=config("DB_PORT"),
+        database=config("DB_NAME"),
+        user=config("DB_USERNAME"),
+        password=config("DB_PASSWORD")
+    )
+    cursor = conn.cursor()
+
+    # Build SQL query
+    query = f"""
+        SELECT timestamp, {column_name}
+        FROM parking_availability_data
+        WHERE timestamp >= NOW() - INTERVAL '30 days';
+    """
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    print(rows)
+    cursor.close()
+    conn.close()
+
+    if not rows:
+        return Response({"error": "No data found for this lot."}, status=404)
+
+    # Filter by hour and optional weekday
+    filtered = []
+    for ts, avail in rows:
+        if ts.hour == hour:
+            if weekday_index is None or ts.weekday() == weekday_index:
+                filtered.append(avail)
+
+    if not filtered:
+        return Response({"error": "No matching data for that hour/weekday."}, status=404)
+
+    avg_occupancy = mean(filtered)
+
+    # Optional threshold logic
+    result = {
+        "lot": lot_code.lower(),
+        "hour": hour,
+        "weekday": weekday_param or "all_days",
+        "average_occupancy": round(avg_occupancy, 2),
+    }
+
+    if threshold_param:
+        try:
+            threshold = float(threshold_param)
+            result["likely_full"] = avg_occupancy >= threshold
+        except ValueError:
+            return Response({"error": "Invalid threshold. Must be a number."}, status=400)
+
+    return Response(result)
+
+
 @api_view(['GET'])
 def get_parking_availability(request):
     try:
@@ -133,6 +290,7 @@ def get_parking_availability(request):
             raw_value = client.get(lot["redis_key"])
             lots_payload.append({
                 "id": lot["id"],
+                "code": lot.get("code"),
                 "name": lot["name"],
                 "available": _parse_int(raw_value),
             })
@@ -144,7 +302,8 @@ def get_parking_availability(request):
             status=503,
         )
     except Exception:
-        logger.exception("Unexpected error while building parking availability response")
+        logger.exception(
+            "Unexpected error while building parking availability response")
         return Response(
             {"detail": "Unexpected error while building parking availability response."},
             status=500,
@@ -176,7 +335,8 @@ def apple_sign_in(request):
     # Use Apple 'sub' as fallback email
     provided_email = request.data.get("email") or payload.get("email")
     if not provided_email:
-        provided_email = f"{apple_sub}@apple.local"   # 👈 store sub in the email field
+        # 👈 store sub in the email field
+        provided_email = f"{apple_sub}@apple.local"
 
     full_name = request.data.get("full_name") or {}
     first_name = full_name.get("givenName") or ""
@@ -185,13 +345,13 @@ def apple_sign_in(request):
     # Find or create user by this derived email
     user = User.objects.filter(email__iexact=provided_email).first()
     if not user:
-      user = User(
-        email= provided_email if provided_email else f"apple_{apple_sub[:16]}",
-        name= f"apple_{apple_sub[:16]}",
-        password="abc",  
-        parking_pass="a",
-      )
-      user.save()
+        user = User(
+            email=provided_email if provided_email else f"apple_{apple_sub[:16]}",
+            name=f"apple_{apple_sub[:16]}",
+            password="abc",
+            parking_pass="a",
+        )
+        user.save()
 
     token = issue_session_token(user)
 
@@ -207,7 +367,6 @@ def apple_sign_in(request):
         },
         status=status.HTTP_200_OK,
     )
-
 
 
 @api_view(['GET'])
@@ -240,20 +399,23 @@ def sign_up(request):
     parking_pass = serializer.validated_data.get('parking_pass', "abcd")
 
     salt = bcrypt.gensalt()
-    hashed_pass = bcrypt.hashpw(raw_password.encode('utf-8'), salt).decode('utf-8')
+    hashed_pass = bcrypt.hashpw(
+        raw_password.encode('utf-8'), salt).decode('utf-8')
 
     user = User(
         email=email,
         name=name,
-        password=hashed_pass,  
+        password=hashed_pass,
         parking_pass=parking_pass,
     )
     user.save()
 
     return Response(
-        {"message": "User created successfully", "user": UserSerializer(user).data},
+        {"message": "User created successfully",
+            "user": UserSerializer(user).data},
         status=status.HTTP_201_CREATED,
     )
+
 
 @api_view(['POST'])
 def accept_notification_token(request):
@@ -261,9 +423,11 @@ def accept_notification_token(request):
     # save token to database
     return Response("Token received")
 
+
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
+
 
 @api_view(['POST'])
 def log_in(request):

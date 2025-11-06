@@ -161,12 +161,18 @@ export async function loadParkingLocations(): Promise<ParkingLocation[]> {
       const capacity =
         typeof match.capacity === "number" ? match.capacity : undefined;
 
-      const description =
+      const availabilityText = 
         available !== undefined
           ? `Available: ${available}${
               capacity !== undefined ? ` / ${capacity}` : " spots"
             }`
           : location.description ?? "Availability unavailable";
+          
+      const adaText = location.hasAdaAccess && location.adaSpaces 
+        ? `\nADA Spots: ${location.adaSpaces} spots`
+        : '';
+
+      const description = `${availabilityText}${adaText}`;
 
       return {
         ...location,

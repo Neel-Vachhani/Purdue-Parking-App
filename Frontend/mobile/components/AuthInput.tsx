@@ -1,18 +1,20 @@
 // This file is used to create the text boxes for both the log-in and sign-up pages
 
 import React from "react";
-import { TextInput, StyleSheet } from "react-native";
+import { TextInput, StyleSheet, TextInputProps } from "react-native";
+
+type AuthInputProps = TextInputProps & {
+  secure?: boolean;
+};
 
 // Template to customize input boxes
-export default function AuthInput({ placeholder, value, onChangeText, secure }: any) {
+export default function AuthInput({ secure, style, ...rest }: AuthInputProps) {
   return (
     <TextInput
-      style={styles.input}
-      placeholder={placeholder}
+      {...rest}
+      style={[styles.input, style]}
       placeholderTextColor="#aaa"
-      secureTextEntry={secure}
-      value={value}
-      onChangeText={onChangeText}
+      secureTextEntry={secure ?? rest.secureTextEntry}
     />
   );
 }
