@@ -14,6 +14,7 @@ import {
   Animated,
   Easing,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
@@ -180,6 +181,7 @@ function mapListGarageToDetail(g:   Garage): GarageDetailType {
 }
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
+const FILTER_STORAGE_KEY = "garage_filters";
 
 export default function GarageList({
   data = INITIAL_GARAGES,
@@ -207,12 +209,40 @@ export default function GarageList({
   const [selectedPasses, setSelectedPasses] = React.useState<ParkingPass[]>([]);
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
+  const filtersLoadedRef = React.useRef(false);
 
   // detail panel state
   const [selected, setSelected] = React.useState<Garage | null>(null);
   const translateX = React.useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
   React.useEffect(() => setGarages(data), [data]);
+
+  React.useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(FILTER_STORAGE_KEY);
+        if (!stored) {
+          filtersLoadedRef.current = true;
+          return;
+        }
+        const parsed = JSON.parse(stored) as {
+          passes?: ParkingPass[];
+          favoritesOnly?: boolean;
+        };
+        if (Array.isArray(parsed?.passes)) {
+          setSelectedPasses(parsed.passes.filter((p): p is ParkingPass => PASS_OPTIONS.includes(p)));
+        }
+        if (typeof parsed?.favoritesOnly === "boolean") {
+          setShowFavoritesOnly(parsed.favoritesOnly);
+        }
+      } catch (error) {
+        console.warn("Failed to load garage filters", error);
+      } finally {
+        filtersLoadedRef.current = true;
+      }
+    };
+    loadFilters();
+  }, []);
 
   // Handles toggling favorite status
   const handleToggleFavorite = React.useCallback(
