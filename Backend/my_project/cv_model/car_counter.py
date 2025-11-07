@@ -191,6 +191,7 @@ if __name__ == "__main__":
     for p in processes:
         p.join()
     """
+    
     single_garage = "Harrison"  # change to another name if needed
     info = GARAGES[single_garage]
 
@@ -202,6 +203,7 @@ if __name__ == "__main__":
         redis_key=info["redis_key"],
         emptyCapacity=info["capacity"]
     )
-
+    counter.update_redis()
     counter.run()
+    counter.update_redis()
 
