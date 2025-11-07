@@ -763,7 +763,7 @@ function getColors(pct: number) {
 }
 
 function getInitialOccupancy() {
-  const total = 80 + Math.floor(Math.random() * 320);
+  const total = 480;
   const current = Math.floor(Math.random() * (total + 1));
   return { current, total };
 }

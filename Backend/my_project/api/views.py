@@ -15,12 +15,16 @@ from redis.exceptions import RedisError
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from boiler_park_backend.models import Item, User, LotEvent, NotificationLog
+from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent
 from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer
 from .services import verify_apple_identity, issue_session_token
-import jwt
-from datetime import datetime, timedelta
+from django.utils.timezone import make_aware
 
+import jwt
+from datetime import datetime, timedelta, time, date
+import icalendar
+from io import BytesIO
+from django.utils.dateparse import parse_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +173,114 @@ def get_postgres_connection():
         user=config('DB_USERNAME'),
         password=config('DB_PASSWORD')
     )
+@api_view(['POST'])
+def upload_ics_events(request):
+    """
+    Accept an ICS file, parse its events, and save them to the database.
+    Adapted to CalendarEvent model with TimeField + ArrayField for dates.
+    """
+    ics_file = request.FILES.get('file')
+    if not ics_file:
+        return Response({"error": "No ICS file provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        cal = icalendar.Calendar.from_ical(ics_file.read())
+    except Exception as e:
+        return Response({"error": f"Invalid ICS file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    saved_events = []
+    event_count = 0
+    MAX_EVENTS = 10
+
+
+    for component in cal.walk():
+        if component.name != "VEVENT":
+            continue
+        if event_count > MAX_EVENTS:
+            break
+        event_count += 1
+        start_prop = component.get('dtstart')
+        if start_prop is None:
+            continue
+        start = start_prop.dt
+
+        # Handle end
+        end_prop = component.get('dtend')
+        if end_prop is not None:
+            end = end_prop.dt
+        else:
+            duration_prop = component.get('duration')
+            if duration_prop is not None:
+                end = start + duration_prop.dt
+            else:
+                end = start + timedelta(hours=1)  # default duration
+
+        # Assume 'start' and 'end' come from the ICS event
+        if isinstance(start, datetime):
+            start_time = start.time()
+            start_date = start.date()
+        elif isinstance(start, date):  # all-day event
+            start_time = time(0, 0)  # default to midnight
+            start_date = start
+        else:
+            raise ValueError("Unknown start type")
+
+        if isinstance(end, datetime):
+            end_time = end.time()
+            end_date = end.date()
+        elif isinstance(end, date):
+            end_time = time(23, 59)  # default to end-of-day
+            end_date = end
+        else:
+            raise ValueError("Unknown end type")
+        dates = [start_date]
+
+
+        title = str(component.get('summary', ''))
+        description = str(component.get('description', ''))[:200]
+        location = str(component.get('location', ''))
+
+        event = CalendarEvent.objects.create(
+            title=title,
+            description=description,
+            start_time=start_time,
+            end_time=end_time,
+            dates=dates,
+            location=location
+        )
+
+        saved_events.append({
+            "id": event.id,
+            "title": title,
+            "description": description,
+            "location": location,
+            "dates": [d.isoformat() for d in dates],
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+        })
+
+    return Response({"events": saved_events}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+def list_calendar_events(request):
+    """
+    Return all saved calendar events.
+    """
+    events = CalendarEvent.objects.all().order_by('start_time')
+    serialized_events = [
+        {
+            "id": e.id,
+            "summary": e.summary,
+            "description": e.description,
+            "location": e.location,
+            "start_time": e.start_time.isoformat() if e.start_time else None,
+            "end_time": e.end_time.isoformat() if e.end_time else None,
+        }
+        for e in events
+    ]
+    return Response({"events": serialized_events})
+
 
 
 @api_view(["GET"])
@@ -316,8 +428,6 @@ def get_hourly_average_parking(request):
         return Response({"error": "No matching data for that hour/weekday."}, status=404)
 
     avg_availability = round(mean(min(240, avail) for avail in filtered), 2)
-    print(filtered)
-    print(avg_availability)
 
     return Response({
         "lot": lot_code.lower(),
@@ -329,7 +439,7 @@ def get_hourly_average_parking(request):
 
 
 @api_view(['GET'])
-def get_parking_availability():
+def get_parking_availability(request):
     try:
         client = _redis_connection()
         lots_payload = []
