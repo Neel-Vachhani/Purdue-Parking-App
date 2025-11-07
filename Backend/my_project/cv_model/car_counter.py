@@ -30,23 +30,26 @@ GRAPHICS_PATH = "Backend/my_project/cv_model/graphics.png"
 YOLO_WEIGHTS = "Yolo-Weights/yolov8n.pt"
 VIDEO_PATH = "Backend/my_project/cv_model/Videos/Parking App Demo Video.mov"
 
+
 class CarCounter:
     def __init__(self, video_path, yolo_weights, redis_key, emptyCapacity=150, mask_path=None, graphics_path=None, conf_threshold=0.3):
         # Video and YOLO
         self.cap = cv2.VideoCapture(video_path)
         self.model = YOLO(yolo_weights)
-        
+
         # Mask and graphics
         self.mask = cv2.imread(mask_path) if mask_path else None
-        self.graphics = cv2.imread(graphics_path, cv2.IMREAD_UNCHANGED) if graphics_path else None
+        self.graphics = cv2.imread(
+            graphics_path, cv2.IMREAD_UNCHANGED) if graphics_path else None
 
         if self.graphics is not None:
             h, w = self.graphics.shape[:2]
-            self.graphics = cv2.resize(self.graphics, (w * 2, h * 2))  # stretch
+            self.graphics = cv2.resize(
+                self.graphics, (w * 2, h * 2))  # stretch
 
         # Tracker
         self.tracker = Sort(max_age=20, min_hits=3, iou_threshold=0.3)
-        
+
         # Counting
         self.incoming = set()
         self.outgoing = set()
@@ -60,8 +63,6 @@ class CarCounter:
         self.detection_classes = ['car', 'truck', 'bus', 'motorbike']
         self.update_redis()
 
-        
-
     def update_redis(self):
         """Update the current garage capacity in Redis and verify"""
         try:
@@ -70,18 +71,18 @@ class CarCounter:
 
             # Read it back
             current_value = r.get(self.redis_key)
-            print(f"{self.redis_key} updated to {self.capacity}, read back as {current_value}")
-            
+            print(
+                f"{self.redis_key} updated to {self.capacity}, read back as {current_value}")
+
         except Exception as e:
             print(f"Redis update failed for {self.redis_key}: {e}")
-
 
     def process_frame(self):
         success, frame = self.cap.read()
         if not success:
             return None, 0, False
 
-        #frame_region = cv2.bitwise_and(frame, self.mask) if self.mask is not None else frame
+        # frame_region = cv2.bitwise_and(frame, self.mask) if self.mask is not None else frame
         frame_region = frame
         if self.graphics is not None:
             cvzone.overlayPNG(frame, self.graphics, (0, 0))
@@ -97,7 +98,8 @@ class CarCounter:
                 class_name = self.model.names[cls]
 
                 if class_name in self.detection_classes and conf > self.conf_threshold:
-                    detections = np.vstack((detections, [x1, y1, x2, y2, conf]))
+                    detections = np.vstack(
+                        (detections, [x1, y1, x2, y2, conf]))
 
         tracker_results = self.tracker.update(detections)
         crossed_ids = set()
@@ -112,7 +114,8 @@ class CarCounter:
             if obj_id in self.prev_positions:
                 # Geometry-based direction detection
                 x1l, y1l, x2l, y2l = self.line_limits
-                side_prev = (x2l - x1l) * (self.prev_positions[obj_id] - y1l) - (y2l - y1l) * (cx - x1l)
+                side_prev = (
+                    x2l - x1l) * (self.prev_positions[obj_id] - y1l) - (y2l - y1l) * (cx - x1l)
                 side_curr = (x2l - x1l) * (cy - y1l) - (y2l - y1l) * (cx - x1l)
 
                 if side_prev * side_curr < 0:  # crossing happened
@@ -127,10 +130,11 @@ class CarCounter:
                         self.obj_colors[obj_id] = box_color
                         crossed_ids.add(obj_id)
 
-
             self.prev_positions[obj_id] = cy
-            cvzone.cornerRect(frame, (x1, y1, w, h), l=9, rt=2, colorR=box_color)
-            cvzone.putTextRect(frame, f'ID {obj_id}', (x1, max(35, y1)), scale=2, thickness=3, offset=10)
+            cvzone.cornerRect(frame, (x1, y1, w, h), l=9,
+                              rt=2, colorR=box_color)
+            cvzone.putTextRect(frame, f'ID {obj_id}', (x1, max(
+                35, y1)), scale=2, thickness=3, offset=10)
             cv2.circle(frame, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
 
         if crossed_ids:
@@ -142,7 +146,8 @@ class CarCounter:
         cv2.line(frame, (self.line_limits[0], self.line_limits[1]),
                  (self.line_limits[2], self.line_limits[3]), line_color, 5)
 
-        self.capacity = self.emptyCapacity - len(self.incoming) + len(self.outgoing)
+        self.capacity = self.emptyCapacity - \
+            len(self.incoming) + len(self.outgoing)
         if crossed_ids:
             self.update_redis()
 
@@ -151,8 +156,6 @@ class CarCounter:
                     cv2.FONT_HERSHEY_PLAIN, 3.5, (0, 0, 255), 5)
         cv2.putText(frame, f"{self.capacity}", (420, y0 + dy),
                     cv2.FONT_HERSHEY_PLAIN, 3.5, (0, 0, 255), 5)
-
-
 
         return frame, self.capacity, True
 
@@ -192,7 +195,7 @@ if __name__ == "__main__":
     for p in processes:
         p.join()
     """
-    
+
     single_garage = "Harrison"  # change to another name if needed
     info = GARAGES[single_garage]
 
@@ -207,4 +210,3 @@ if __name__ == "__main__":
     counter.update_redis()
     counter.run()
     counter.update_redis()
-
