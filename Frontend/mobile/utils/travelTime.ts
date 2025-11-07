@@ -1,6 +1,7 @@
 // utils/travelTime.ts
 import { Platform } from "react-native";
 import * as Location from "expo-location";
+import { getApiBaseUrl } from "../config/env";
 
 export interface Coordinate {
   latitude: number;
@@ -73,7 +74,8 @@ function formatDuration(minutes: number): string {
 }
 
 /**
- * Geocode an address to coordinates using a free geocoding service
+ * Geocode an address to coordinates using backend API proxy
+ * The backend securely handles the Google Maps API key
  * Returns null if geocoding fails
  * Prioritizes results near West Lafayette, Indiana for better accuracy
  */
@@ -84,64 +86,38 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
   }
   
   try {
-    // Add West Lafayette context only if address seems incomplete
-    let searchAddress = address.trim();
-    const lowerAddress = searchAddress.toLowerCase();
+    const API_BASE = getApiBaseUrl();
+    const encodedAddress = encodeURIComponent(address.trim());
     
-    // Check if address already has location context (city, state, or zip code)
-    const hasCity = lowerAddress.includes(","); // Comma usually indicates city/state format
-    const hasState = /\b(in|indiana)\b/i.test(searchAddress); // Has state abbreviation or name
-    const hasZip = /\b\d{5}\b/.test(searchAddress); // Has 5-digit zip code
-    
-    // Only append West Lafayette if address seems incomplete (no city/state/zip)
-    if (!hasCity && !hasState && !hasZip && !lowerAddress.includes("lafayette")) {
-      searchAddress = `${searchAddress}, West Lafayette, Indiana`;
-      console.log(`Geocoding (added context): "${searchAddress}"`);
-    } else {
-      console.log(`Geocoding: "${searchAddress}"`);
-    }
-    
-    // Using Nominatim (OpenStreetMap) for free geocoding
-    // For production, consider using Google Maps Geocoding API with API key
-    const encodedAddress = encodeURIComponent(searchAddress);
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=5&countrycodes=us`,
-      {
-        headers: {
-          "User-Agent": "BoilerParkApp/1.0",
-        },
-      }
-    );
+    console.log(`Geocoding via backend: "${address}"`);
+    const response = await fetch(`${API_BASE}/geocode/?address=${encodedAddress}`);
     
     if (!response.ok) {
-      console.error("Geocoding request failed:", response.status);
+      console.error(`Backend geocoding failed: ${response.status}`);
+      if (response.status === 503) {
+        console.error("⚠️  Geocoding service not configured on backend. Check GOOGLE_MAPS_API_KEY in backend .env");
+      }
       return null;
     }
     
     const data = await response.json();
     
-    if (data && data.length > 0) {
-      // Log all results for debugging
-      console.log(`Found ${data.length} geocoding results:`);
-      data.forEach((result: any, i: number) => {
-        console.log(`  ${i + 1}. ${result.display_name} (${result.lat}, ${result.lon})`);
-      });
+    if (data.latitude && data.longitude) {
+      console.log(`✅ Geocoded: ${data.formatted_address || address}`);
+      console.log(`   Coords: ${data.latitude}, ${data.longitude}`);
       
-      const coords = {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon),
+      return {
+        latitude: data.latitude,
+        longitude: data.longitude
       };
-      
-      console.log(`Using: ${data[0].display_name}`);
-      console.log(`   Coords: ${coords.latitude}, ${coords.longitude}`);
-      
-      return coords;
+    } else if (data.error) {
+      console.error(`❌ Geocoding error: ${data.error}`);
+      return null;
     }
     
-    console.error("No geocoding results found for:", searchAddress);
     return null;
   } catch (error) {
-    console.error("Geocoding error:", error);
+    console.error("❌ Geocoding network error:", error);
     return null;
   }
 }
@@ -233,8 +209,8 @@ export async function getTravelTimeFromDefaultOrigin(
   userEmail: string
 ): Promise<TravelTimeResult | null> {
   try {
-    // Get API base URL
-    const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+    // Get API base URL from environment variables
+    const API_BASE = getApiBaseUrl();
     
     let origin: string | Coordinate | null = null;
     let originType: "saved" | "current" = "saved";
@@ -256,19 +232,10 @@ export async function getTravelTimeFromDefaultOrigin(
       console.warn("Failed to fetch saved location:", error);
     }
     
-    // Fallback to current location if no saved origin
+    // If no saved origin, don't show travel time (User Story #9 - AC4)
     if (!origin) {
-      console.log("No saved starting location, using current device location...");
-      const currentLocation = await getCurrentLocation();
-      
-      if (currentLocation) {
-        origin = currentLocation;
-        originType = "current";
-        console.log(`Using current location: ${currentLocation.latitude}, ${currentLocation.longitude}`);
-      } else {
-        console.log("No starting location available (neither saved nor current)");
+      console.log("No saved starting location - not displaying travel time (per AC4)");
         return null;
-      }
     }
     
     // Calculate travel time

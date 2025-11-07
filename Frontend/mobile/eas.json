@@ -7,9 +7,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": true,
+        "simulator": false,
         "resourceClass": "m-medium",
-        "image": "macos-sequoia-15.4-xcode-16.3"
+        "buildConfiguration": "Debug"
       },
       "android": {
         "buildType": "apk",
@@ -41,8 +41,8 @@
   "submit": {
     "production": {
       "ios": {
-        "appleTeamId": "YOUR_TEAM_ID",
-        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID"
+        "ascAppId": "6755019000",
+        "appleTeamId": "P32W3M75FY"
       }
     }
   }

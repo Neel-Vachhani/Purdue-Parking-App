@@ -12,6 +12,7 @@ urlpatterns = [
     path('notification_disable/', views.notification_disable),
     path('notification_test/', views.notification_test),
     path('user/origin/', views.user_origin),
+    path('geocode/', views.geocode_address),
     
     # Lot events (User Story #10)
     path('lots/<str:lot_code>/events/', views.list_lot_events),
@@ -25,4 +26,6 @@ urlpatterns = [
     path('closure-notifications/', views.closure_notifications_toggle),
     path("postgres-parking/", views.get_postgres_parking_data),
     path("parking/hourly-average/", views.get_hourly_average_parking),
+    path('api/calendar/upload-ics/', views.upload_ics_events),
+    path('api/calendar/events/', views.list_calendar_events),
 ]
