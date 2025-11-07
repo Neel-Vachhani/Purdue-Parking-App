@@ -193,6 +193,7 @@ export default function GarageList({
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedPasses, setSelectedPasses] = React.useState<ParkingPass[]>([]);
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
 
   // detail panel state
   const [selected, setSelected] = React.useState<Garage | null>(null);
@@ -337,8 +338,15 @@ export default function GarageList({
       );
     }
 
+    if (showFavoritesOnly) {
+      filtered = filtered.filter((garage) => garage.favorite);
+    }
+
     return filtered;
-  }, [garages, searchQuery, selectedPasses]);
+  }, [garages, searchQuery, selectedPasses, showFavoritesOnly]);
+  const toggleFavoritesFilter = React.useCallback(() => {
+    setShowFavoritesOnly((prev) => !prev);
+  }, []);
 
   const togglePassFilter = React.useCallback((pass: ParkingPass) => {
     setSelectedPasses((prev) =>
@@ -515,6 +523,28 @@ export default function GarageList({
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          <TouchableOpacity
+            onPress={toggleFavoritesFilter}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: showFavoritesOnly
+                ? theme.primary
+                : theme.mode === "dark"
+                  ? "#2a2d33"
+                  : "#e5e7eb",
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name={showFavoritesOnly ? "star" : "star-outline"}
+              size={18}
+              color={showFavoritesOnly ? "#ffffff" : theme.text}
+            />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setIsFilterVisible(true)}
             style={{
