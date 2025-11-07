@@ -18,6 +18,7 @@ type Garage = {
 type TimePeriod = "day" | "week" | "month";
 
 type HistoricalDataPoint = {
+  timestamp: Date,
   label: string;
   occupancy_percentage: number;
   available_spots: number;
@@ -25,19 +26,20 @@ type HistoricalDataPoint = {
 };
 
 const LOT_COLUMNS: Record<string, string> = {
-  "Harrison Garage": "pgmd",
-  "Grant Street Garage": "pgu",
-  "University Street Garage": "pgnw",
-  "Northwestern Garage": "pgg",
-  "DS/AI Lot": "pgw",
-  "Graduate House Garage": "pggh",
-  "Hillenbrand Hall Garage": "pgh",
+  "Harrison Street Parking Garage": "pgmd",
+  "Grant Street Parking Garage": "pgu",
+  "University Street Parking Garage": "pgnw",
+  "Northwestern Avenue Parking Garage": "pgg",
+  "McCutcheon Drive Parking Garage": "pgw",
+  "Wood Street Parking Garage": "pgm",
+  "Graduate House Parking Garage": "pggh",
+  "Marsteller Street Parking Garage": "pgh",
   "Lot R": "lot_r",
   "Lot H": "lot_h",
-  "Ford Boiler Lot": "lot_fb",
-  "KFPC": "kfpc",
+  "Lot FB": "lot_fb",
+  "Krach Leadership Center Parking": "kfpc",
   "Lot A": "lot_a",
-  "Crec Lot": "crec",
+  "CoRec Parking": "crec",
   "Lot O": "lot_o",
   "Tarkington/Wiley Lot": "tark_wily",
   "Lot AA": "lot_aa",
@@ -47,13 +49,13 @@ const LOT_COLUMNS: Record<string, string> = {
   "McCutcheon/Harrison Hill Lot": "mcut_harr_hill",
   "Duhme Lot": "duhm",
   "Pierce Street Lot": "pierce_st",
-  "PGM Lot": "pgm",
   "Smith/Biochemistry Lot": "smth_bchm",
   "Discovery Park Lot A": "disc_a",
   "Discovery Park Lot AB": "disc_ab",
   "Discovery Park Lot ABC": "disc_abc",
-  "Airport Lot": "airport"
+  "Airport Lot": "airport",
 };
+
 const periodOptions: { value: TimePeriod; label: string }[] = [
   { value: "day", label: "24 Hours" },
   { value: "week", label: "7 Days" },
@@ -142,7 +144,7 @@ export default function InsightsScreen() {
               occupancy_percentage: (occupied / total) * 100,
             };
           } catch (err) {
-            console.error(`Error fetching data for ${lotName}:`, err);
+            // console.error(`Error fetching data for ${lotName}:`, err);
             // Return initial data if fetch fails
             const initialGarage = INITIAL_GARAGES[idx];
             return initialGarage;
@@ -150,7 +152,7 @@ export default function InsightsScreen() {
         })
       );
       setGarages(mappedGarages);
-      console.log(garages)
+      //console.log(garages)
       if (!selectedLotId && mappedGarages.length > 0) setSelectedLotId("0");
     } catch (err) {
       console.error("Error fetching current parking data:", err);
@@ -167,7 +169,7 @@ export default function InsightsScreen() {
       const lotColumn = LOT_COLUMNS[selectedGarage.name];
       const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=${period}`);
       const data = await res.json();
-      console.log(data)
+      //console.log(data)
       if (!Array.isArray(data)) {
         console.error("Historical data not an array:", data);
         setHistoricalData([]);
@@ -179,10 +181,13 @@ export default function InsightsScreen() {
 
       setHistoricalData(
         data.map((d: any) => {
+          const ts = new Date(d.timestamp);
+
           const availableSpots = d.availability; // This is actual number of available spots
           const occupiedSpots = total - availableSpots;
           
           return {
+            timestamp: ts,
             label: new Date(d.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             occupancy_percentage: (occupiedSpots / total) * 100,
             available_spots: availableSpots,
@@ -208,23 +213,63 @@ export default function InsightsScreen() {
 
   const currentStatus = garages[parseInt(selectedLotId)] || garages[0];
 
-  const getChartData = () => {
+const aggregateData = (
+  data: HistoricalDataPoint[],
+  segments: number,
+  period: TimePeriod
+) => {
+  const chunkSize = Math.ceil(data.length / segments);
+  const aggregated: { label: string; occupancy_percentage: number }[] = [];
+
+  for (let i = 0; i < segments; i++) {
+    const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize);
+    if (!chunk.length) continue;
+
+    const avgOccupancy =
+      chunk.reduce((sum, d) => sum + d.occupancy_percentage, 0) / chunk.length;
+
+    let label = "";
+    if (period === "day") {
+      const startHour = chunk[0].timestamp.getHours(); // ✅ now a number
+      label = `${startHour.toString().padStart(2, "0")}:00`;
+    } else if (period === "week") {
+      const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const day = chunk[0].timestamp.getDay();          // use timestamp
+      label = weekdayNames[day];
+    } else if (period === "month") {
+      label = `Wk ${i + 1}`;
+    }
+
+    aggregated.push({ label, occupancy_percentage: avgOccupancy });
+  }
+
+  return aggregated;
+};
+
+const getChartData = () => {
+  let chartData: { label: string; occupancy_percentage: number }[] = [];
+
+  if (timePeriod === "day") chartData = aggregateData(historicalData, 6, "day");
+  else if (timePeriod === "week") chartData = aggregateData(historicalData, 7, "week");
+  else if (timePeriod === "month") chartData = aggregateData(historicalData, 5, "month");
+
   return {
-    labels: historicalData.map((d) => d.label),
+    labels: chartData.map((d) => d.label),
     datasets: [
       {
-        data: historicalData.map((d) => Math.round(d.occupancy_percentage)),
-        colors: historicalData.map((d) => {
+        data: chartData.map((d) => Math.round(d.occupancy_percentage)),
+        colors: chartData.map((d) => {
           const value = d.occupancy_percentage;
-
-          if (value < 50) return (opacity = 1) => `rgba(76, 175, 80, ${opacity})`;      // 🟢 green
-          if (value < 80) return (opacity = 1) => `rgba(255, 193, 7, ${opacity})`;     // 🟡 yellow
-          return (opacity = 1) => `rgba(244, 67, 54, ${opacity})`;                     // 🔴 red
+          if (value < 50) return (opacity = 1) => `rgba(76, 175, 80, ${opacity})`;
+          if (value < 80) return (opacity = 1) => `rgba(255, 193, 7, ${opacity})`;
+          return (opacity = 1) => `rgba(244, 67, 54, ${opacity})`;
         }),
       },
     ],
   };
 };
+
+
 
 
   const getOccupancyColor = (percentage: number) => {
@@ -491,6 +536,7 @@ export default function InsightsScreen() {
               height={240}
               yAxisSuffix="%"
               yAxisInterval={1}
+              //yAxisLabel="Test"
               segments={4}
               chartConfig={{
                 backgroundColor: cardBg,
