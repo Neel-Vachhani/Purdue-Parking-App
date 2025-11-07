@@ -18,6 +18,7 @@ type Garage = {
 type TimePeriod = "day" | "week" | "month";
 
 type HistoricalDataPoint = {
+  timestamp: Date,
   label: string;
   occupancy_percentage: number;
   available_spots: number;
@@ -151,7 +152,7 @@ export default function InsightsScreen() {
         })
       );
       setGarages(mappedGarages);
-      console.log(garages)
+      //console.log(garages)
       if (!selectedLotId && mappedGarages.length > 0) setSelectedLotId("0");
     } catch (err) {
       console.error("Error fetching current parking data:", err);
@@ -168,7 +169,7 @@ export default function InsightsScreen() {
       const lotColumn = LOT_COLUMNS[selectedGarage.name];
       const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=${period}`);
       const data = await res.json();
-      console.log(data)
+      //console.log(data)
       if (!Array.isArray(data)) {
         console.error("Historical data not an array:", data);
         setHistoricalData([]);
@@ -180,10 +181,13 @@ export default function InsightsScreen() {
 
       setHistoricalData(
         data.map((d: any) => {
+          const ts = new Date(d.timestamp);
+
           const availableSpots = d.availability; // This is actual number of available spots
           const occupiedSpots = total - availableSpots;
           
           return {
+            timestamp: ts,
             label: new Date(d.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             occupancy_percentage: (occupiedSpots / total) * 100,
             available_spots: availableSpots,
@@ -209,23 +213,63 @@ export default function InsightsScreen() {
 
   const currentStatus = garages[parseInt(selectedLotId)] || garages[0];
 
-  const getChartData = () => {
+const aggregateData = (
+  data: HistoricalDataPoint[],
+  segments: number,
+  period: TimePeriod
+) => {
+  const chunkSize = Math.ceil(data.length / segments);
+  const aggregated: { label: string; occupancy_percentage: number }[] = [];
+
+  for (let i = 0; i < segments; i++) {
+    const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize);
+    if (!chunk.length) continue;
+
+    const avgOccupancy =
+      chunk.reduce((sum, d) => sum + d.occupancy_percentage, 0) / chunk.length;
+
+    let label = "";
+    if (period === "day") {
+      const startHour = chunk[0].timestamp.getHours(); // ✅ now a number
+      label = `${startHour.toString().padStart(2, "0")}:00`;
+    } else if (period === "week") {
+      const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const day = chunk[0].timestamp.getDay();          // use timestamp
+      label = weekdayNames[day];
+    } else if (period === "month") {
+      label = `Wk ${i + 1}`;
+    }
+
+    aggregated.push({ label, occupancy_percentage: avgOccupancy });
+  }
+
+  return aggregated;
+};
+
+const getChartData = () => {
+  let chartData: { label: string; occupancy_percentage: number }[] = [];
+
+  if (timePeriod === "day") chartData = aggregateData(historicalData, 6, "day");
+  else if (timePeriod === "week") chartData = aggregateData(historicalData, 7, "week");
+  else if (timePeriod === "month") chartData = aggregateData(historicalData, 5, "month");
+
   return {
-    labels: historicalData.map((d) => d.label),
+    labels: chartData.map((d) => d.label),
     datasets: [
       {
-        data: historicalData.map((d) => Math.round(d.occupancy_percentage)),
-        colors: historicalData.map((d) => {
+        data: chartData.map((d) => Math.round(d.occupancy_percentage)),
+        colors: chartData.map((d) => {
           const value = d.occupancy_percentage;
-
-          if (value < 50) return (opacity = 1) => `rgba(76, 175, 80, ${opacity})`;      // 🟢 green
-          if (value < 80) return (opacity = 1) => `rgba(255, 193, 7, ${opacity})`;     // 🟡 yellow
-          return (opacity = 1) => `rgba(244, 67, 54, ${opacity})`;                     // 🔴 red
+          if (value < 50) return (opacity = 1) => `rgba(76, 175, 80, ${opacity})`;
+          if (value < 80) return (opacity = 1) => `rgba(255, 193, 7, ${opacity})`;
+          return (opacity = 1) => `rgba(244, 67, 54, ${opacity})`;
         }),
       },
     ],
   };
 };
+
+
 
 
   const getOccupancyColor = (percentage: number) => {
