@@ -186,6 +186,34 @@ export default function SettingsScreen({ onLogout }: Props) {
     }
   };
 
+  // -------- Lot Closure Notifications Toggle Handler (User Story #11) --------
+  const handleEventClosuresToggle = async (enabled: boolean) => {
+    const userJson = await SecureStore.getItemAsync("user");
+    const user = userJson ? JSON.parse(userJson) : null;
+    const email = user?.email;
+
+    if (!email) {
+      Alert.alert("Not logged in", "Please log in to enable notifications.");
+      return;
+    }
+
+    try {
+      // Update backend preference
+      await axios.post(`${API_BASE}/closure-notifications/`, {
+        email,
+        enabled
+      });
+      
+      // Update local state
+      setToggle("eventClosures", enabled);
+      
+      console.log(`Closure notifications ${enabled ? 'enabled' : 'disabled'} for ${email}`);
+    } catch (error) {
+      console.error("Failed to update closure notification preference:", error);
+      Alert.alert("Error", "Failed to update notification preference. Please try again.");
+    }
+  };
+
   // -------- Parking Pass Sale Notifications Toggle Handler --------
   const handlePassOnSaleToggle = async (enabled: boolean) => {
     const userJson = await SecureStore.getItemAsync("user");
@@ -507,7 +535,7 @@ export default function SettingsScreen({ onLogout }: Props) {
           <Row label="Event Day Closures">
             <Switch
               value={prefs.eventClosures}
-              onValueChange={(v) => setToggle("eventClosures", v)}
+              onValueChange={handleEventClosuresToggle}
             />
           </Row>
 

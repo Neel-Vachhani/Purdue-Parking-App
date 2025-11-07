@@ -11,7 +11,7 @@
 //   );
 // }
 
-import React, { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { View, Text } from "react-native";
 import { Marker, Callout } from "react-native-maps";
 import * as SecureStore from "expo-secure-store";
@@ -19,15 +19,21 @@ import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
 import { INITIAL_REGION } from "../../constants/map";
 import { PARKING_LOCATIONS, loadParkingLocations, ParkingLocation } from "./parkingLocationsData";
+import { ThemeContext } from "../../theme/ThemeProvider";
+import { TouchableOpacity } from "react-native";
+import { Ionicons } from "../../components/ThemedIcons";        
 import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../../utils/travelTime";
-
-// Extend ParkingLocation to include travel time
+        
+        // Extend ParkingLocation to include travel time
 interface ParkingLocationWithTravel extends ParkingLocation {
   travelTime?: TravelTimeResult | null;
 }
 
-export default function ParkingMapScreen() {
+export default function ParkingMapScreen({view, setView} : {view: string, setView: React.Dispatch<React.SetStateAction<"garage" | "map">>}) {
+  
   const [locations, setLocations] = useState<ParkingLocationWithTravel[]>(PARKING_LOCATIONS);
+
+  const theme = useContext(ThemeContext);
 
   useEffect(() => {
     let isMounted = true;
@@ -95,6 +101,24 @@ export default function ParkingMapScreen() {
   return (
     <ThemedView>
       <ParkingMap initialRegion={INITIAL_REGION}>
+        <TouchableOpacity
+          onPress={() => {setView("garage")}}
+          style={{
+            padding: 10,
+            borderRadius: 50,
+            backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+            shadowColor: "#000",
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
+            elevation: 5,
+            position: "absolute",
+            top: 20,
+            left: 20,
+            zIndex: 10,
+          }}
+        >
+          <Ionicons name="home" size={26} color={theme.primary} />
+        </TouchableOpacity>
         {locations.map((location) => (
           <Marker key={location.id} coordinate={location.coordinate}>
             <Callout tooltip={false}>

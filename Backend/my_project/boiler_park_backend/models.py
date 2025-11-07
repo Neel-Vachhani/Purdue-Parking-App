@@ -24,6 +24,7 @@ class User(models.Model):
         max_length=255, blank=True, null=True)
     default_origin = models.CharField(
         max_length=255, blank=True, null=True)
+    closure_notifications_enabled = models.BooleanField(default=True)
     # events = models.CharField()
 
 
