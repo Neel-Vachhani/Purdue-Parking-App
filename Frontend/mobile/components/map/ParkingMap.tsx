@@ -68,23 +68,6 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         {/* Purdue gold icon for brand consistency */}
         <MaterialIcons name="my-location" size={22} color={theme.primary} />
       </Pressable>
-      {/*
-      <GooglePlacesTextInput 
-        apiKey="APIKEY"//TODO
-        placeHolderText="Search for a garage"
-        fetchDetails={true}
-        types={["parking"]}
-        detailsFields={['formattedAddress', 'location']}
-        locationRestriction={{
-          rectangle: {
-            low: { latitude: 40.39286, longitude: -86.954622},
-            high: { latitude: 40.466874, longitude: -86.871755 }
-          }
-        }}
-        onPlaceSelect={ handlePlaceSelect }  >
-
-        </GooglePlacesTextInput>     
-        */}
         <StyledGooglePlacesTextInput></StyledGooglePlacesTextInput>
     </View>
   );

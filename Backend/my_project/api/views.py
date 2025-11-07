@@ -173,6 +173,8 @@ def get_postgres_connection():
         user=config('DB_USERNAME'),
         password=config('DB_PASSWORD')
     )
+
+
 @api_view(['POST'])
 def upload_ics_events(request):
     """
@@ -191,7 +193,6 @@ def upload_ics_events(request):
     saved_events = []
     event_count = 0
     MAX_EVENTS = 10
-
 
     for component in cal.walk():
         if component.name != "VEVENT":
@@ -234,7 +235,6 @@ def upload_ics_events(request):
         else:
             raise ValueError("Unknown end type")
         dates = [start_date]
-
 
         title = str(component.get('summary', ''))
         description = str(component.get('description', ''))[:200]
@@ -280,7 +280,6 @@ def list_calendar_events(request):
         for e in events
     ]
     return Response({"events": serialized_events})
-
 
 
 @api_view(["GET"])
@@ -384,7 +383,8 @@ def get_hourly_average_parking(request):
             return Response({"error": "Invalid 'weekday' parameter."}, status=400)
         weekday_index = weekdays_map[weekday_param]
 
-    lot_entry = next((lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
+    lot_entry = next(
+        (lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
     if not lot_entry:
         return Response({"error": f"Lot '{lot_code}' not found."}, status=404)
 
@@ -419,7 +419,8 @@ def get_hourly_average_parking(request):
     for ts, avail in rows:
         # Make sure ts is a datetime object
         if isinstance(ts, str):
-            ts = datetime.fromisoformat(ts)  # or use strptime depending on format
+            # or use strptime depending on format
+            ts = datetime.fromisoformat(ts)
 
         if ts.hour == hour and (weekday_index is None or ts.weekday() == weekday_index):
             filtered.append(int(avail))
@@ -435,7 +436,6 @@ def get_hourly_average_parking(request):
         "weekday": weekday_param or "all_days",
         "average_availability": avg_availability
     })
-
 
 
 @api_view(['GET'])
@@ -1023,6 +1023,7 @@ def closure_notifications_toggle(request):
         "closure_notifications_enabled": user.closure_notifications_enabled
     })
 
+
 def _compute_totals(levels):
     total = sum(l["total"] for l in levels)
     available = sum(l["available"] for l in levels)
@@ -1304,51 +1305,54 @@ def geocode_address(request):
     """
     Geocode an address to lat/lng coordinates using Google Maps API.
     This endpoint acts as a secure proxy to keep the API key on the backend.
-    
+
     GET params:
         address: The address to geocode (e.g., "Memorial Union" or "201 Grant St, West Lafayette, IN")
-    
+
     Returns:
         {
             "latitude": float,
             "longitude": float,
             "formatted_address": str
         }
-    
+
     User Story #9 - AC3: Travel time calculation from saved starting location
     """
     address = request.GET.get('address', '').strip()
-    
+
     if not address:
         return Response(
-            {"error": "Address parameter is required"}, 
+            {"error": "Address parameter is required"},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     # Get API key from environment variables (kept secure on backend)
-    api_key = config('GOOGLE_MAPS_API_KEY', default='')
+    # api_key = config('GOOGLE_MAPS_API_KEY', default='')
+    api_key = "APIKEY"
+
     if not api_key:
-        logger.error("GOOGLE_MAPS_API_KEY not configured in backend environment")
+        logger.error(
+            "GOOGLE_MAPS_API_KEY not configured in backend environment")
         return Response(
-            {"error": "Geocoding service not configured"}, 
+            {"error": "Geocoding service not configured"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE
         )
-    
+
     try:
         # Add West Lafayette context for Purdue-area addresses if needed
         search_address = address
         lower_address = address.lower()
-        
+
         # Check if address already has location context
         has_city = ',' in address
         has_state = bool(re.search(r'\b(in|indiana)\b', lower_address))
         has_zip = bool(re.search(r'\b\d{5}\b', address))
-        
+
         # Add context for incomplete addresses
         if not has_city and not has_state and not has_zip and 'lafayette' not in lower_address:
             # For Purdue buildings/landmarks, add university context
             purdue_keywords = [
-                'purdue', 'memorial union', 'lawson', 'krannert', 
+                'purdue', 'memorial union', 'lawson', 'krannert',
                 'stewart center', 'pmucorr', 'recwell', 'corec'
             ]
             if any(keyword in lower_address for keyword in purdue_keywords):
@@ -1359,25 +1363,26 @@ def geocode_address(request):
                 logger.info(f"Geocoding with added context: {search_address}")
         else:
             logger.info(f"Geocoding: {search_address}")
-        
+
         # Call Google Maps Geocoding API
         geocode_url = "https://maps.googleapis.com/maps/api/geocode/json"
         params = {
             'address': search_address,
-            'key': api_key,
+            'key': "APIKEY",
             'bounds': '40.39286,-86.954622|40.466874,-86.871755',  # West Lafayette bounds
             'region': 'us'
         }
-        
+
         response = requests.get(geocode_url, params=params, timeout=5)
         data = response.json()
-        
+
         if data['status'] == 'OK' and data.get('results'):
             location = data['results'][0]['geometry']['location']
             formatted_address = data['results'][0]['formatted_address']
-            
-            logger.info(f"✅ Geocoded '{address}' to ({location['lat']}, {location['lng']})")
-            
+
+            logger.info(
+                f"✅ Geocoded '{address}' to ({location['lat']}, {location['lng']})")
+
             return Response({
                 'latitude': location['lat'],
                 'longitude': location['lng'],
@@ -1389,16 +1394,16 @@ def geocode_address(request):
             return Response({
                 'error': f"Could not geocode address: {error_msg}"
             }, status=status.HTTP_404_NOT_FOUND)
-            
+
     except requests.Timeout:
         logger.error(f"Geocoding timeout for address: {address}")
         return Response(
-            {"error": "Geocoding service timeout"}, 
+            {"error": "Geocoding service timeout"},
             status=status.HTTP_504_GATEWAY_TIMEOUT
         )
     except Exception as e:
         logger.error(f"Geocoding error for '{address}': {str(e)}")
         return Response(
-            {"error": "Geocoding service unavailable"}, 
+            {"error": "Geocoding service unavailable"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE
         )

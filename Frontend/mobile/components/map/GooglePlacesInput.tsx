@@ -13,7 +13,7 @@ const StyledGooglePlacesTextInput = () => {
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+              'X-Goog-Api-Key': "APIKEY",
               'X-Goog-FieldMask': 'routes.duration'
             },
             body: JSON.stringify({
@@ -118,7 +118,7 @@ const StyledGooglePlacesTextInput = () => {
 
   return (
     <GooglePlacesTextInput
-      apiKey={GOOGLE_MAPS_API_KEY}
+      apiKey="APIKEY"
       placeHolderText="Search for a garage"
       onPlaceSelect={handlePlaceSelect}
       fetchDetails={true}
