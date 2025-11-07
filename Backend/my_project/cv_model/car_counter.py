@@ -143,7 +143,8 @@ class CarCounter:
                  (self.line_limits[2], self.line_limits[3]), line_color, 5)
 
         self.capacity = self.emptyCapacity - len(self.incoming) + len(self.outgoing)
-        self.update_redis()
+        if crossed_ids:
+            self.update_redis()
 
         y0, dy = 120, 80  # starting y position, line spacing
         cv2.putText(frame, "Availability:", (420, y0),
