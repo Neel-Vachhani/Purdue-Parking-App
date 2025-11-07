@@ -748,27 +748,6 @@ export default function GarageList({
   );
 }
 
-// quick adapter from list item to GarageDetail props
-function mapListGarageToDetail(g: Garage): GarageDetailType {
-  const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
-  return {
-    id: g.id,
-    code: g.code, // Pass lot code for fetching events (User Story #10)
-    name: g.name,
-    address: "Address coming from API", // replace with real field if you have it
-    latitude: g.lat, // Pass latitude for travel time calculation (User Story #9)
-    longitude: g.lng, // Pass longitude for travel time calculation (User Story #9)
-    totalSpots: g.total,
-    occupiedSpots: occupied,
-    covered: true,
-    shaded: true,
-    amenities: ["covered", "lighting"],
-    price: [{ label: "Per hour", amount: 2.0, unit: "/hr" }],
-    hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
-    lastUpdatedIso: new Date().toISOString(),
-  };
-}
-
 function getColors(pct: number) {
   if (pct >= 0.8) return { border: "#f91e1eff", fill: "#f91e1eff" };
   if (pct >= 0.65) return { border: "#ff7f1eff", fill: "#ff7f1eff" };
