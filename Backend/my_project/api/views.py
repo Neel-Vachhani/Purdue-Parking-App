@@ -1,4 +1,5 @@
 import logging
+import re
 from statistics import mean
 from typing import List, Dict, Any, Optional
 from django.db import connection
@@ -7,6 +8,7 @@ from django.db import connection
 import bcrypt
 import psycopg2
 import redis
+import requests
 from decouple import config
 from rest_framework.response import Response
 from redis.exceptions import RedisError
@@ -1186,3 +1188,109 @@ def list_shade_cover_indicators(request):
             "uncovered_pct_available": analysis["totals"]["uncovered_pct_available"],
         })
     return Response({"garages": results}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def geocode_address(request):
+    """
+    Geocode an address to lat/lng coordinates using Google Maps API.
+    This endpoint acts as a secure proxy to keep the API key on the backend.
+    
+    GET params:
+        address: The address to geocode (e.g., "Memorial Union" or "201 Grant St, West Lafayette, IN")
+    
+    Returns:
+        {
+            "latitude": float,
+            "longitude": float,
+            "formatted_address": str
+        }
+    
+    User Story #9 - AC3: Travel time calculation from saved starting location
+    """
+    address = request.GET.get('address', '').strip()
+    
+    if not address:
+        return Response(
+            {"error": "Address parameter is required"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Get API key from environment variables (kept secure on backend)
+    api_key = config('GOOGLE_MAPS_API_KEY', default='')
+    if not api_key:
+        logger.error("GOOGLE_MAPS_API_KEY not configured in backend environment")
+        return Response(
+            {"error": "Geocoding service not configured"}, 
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+    
+    try:
+        # Add West Lafayette context for Purdue-area addresses if needed
+        search_address = address
+        lower_address = address.lower()
+        
+        # Check if address already has location context
+        has_city = ',' in address
+        has_state = bool(re.search(r'\b(in|indiana)\b', lower_address))
+        has_zip = bool(re.search(r'\b\d{5}\b', address))
+        
+        # Add context for incomplete addresses
+        if not has_city and not has_state and not has_zip and 'lafayette' not in lower_address:
+            # For Purdue buildings/landmarks, add university context
+            purdue_keywords = [
+                'purdue', 'memorial union', 'lawson', 'krannert', 
+                'stewart center', 'pmucorr', 'recwell', 'corec'
+            ]
+            if any(keyword in lower_address for keyword in purdue_keywords):
+                search_address = f"{address}, Purdue University, West Lafayette, IN"
+                logger.info(f"Geocoding Purdue landmark: {search_address}")
+            else:
+                search_address = f"{address}, West Lafayette, Indiana"
+                logger.info(f"Geocoding with added context: {search_address}")
+        else:
+            logger.info(f"Geocoding: {search_address}")
+        
+        # Call Google Maps Geocoding API
+        geocode_url = "https://maps.googleapis.com/maps/api/geocode/json"
+        params = {
+            'address': search_address,
+            'key': api_key,
+            'bounds': '40.39286,-86.954622|40.466874,-86.871755',  # West Lafayette bounds
+            'region': 'us'
+        }
+        
+        response = requests.get(geocode_url, params=params, timeout=5)
+        data = response.json()
+        
+        if data['status'] == 'OK' and data.get('results'):
+            location = data['results'][0]['geometry']['location']
+            formatted_address = data['results'][0]['formatted_address']
+            
+            logger.info(f"✅ Geocoded '{address}' to ({location['lat']}, {location['lng']})")
+            
+            return Response({
+                'latitude': location['lat'],
+                'longitude': location['lng'],
+                'formatted_address': formatted_address
+            }, status=status.HTTP_200_OK)
+        else:
+            error_msg = data.get('status', 'UNKNOWN')
+            logger.warning(f"Geocoding failed for '{address}': {error_msg}")
+            return Response({
+                'error': f"Could not geocode address: {error_msg}"
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+    except requests.Timeout:
+        logger.error(f"Geocoding timeout for address: {address}")
+        return Response(
+            {"error": "Geocoding service timeout"}, 
+            status=status.HTTP_504_GATEWAY_TIMEOUT
+        )
+    except Exception as e:
+        logger.error(f"Geocoding error for '{address}': {str(e)}")
+        return Response(
+            {"error": "Geocoding service unavailable"}, 
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
