@@ -1,6 +1,8 @@
 import logging
 from statistics import mean
 from typing import List, Dict, Any, Optional
+from django.db import connection
+
 
 import bcrypt
 import psycopg2
@@ -174,7 +176,13 @@ def get_postgres_parking_data(request):
         WHERE timestamp >= NOW() - INTERVAL '{interval}'
         ORDER BY timestamp ASC;
     """
-    cursor.execute(query)
+    try:
+        cursor.execute(query)
+    except psycopg2.OperationalError:
+        conn = get_postgres_connection()
+        cursor = conn.cursor()
+        cursor.execute(query)
+
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -182,32 +190,28 @@ def get_postgres_parking_data(request):
     # Format results as list of dicts
     results = [{"id": r[0], "timestamp": r[1], "availability": r[2]}
                for r in rows]
-
     return Response(results)
 
 
 @api_view(["GET"])
 def get_hourly_average_parking(request):
     """
-    Returns average occupancy for a given lot at a specific hour, 
+    Returns average availability for a given lot at a specific hour, 
     optionally filtered by weekday, based on past 30 days of data.
 
     Query Params:
       - lot (str): e.g., 'pgmd', 'lot_a', etc. [required]
       - hour (int): 0–23 [required]
       - weekday (str): optional, e.g., 'monday', 'tuesday', etc.
-      - threshold (float): optional, e.g., 80 (to flag full lots)
     """
     lot_code = request.GET.get("lot")
     hour_param = request.GET.get("hour")
     weekday_param = request.GET.get("weekday")
-    threshold_param = request.GET.get("threshold")
 
     # Validate inputs
     if not lot_code or hour_param is None:
         return Response({"error": "Missing required parameters 'lot' or 'hour'."}, status=400)
-    else:
-        lot_code = lot_code.upper()
+    lot_code = lot_code.upper()
     try:
         hour = int(hour_param)
         if not (0 <= hour <= 23):
@@ -226,10 +230,11 @@ def get_hourly_average_parking(request):
         if weekday_param not in weekdays_map:
             return Response({"error": "Invalid 'weekday' parameter."}, status=400)
         weekday_index = weekdays_map[weekday_param]
-    lot_entry = next(
-        (lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
+
+    lot_entry = next((lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
     if not lot_entry:
         return Response({"error": f"Lot '{lot_code}' not found."}, status=404)
+
     column_name = lot_entry["redis_key"]
 
     # Connect to Postgres
@@ -242,7 +247,7 @@ def get_hourly_average_parking(request):
     )
     cursor = conn.cursor()
 
-    # Build SQL query
+    # Get last 30 days of availability data
     query = f"""
         SELECT timestamp, {column_name}
         FROM parking_availability_data
@@ -250,7 +255,6 @@ def get_hourly_average_parking(request):
     """
     cursor.execute(query)
     rows = cursor.fetchall()
-    print(rows)
     cursor.close()
     conn.close()
 
@@ -258,33 +262,19 @@ def get_hourly_average_parking(request):
         return Response({"error": "No data found for this lot."}, status=404)
 
     # Filter by hour and optional weekday
-    filtered = []
-    for ts, avail in rows:
-        if ts.hour == hour:
-            if weekday_index is None or ts.weekday() == weekday_index:
-                filtered.append(avail)
-
+    filtered = [avail for ts, avail in rows if ts.hour == hour and (weekday_index is None or ts.weekday() == weekday_index)]
     if not filtered:
         return Response({"error": "No matching data for that hour/weekday."}, status=404)
 
-    avg_occupancy = mean(filtered)
+    avg_availability = round(mean(filtered), 2)
 
-    # Optional threshold logic
-    result = {
+    return Response({
         "lot": lot_code.lower(),
         "hour": hour,
         "weekday": weekday_param or "all_days",
-        "average_occupancy": round(avg_occupancy, 2),
-    }
+        "average_availability": avg_availability
+    })
 
-    if threshold_param:
-        try:
-            threshold = float(threshold_param)
-            result["likely_full"] = avg_occupancy >= threshold
-        except ValueError:
-            return Response({"error": "Invalid threshold. Must be a number."}, status=400)
-
-    return Response(result)
 
 
 @api_view(['GET'])
