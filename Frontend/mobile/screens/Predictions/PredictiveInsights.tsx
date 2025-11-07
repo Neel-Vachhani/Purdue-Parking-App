@@ -420,7 +420,7 @@ export default function PredictiveInsights() {
                     color: "#22c55e",
                     transform: [{ scale: pulseAnim }]
                   }]}>
-                    {Math.round((selectedLot.total - result.average_occupancy) / selectedLot.total * 100)}
+                    {Math.round((selectedLot.total - result.average_occupancy))}
                   </Animated.Text>
                 </View>
 
