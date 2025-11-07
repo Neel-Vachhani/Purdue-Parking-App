@@ -12,6 +12,7 @@ urlpatterns = [
     path('notification_disable/', views.notification_disable),
     path('notification_test/', views.notification_test),
     path('user/origin/', views.user_origin),
+    path('geocode/', views.geocode_address),
     
     # Lot events (User Story #10)
     path('lots/<str:lot_code>/events/', views.list_lot_events),
