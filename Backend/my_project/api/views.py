@@ -84,6 +84,45 @@ PARKING_LOTS: List[Dict[str, Any]] = [
         "redis_key": "AIRPORT_availability"},
 ]
 
+DUMMY_GARAGE_DETAILS = {
+    "address": "123 Grant St, West Lafayette, IN 47906",
+    "coordinates": {"lat": 40.4240, "lng": -86.9138},
+    "hours": {
+        "mon_fri": "24/7",
+        "sat": "24/7",
+        "sun": "24/7",
+    },
+    "rates": {
+        "per_hour": 2.0,
+        "daily_max": 12.0,
+        "free_after": None,
+    },
+    "amenities": {
+        "ev_chargers": 8,
+        "accessible_spots": 12,
+        "restrooms": True,
+        "security": "Cameras and patrol",
+        "elevators": True,
+    },
+    "restrictions": {
+        "height_clearance_ft": 7.0,
+        "permit_required": False,
+        "overnight_allowed": True,
+    },
+    "features": {
+        "covered": True,
+        "shaded": True,
+        "heated": False,
+        "bike_parking": True,
+    },
+    "levels": [
+        {"level": "B1", "total": 120, "available": 18, "covered": True},
+        {"level": "L1", "total": 150, "available": 25, "covered": True},
+        {"level": "L2", "total": 150, "available": 31, "covered": True},
+        {"level": "Roof", "total": 100, "available": 12, "covered": False},
+    ],
+}
+
 
 def _redis_connection() -> redis.Redis:
     redis_kwargs = {"decode_responses": True}
@@ -290,7 +329,7 @@ def get_hourly_average_parking(request):
 
 
 @api_view(['GET'])
-def get_parking_availability(request):
+def get_parking_availability():
     try:
         client = _redis_connection()
         lots_payload = []
@@ -873,47 +912,6 @@ def closure_notifications_toggle(request):
         "status": "ok",
         "closure_notifications_enabled": user.closure_notifications_enabled
     })
-
-
-DUMMY_GARAGE_DETAILS = {
-    "address": "123 Grant St, West Lafayette, IN 47906",
-    "coordinates": {"lat": 40.4240, "lng": -86.9138},
-    "hours": {
-        "mon_fri": "24/7",
-        "sat": "24/7",
-        "sun": "24/7",
-    },
-    "rates": {
-        "per_hour": 2.0,
-        "daily_max": 12.0,
-        "free_after": None,
-    },
-    "amenities": {
-        "ev_chargers": 8,
-        "accessible_spots": 12,
-        "restrooms": True,
-        "security": "Cameras and patrol",
-        "elevators": True,
-    },
-    "restrictions": {
-        "height_clearance_ft": 7.0,
-        "permit_required": False,
-        "overnight_allowed": True,
-    },
-    "features": {
-        "covered": True,
-        "shaded": True,
-        "heated": False,
-        "bike_parking": True,
-    },
-    "levels": [
-        {"level": "B1", "total": 120, "available": 18, "covered": True},
-        {"level": "L1", "total": 150, "available": 25, "covered": True},
-        {"level": "L2", "total": 150, "available": 31, "covered": True},
-        {"level": "Roof", "total": 100, "available": 12, "covered": False},
-    ],
-}
-
 
 def _compute_totals(levels):
     total = sum(l["total"] for l in levels)

@@ -17,7 +17,8 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { ThemeContext } from "../theme/ThemeProvider";
-import GarageDetail from "./detailedGarage";
+import GarageDetail from "./DetailedGarage";
+import { useEffect } from "react";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
 
 type Garage = {
@@ -43,11 +44,6 @@ export type Amenity =
   | "bike"
   | "heightClearance";
 
-export interface PriceTier {
-  label: string; // e.g., "First hour", "Daily max"
-  amount: number; // in USD
-  unit?: string; // e.g., "/hr", "/day"
-}
 
 export interface HoursBlock {
   days: string; // e.g., "Mon–Fri" or "Sat–Sun"
@@ -69,7 +65,7 @@ export interface GarageDetailType {
   covered?: boolean;
   shaded?: boolean;
   amenities?: Amenity[];
-  price?: PriceTier[];
+  price?: string;
   hours?: HoursBlock[];
   lastUpdatedIso?: string;
   heroImageUrl?: string;
@@ -165,6 +161,24 @@ const getApiBaseUrl = (): string => {
   return "http://localhost:7500";
 };
 
+// Changes the traditional garage data to the detailed format
+function mapListGarageToDetail(g:   Garage): GarageDetailType {
+  const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
+  return {
+    id: g.id,
+    name: g.name,
+    address: "Address coming from API", // replace with real field if you have it
+    totalSpots: g.total,
+    occupiedSpots: occupied,
+    covered: true,
+    shaded: true,
+    amenities: ["covered", "lighting"],
+    price: g.paid ? "Paid Lot" : "Free",
+    hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
+    lastUpdatedIso: new Date().toISOString(),
+  };
+}
+
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const FILTER_STORAGE_KEY = "garage_filters";
 
@@ -229,6 +243,7 @@ export default function GarageList({
     loadFilters();
   }, []);
 
+  // Handles toggling favorite status
   const handleToggleFavorite = React.useCallback(
     (garage: Garage) => {
       setGarages((prev) =>
@@ -249,12 +264,13 @@ export default function GarageList({
     });
   }, []);
 
+  // TODO: Figure out what to do here
   const handleOpenInMaps = React.useCallback(
     (garage: Garage) => onOpenInMaps?.(garage),
     [onOpenInMaps]
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
 
     const loadAvailability = async () => {
@@ -266,10 +282,10 @@ export default function GarageList({
         }
 
         const payload: { lots?: ApiLot[] } = await response.json();
-        console.log(payload)
         const lots = Array.isArray(payload?.lots) ? payload.lots : undefined;
         if (!lots || lots.length === 0 || !isMounted) return;
 
+        // Some sort of odd mapping logic to match lots from API to our local list
         const updatesById = new Map<string, ApiLot>();
         const updatesByCode = new Map<string, ApiLot>();
         const updatesByName = new Map<string, ApiLot>();
@@ -288,6 +304,7 @@ export default function GarageList({
           }
         });
 
+        // Update garages with fetched availability data using all three maps for extra matching?
         setGarages((prev) =>
           prev.map((garage) => {
             const update =
@@ -326,6 +343,7 @@ export default function GarageList({
     };
   }, []);
 
+  // Logic to open and close the detailed view with animation
   const openDetail = (g: Garage) => {
     setSelected(g);
     translateX.setValue(SCREEN_WIDTH);
@@ -347,6 +365,9 @@ export default function GarageList({
       if (finished) setSelected(null);
     });
   };
+  
+
+  // Filtering logic for garages
   const visibleGarages = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -386,22 +407,7 @@ export default function GarageList({
     setSelectedPasses([]);
   }, []);
 
-  React.useEffect(() => {
-    if (!filtersLoadedRef.current) return;
-    const persist = async () => {
-      try {
-        const payload = {
-          passes: selectedPasses,
-          favoritesOnly: showFavoritesOnly,
-        };
-        await AsyncStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(payload));
-      } catch (error) {
-        console.warn("Failed to save garage filters", error);
-      }
-    };
-    persist();
-  }, [selectedPasses, showFavoritesOnly]);
-
+  // Function to render every garage item in non-detailed view
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
     const pct = Math.min(item.current / total, 1);
@@ -747,27 +753,6 @@ export default function GarageList({
       )}
     </View>
   );
-}
-
-// quick adapter from list item to GarageDetail props
-function mapListGarageToDetail(g: Garage): GarageDetailType {
-  const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
-  return {
-    id: g.id,
-    code: g.code, // Pass lot code for fetching events (User Story #10)
-    name: g.name,
-    address: "Address coming from API", // replace with real field if you have it
-    latitude: g.lat, // Pass latitude for travel time calculation (User Story #9)
-    longitude: g.lng, // Pass longitude for travel time calculation (User Story #9)
-    totalSpots: g.total,
-    occupiedSpots: occupied,
-    covered: true,
-    shaded: true,
-    amenities: ["covered", "lighting"],
-    price: [{ label: "Per hour", amount: 2.0, unit: "/hr" }],
-    hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
-    lastUpdatedIso: new Date().toISOString(),
-  };
 }
 
 function getColors(pct: number) {
