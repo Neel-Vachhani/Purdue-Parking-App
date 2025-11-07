@@ -17,8 +17,8 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { ThemeContext } from "../theme/ThemeProvider";
-import GarageDetail from "./DetailedGarage";
 import { useEffect } from "react";
+import GarageDetail from "./DetailedGarage";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
 
 type Garage = {

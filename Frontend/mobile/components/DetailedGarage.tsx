@@ -140,6 +140,28 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
   },
   sectionTitle: { color: theme.text, fontSize: 16, fontWeight: "700", marginBottom: 8 },
 
+  reliabilityPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  reliabilityBarOuter: {
+    width: 42,        // small inline meter
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: theme.border,
+    overflow: "hidden",
+  },
+  reliabilityBarFill: {
+    height: 6,
+    borderRadius: 999,
+  },
+  reliabilityText: { fontSize: 12, fontWeight: "700", color: theme.text },
+
+
   occRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   occBarOuter: { flex: 1, height: 14, backgroundColor: theme.bg, borderRadius: 999, overflow: "hidden" },
   occBarFill: { height: 14, backgroundColor: theme.primary },
@@ -218,6 +240,13 @@ export default function GarageDetail({
   const miles = toMiles(garage.distanceMeters);
   const p = percent(garage.occupiedSpots, garage.totalSpots);
   const pctStr = `${Math.round(p * 100)}%`;
+
+  const [reliability, setReliability] = React.useState<number>(() => Math.floor(Math.random() * 101));
+
+  React.useEffect(() => {
+    setReliability(Math.floor(Math.random() * 101));
+  }, [garage.id]);
+
 
   // State for travel time (User Story #9)
   const [travelTime, setTravelTime] = React.useState<TravelTimeResult | null>(null);
@@ -338,7 +367,7 @@ export default function GarageDetail({
           hitSlop={12}
           style={styles.headerRight}
         >
-          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={22} />
+          <Ionicons name={isFavorite ? "star" : "star-outline"} size={22} />
         </Pressable>
       </View>
 
@@ -387,6 +416,27 @@ export default function GarageDetail({
                   </>
                 )}
               </Pill>
+            </View>
+            {/* Reliability indicator */}
+            <View
+              style={[
+                styles.reliabilityPill,
+                { backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)" },
+              ]}
+            >
+              <View style={styles.reliabilityBarOuter}>
+                <View
+                  style={[
+                    styles.reliabilityBarFill,
+                    {
+                      width: `${reliability}%`,
+                      backgroundColor: reliabilityColor(reliability),
+                    },
+                  ]}
+                />
+              </View>
+              <Ionicons name="shield-checkmark" size={14} color={reliabilityColor(reliability)} />
+              <Text style={styles.reliabilityText}>{reliability}%</Text>
             </View>
           </View>
         </View>
@@ -587,3 +637,10 @@ const AmenityItem = ({ a, labelOverride }: { a?: Amenity; labelOverride?: string
 };
 
 
+
+function reliabilityColor(v: number) {
+  // 0–40 red, 41–70 amber, 71–100 green
+  if (v <= 40) return "#ef4444";
+  if (v <= 70) return "#f59e0b";
+  return "#22c55e";
+}
