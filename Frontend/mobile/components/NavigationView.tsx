@@ -95,9 +95,7 @@ const NavigationView = () => {
   };
 
   const NavigationListView = ({ places }: { places: any[] }) => {
-    const mapLink = () => {
-      console.log("here");
-    }
+    
     return (
     <View>
       <FlatList

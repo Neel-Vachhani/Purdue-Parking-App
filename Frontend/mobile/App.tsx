@@ -9,7 +9,6 @@ import { StatusBar } from "expo-status-bar";
 import ThemeProvider, { ThemeContext } from "./theme/ThemeProvider";
 import ThemedView from "./components/ThemedView";
 import BottomBar from "./components/BottomBar";
-import ParkingMapScreen from "./screens/Parking/ParkingMapScreen";
 import SettingsScreen from "./screens/Settings/SettingsScreen";
 import GarageMap from "./screens/GarageMap/GarageMap";
 import Calendar from "./screens/Calender/Calender";
