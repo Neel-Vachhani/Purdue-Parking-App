@@ -439,7 +439,7 @@ def get_hourly_average_parking(request):
 
 
 @api_view(['GET'])
-def get_parking_availability():
+def get_parking_availability(request):
     try:
         client = _redis_connection()
         lots_payload = []
