@@ -25,19 +25,20 @@ type HistoricalDataPoint = {
 };
 
 const LOT_COLUMNS: Record<string, string> = {
-  "Harrison Garage": "pgmd",
-  "Grant Street Garage": "pgu",
-  "University Street Garage": "pgnw",
-  "Northwestern Garage": "pgg",
-  "DS/AI Lot": "pgw",
-  "Graduate House Garage": "pggh",
-  "Hillenbrand Hall Garage": "pgh",
+  "Harrison Street Parking Garage": "pgmd",
+  "Grant Street Parking Garage": "pgu",
+  "University Street Parking Garage": "pgnw",
+  "Northwestern Avenue Parking Garage": "pgg",
+  "McCutcheon Drive Parking Garage": "pgw",
+  "Wood Street Parking Garage": "pgm",
+  "Graduate House Parking Garage": "pggh",
+  "Marsteller Street Parking Garage": "pgh",
   "Lot R": "lot_r",
   "Lot H": "lot_h",
-  "Ford Boiler Lot": "lot_fb",
-  "KFPC": "kfpc",
+  "Lot FB": "lot_fb",
+  "Krach Leadership Center Parking": "kfpc",
   "Lot A": "lot_a",
-  "Crec Lot": "crec",
+  "CoRec Parking": "crec",
   "Lot O": "lot_o",
   "Tarkington/Wiley Lot": "tark_wily",
   "Lot AA": "lot_aa",
@@ -47,13 +48,13 @@ const LOT_COLUMNS: Record<string, string> = {
   "McCutcheon/Harrison Hill Lot": "mcut_harr_hill",
   "Duhme Lot": "duhm",
   "Pierce Street Lot": "pierce_st",
-  "PGM Lot": "pgm",
   "Smith/Biochemistry Lot": "smth_bchm",
   "Discovery Park Lot A": "disc_a",
   "Discovery Park Lot AB": "disc_ab",
   "Discovery Park Lot ABC": "disc_abc",
-  "Airport Lot": "airport"
+  "Airport Lot": "airport",
 };
+
 const periodOptions: { value: TimePeriod; label: string }[] = [
   { value: "day", label: "24 Hours" },
   { value: "week", label: "7 Days" },
