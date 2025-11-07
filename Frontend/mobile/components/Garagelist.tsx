@@ -375,57 +375,52 @@ export default function GarageList({
             shadowRadius: 6,
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <View style={{ flex: 1, flexDirection: "row" }}>
-              <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600", marginRight: 8 }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
                 {item.name}
               </Text>
 
-              <TouchableOpacity
-                onPress={() => handleOpenInMaps(item)}
-                style={{ marginRight: 12 }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="location-outline" size={20} color={theme.primary} />
-              </TouchableOpacity>
+              <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
+                Code: {item.code}
+              </Text>
+
+              <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
+                Passes: {passesLabel}
+              </Text>
             </View>
 
-            <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
-              Code: {item.code}
-            </Text>
+            <View style={{ alignItems: "flex-end" }}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                {item.paid && (
+                  <FontAwesome
+                    name="usd"
+                    size={20}
+                    color={theme.primary}
+                    style={{ marginRight: 12 }}
+                  />
+                )}
 
-            <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
-              Passes: {passesLabel}
-            </Text>
-          </View>
-
-          <View style={{ alignItems: "flex-end" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-              {item.paid ? (
-                <FontAwesome name="usd" size={20} color={theme.primary} />
-              ) : (
-                <View style={{ width: 20 }} />
-              )}
+                <TouchableOpacity
+                  onPress={() => handleOpenInMaps(item)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="location-outline" size={20} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
-                onPress={() => handleOpenInMaps(item)}
+                onPress={() => handleToggleFavorite(item)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ marginTop: 16 }}
               >
-                <Ionicons name="location-outline" size={20} color={theme.primary} />
+                <Ionicons
+                  name={item.favorite ? "star" : "star-outline"}
+                  size={22}
+                  color={theme.primary}
+                />
               </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              onPress={() => handleToggleFavorite(item)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={{ marginTop: 12, alignSelf: "flex-end" }}
-            >
-              <Ionicons
-                name={item.favorite ? "star" : "star-outline"}
-                size={22}
-                color={theme.primary}
-              />
-            </TouchableOpacity>
           </View>
 
           <Text style={{ color: secondaryText, marginTop: 8 }}>
