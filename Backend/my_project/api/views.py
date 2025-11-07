@@ -262,11 +262,21 @@ def get_hourly_average_parking(request):
         return Response({"error": "No data found for this lot."}, status=404)
 
     # Filter by hour and optional weekday
-    filtered = [avail for ts, avail in rows if ts.hour == hour and (weekday_index is None or ts.weekday() == weekday_index)]
+    filtered = []
+    for ts, avail in rows:
+        # Make sure ts is a datetime object
+        if isinstance(ts, str):
+            ts = datetime.fromisoformat(ts)  # or use strptime depending on format
+
+        if ts.hour == hour and (weekday_index is None or ts.weekday() == weekday_index):
+            filtered.append(int(avail))
+
     if not filtered:
         return Response({"error": "No matching data for that hour/weekday."}, status=404)
 
-    avg_availability = round(mean(filtered), 2)
+    avg_availability = round(mean(min(240, avail) for avail in filtered), 2)
+    print(filtered)
+    print(avg_availability)
 
     return Response({
         "lot": lot_code.lower(),
