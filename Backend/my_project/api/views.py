@@ -428,8 +428,6 @@ def get_hourly_average_parking(request):
         return Response({"error": "No matching data for that hour/weekday."}, status=404)
 
     avg_availability = round(mean(min(240, avail) for avail in filtered), 2)
-    print(filtered)
-    print(avg_availability)
 
     return Response({
         "lot": lot_code.lower(),
