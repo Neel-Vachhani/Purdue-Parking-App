@@ -5,11 +5,11 @@
     "scheme": "boilerpark",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/NormalIcon.svg",
+    "icon": "./assets/NormalIcon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/NormalIcon.svg",
+      "image": "./assets/NormalIcon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,7 +21,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Boiler Park needs your location to calculate travel times to parking garages when you don't have a starting location saved.",
         "NSUserNotificationAlertStyle": "alert"
-      }
+      },
+      "buildNumber": "3"
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +33,9 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "intentFilters": [
         {
@@ -90,6 +93,7 @@
       "eas": {
         "projectId": "f7f0a87c-ad0b-4832-90a4-c220db3cb701"
       }
-    }
+    },
+    "owner": "boilerpark"
   }
 }

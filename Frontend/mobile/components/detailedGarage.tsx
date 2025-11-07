@@ -1,7 +1,7 @@
 import React, { useContext } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, Image } from "react-native";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
-import { Ionicons, MaterialCommunityIcons } from "../components/ThemedIcons";
+import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
 
 export type Amenity =
   | "covered"
@@ -13,12 +13,6 @@ export type Amenity =
   | "lighting"
   | "bike"
   | "heightClearance";
-
-export interface PriceTier {
-  label: string; // e.g., "First hour", "Daily max"
-  amount: number; // in USD
-  unit?: string; // e.g., "/hr", "/day"
-}
 
 export interface HoursBlock {
   days: string; // e.g., "Mon–Fri" or "Sat–Sun"
@@ -37,7 +31,7 @@ export interface Garage {
   covered?: boolean;
   shaded?: boolean;
   amenities?: Amenity[];
-  price?: PriceTier[];
+  price?: string;
   hours?: HoursBlock[];
   lastUpdatedIso?: string;
   heroImageUrl?: string;
@@ -275,12 +269,7 @@ export default function GarageDetail({
         {garage.price && garage.price.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Pricing</Text>
-            {garage.price.map((t, i) => (
-              <View key={`${t.label}-${i}`} style={styles.priceRow}>
-                <Text style={styles.priceLabel}>{t.label}</Text>
-                <Text style={styles.priceAmt}>${t.amount.toFixed(2)}{t.unit ? ` ${t.unit}` : ""}</Text>
-              </View>
-            ))}
+            <Text style={styles.priceLabel}>{garage.price}</Text>
           </View>
         )}
 
