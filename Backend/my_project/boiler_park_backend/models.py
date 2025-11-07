@@ -1,6 +1,9 @@
 # from django.contrib.postgres.fields import ArrayField
 # from location_field.models.plain import PlainLocationField
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
+from location_field.models.plain import PlainLocationField
+
 
 # Create your models here.
 
@@ -68,19 +71,22 @@ class ParkingLot(models.Model):
     special_lot = models.CharField(
         max_length=10, choices=special_lot, null=True, blank=True)
     cameras = ArrayField(models.CharField(max_length=30))
-
+'''
 
 class CalendarEvent(models.Model):
     id = models.AutoField(primary_key=True)
-    title = models.CharField(max_length=100)
-    descripton = models.CharField(max_length=200)
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-    dates = ArrayField(models.DateField())
-    location = PlainLocationField()
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=1000)
+    description = models.CharField(max_length=1000)
+    start_time = models.TimeField(max_length=1000)
+    end_time = models.TimeField(max_length=1000)
+    dates = ArrayField(models.DateField(max_length=1000))
+    location = PlainLocationField(max_length=1000, based_fields=['address'])
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
 
+    def __str__(self):
+        return f"{self.title} ({self.user.email})"
 
+'''
 class CampusEvent(models.Model):
     id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=50)

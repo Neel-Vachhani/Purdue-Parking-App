@@ -15,6 +15,7 @@ test.ics
 venv/
 
 .DS_Store
+.ics
 
 # Expo
 .expo/
