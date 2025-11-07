@@ -16,11 +16,9 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
-import { router } from "expo-router/build/exports";
 import { ThemeContext } from "../theme/ThemeProvider";
 import GarageDetail from "./detailedGarage";
-import PaidLot from "./PaidLot";
-type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall";
+type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
 
 type Garage = {
   id: string;
@@ -88,17 +86,17 @@ type GarageDefinition = {
   lng?: number;
   passes: ParkingPass[];
 };
-const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall"];
+const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall", "Paid"];
 
 const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B"] },
-  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B"] },
-  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG"] },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG"] },
-  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall"] },
-  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG"] },
-  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, lat: 40.43095, lng: -86.91625, passes: ["Grad House"] },
-  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A"] },
+  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"] },
+  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"] },
+  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"] },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"] },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"] },
+  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"] },
+  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, lat: 40.43095, lng: -86.91625, passes: ["Grad House", "Paid"] },
+  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"] },
   { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"] },
   { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"] },
   { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"] },
@@ -113,7 +111,7 @@ const GARAGE_DEFINITIONS: GarageDefinition[] = [
   { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"] },
   { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"] },
   { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"] },
-  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B"] },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"] },
   { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"] },
   { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"] },
   { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"] },
@@ -446,15 +444,6 @@ export default function GarageList({
 
             <View style={{ alignItems: "flex-end" }}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
-                {item.paid && (
-                  <FontAwesome
-                    name="usd"
-                    size={20}
-                    color={theme.primary}
-                    style={{ marginRight: 12 }}
-                  />
-                )}
-
                 <TouchableOpacity
                   onPress={() => handleOpenInMaps(item)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -530,20 +519,7 @@ export default function GarageList({
         >
           <Ionicons name="map-outline" size={26} color={theme.primary} />
         </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => sortGaragesByPrice()}
-            style={{
-             padding: 10,
-              borderRadius: 50,
-              backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
-              shadowColor: "#000",
-              shadowOpacity: 0.25,
-              shadowRadius: 4,
-              marginLeft: 5
-            }}
-          >
-            <FontAwesome name="usd" size={26} color={theme.primary} />
-          </TouchableOpacity>
+          
         </View>
 
         <View
