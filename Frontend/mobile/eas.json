@@ -41,8 +41,8 @@
   "submit": {
     "production": {
       "ios": {
-        "appleTeamId": "YOUR_TEAM_ID",
-        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID"
+        "ascAppId": "6755019000",
+        "appleTeamId": "P32W3M75FY"
       }
     }
   }
