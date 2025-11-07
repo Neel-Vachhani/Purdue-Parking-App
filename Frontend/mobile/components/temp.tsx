@@ -4,6 +4,7 @@ import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
 import * as SecureStore from "expo-secure-store";
 import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../utils/travelTime";
+import { getApiBaseUrl } from "../config/env";
 
 export type Amenity =
   | "covered"
@@ -296,7 +297,7 @@ export default function GarageDetail({
       
       try {
         if (isMounted) setLoadingEvents(true);
-        const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+        const API_BASE = getApiBaseUrl();
         const response = await fetch(`${API_BASE}/lots/${lotCode}/events/`);
         
         if (response.ok) {

@@ -14,6 +14,7 @@ import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
 import AuthInput from "../../components/AuthInput";
+import { getApiBaseUrl } from "../../config/env";
 
 interface Props {
   onLogout: () => void;
@@ -39,7 +40,7 @@ const DEFAULT_PREFS: NotifPrefs = {
   frequency: "realtime",
 };
 
-const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+const API_BASE = getApiBaseUrl();
 
 export default function SettingsScreen({ onLogout }: Props) {
   const theme = React.useContext(ThemeContext);
