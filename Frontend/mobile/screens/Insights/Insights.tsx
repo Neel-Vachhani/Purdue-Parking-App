@@ -143,7 +143,7 @@ export default function InsightsScreen() {
               occupancy_percentage: (occupied / total) * 100,
             };
           } catch (err) {
-            console.error(`Error fetching data for ${lotName}:`, err);
+            // console.error(`Error fetching data for ${lotName}:`, err);
             // Return initial data if fetch fails
             const initialGarage = INITIAL_GARAGES[idx];
             return initialGarage;
