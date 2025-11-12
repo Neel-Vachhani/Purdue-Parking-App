@@ -35,5 +35,4 @@ export const getGoogleMapsApiKey = (): string => {
 
 // Export constants for backward compatibility
 export const API_BASE_URL = getApiBaseUrl();
-export const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey();
-
+export const GOOGLE_MAPS_API_KEY = "AIzaSyCfaUk1N-1QssXzg-ccL0pNJQH8xhUBdzY"

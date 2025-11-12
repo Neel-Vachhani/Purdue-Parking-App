@@ -73,6 +73,7 @@ class ParkingLot(models.Model):
     cameras = ArrayField(models.CharField(max_length=30))
 '''
 
+
 class CalendarEvent(models.Model):
     id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=1000)
@@ -81,10 +82,12 @@ class CalendarEvent(models.Model):
     end_time = models.TimeField(max_length=1000)
     dates = ArrayField(models.DateField(max_length=1000))
     location = PlainLocationField(max_length=1000, based_fields=['address'])
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return f"{self.title} ({self.user.email})"
+
 
 '''
 class CampusEvent(models.Model):
@@ -123,7 +126,7 @@ class NotificationLog(models.Model):
     """
     Tracks all push notifications sent to users.
     Used by User Story #2 (parking pass sales) and #11 (lot closures).
-    
+
     Fields:
     - user: Who received the notification
     - notification_type: 'pass_sale', 'lot_closure', 'permit_expiring', etc.
@@ -138,21 +141,23 @@ class NotificationLog(models.Model):
         ('permit_expiring', 'Permit Expiring'),
         ('event_closure', 'Event Day Closure'),
     ]
-    
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
-    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='notifications')
+    notification_type = models.CharField(
+        max_length=20, choices=NOTIFICATION_TYPES)
     message = models.TextField()
     sent_at = models.DateTimeField(auto_now_add=True)
     success = models.BooleanField(default=True)
     error_message = models.TextField(blank=True, null=True)
-    
+
     class Meta:
         indexes = [
             models.Index(fields=['user', 'sent_at']),
             models.Index(fields=['notification_type', 'sent_at'])
         ]
         ordering = ['-sent_at']  # Most recent first
-    
+
     def __str__(self):
         status = "✓" if self.success else "✗"
         return f"{status} {self.notification_type} to {self.user.email} at {self.sent_at}"
