@@ -257,7 +257,7 @@ const getChartData = () => {
     labels: chartData.map((d) => d.label),
     datasets: [
       {
-        data: chartData.map((d) => Math.round(d.occupancy_percentage)),
+        data: chartData.map((d) => Math.max(0, Math.round(d.occupancy_percentage))),
         colors: chartData.map((d) => {
           const value = d.occupancy_percentage;
           if (value < 50) return (opacity = 1) => `rgba(76, 175, 80, ${opacity})`;
