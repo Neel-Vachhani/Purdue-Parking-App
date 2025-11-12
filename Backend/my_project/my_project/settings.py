@@ -65,7 +65,7 @@ INSTALLED_APPS = [
     "channels",
     'boiler_park_backend',
     "fcm_django",
-
+    "django.contrib.sites",
 ]
 
 MIDDLEWARE = [

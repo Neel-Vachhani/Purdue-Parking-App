@@ -10,18 +10,17 @@ import requests
 from requests.exceptions import ConnectionError, HTTPError
 import rollbar
 
-'''
 # Optionally providing an access token within a session if you have enabled push security
 session = requests.Session()
 session.headers.update(
     {
-        "Authorization": f"Bearer {os.getenv('EXPO_TOKEN')}",
+        "Authorization": f"Bearer {os.getenv('EXPO_TOKEN', '')}",
         "accept": "application/json",
         "accept-encoding": "gzip, deflate",
         "content-type": "application/json",
     }
 )
-'''
+
 # Basic arguments. You should extend this function with the push features you
 # want to use, or simply pass in a `PushMessage` object.
 
@@ -56,9 +55,9 @@ def send_push_message(token, message, extra=None):
         # flows.
         response.validate_response()
     except DeviceNotRegisteredError:
-        # Mark the push token as inactive
-        from notifications.models import PushToken
-        PushToken.objects.filter(token=token).update(active=False)
+        # Mark the push token as inactive by clearing it from user
+        from boiler_park_backend.models import User
+        User.objects.filter(notification_token=token).update(notification_token=None)
     except PushTicketError as exc:
         # Encountered some other per-notification error.
         rollbar.report_exc_info(

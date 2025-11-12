@@ -1,7 +1,8 @@
 // screens/Calender/Calender.tsx
 import React from "react";
-import CalendarView from "../../components/CalenderView";
+import { View } from "react-native";
+import CalenderView from "../../components/CalenderView";
 
 export default function Calendar() {
-  return <CalendarView />;
+  return <CalenderView></CalenderView>
 }

@@ -1,201 +1,136 @@
-// components/CalendarView.tsx
+// components/CalendarEvents.tsx
 import * as React from "react";
 import { View, Text, FlatList, StyleSheet } from "react-native";
+import { Calendar } from "react-native-calendars";
 import { ThemeContext } from "../theme/ThemeProvider";
 
-// Strict type definitions
-type EventType = "lecture" | "lab" | "discussion";
+type Category = "meeting" | "deadline" | "personal" | "other";
 
-interface ClassEvent {
+interface AppEvent {
   id: string;
-  course: string;
-  time: string;
-  location: string;
-  type?: EventType;
+  title: string;
+  time: string;       // "09:00 - 10:00"
+  date: string;       // "YYYY-MM-DD"
+  location?: string;
+  category?: Category;
 }
 
-interface CalendarViewProps {
-  data?: ClassEvent[];
-}
-
-// Default data with proper typing
-const SAMPLE_SCHEDULE: ClassEvent[] = [
-  { 
-    id: "1", 
-    course: "CS 18200 - Foundations Of Computer Science", 
-    time: "08:30 - 09:45", 
-    location: "HAMP 101", 
-    type: "lecture" 
-  },
-  { 
-    id: "2", 
-    course: "CS 24000 - Programming In C", 
-    time: "10:00 - 11:15", 
-    location: "UNIV 203", 
-    type: "lecture" 
-  },
-  { 
-    id: "3", 
-    course: "CS 24000 - Programming In C Lab", 
-    time: "11:30 - 12:45", 
-    location: "ENGR 110", 
-    type: "lab" 
-  },
-  { 
-    id: "4", 
-    course: "MA 26100 - Multivariate Calculus", 
-    time: "13:00 - 13:50", 
-    location: "STEW 310", 
-    type: "lecture" 
-  },
-  { 
-    id: "5", 
-    course: "PHYS 22000 - General Physics", 
-    time: "14:00 - 14:50", 
-    location: "UNIV 204", 
-    type: "discussion" 
-  },
-];
-
-// Color mapping with fallbacks
-const COLOR_MAP: Record<EventType | "default", string> = {
-  lecture: "#4aa3ff",
-  lab: "#22c55e",
-  discussion: "#facc15",
+const COLOR_MAP: Record<Category | "default", string> = {
+  meeting: "#4aa3ff",
+  deadline: "#f87171",
+  personal: "#a78bfa",
+  other: "#facc15",
   default: "#6b7280",
 };
 
-// Styles extracted for better performance and maintenance
+// Sample general events
+const SAMPLE: AppEvent[] = [
+  { id: "1", title: "Team Sync", time: "09:30 - 10:00", date: "2025-11-07", category: "meeting" },
+  { id: "2", title: "Work Session", time: "10:30 - 12:00", date: "2025-11-07", category: "personal" },
+  { id: "3", title: "Project Demo", time: "14:00 - 15:00", date: "2025-11-08", category: "deadline" },
+];
+
+export default function CalendarEvents(): React.JSX.Element {
+  const theme = React.useContext(ThemeContext);
+  const [selectedDate, setSelectedDate] = React.useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
+
+  const eventsForDate = SAMPLE.filter((e) => e.date === selectedDate);
+
+  const markedDates = SAMPLE.reduce<Record<string, any>>((acc, ev) => {
+    acc[ev.date] = {
+      marked: true,
+      dotColor: COLOR_MAP[ev.category ?? "default"],
+      ...(ev.date === selectedDate && {
+        selected: true,
+        selectedColor: COLOR_MAP[ev.category ?? "default"],
+      }),
+    };
+    return acc;
+  }, {});
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <Calendar
+        markedDates={markedDates}
+        onDayPress={(day) => setSelectedDate(day.dateString)}
+        theme={{
+          calendarBackground: theme.bg,
+          dayTextColor: theme.text,
+          monthTextColor: theme.text,
+          selectedDayBackgroundColor: COLOR_MAP.meeting,
+          selectedDayTextColor: "#fff",
+          todayTextColor: COLOR_MAP.meeting,
+          arrowColor: theme.text,
+        }}
+      />
+
+      <Text style={[styles.header, { color: theme.text }]}>
+        {selectedDate}
+      </Text>
+
+      {eventsForDate.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={[styles.emptyText, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
+            No events for this date
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={eventsForDate}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          renderItem={({ item }) => {
+            const borderColor = COLOR_MAP[item.category ?? "default"];
+            return (
+              <View
+                style={[
+                  styles.card,
+                  { borderColor, backgroundColor: theme.mode === "dark" ? "#202225" : "#fff" },
+                ]}
+              >
+                <Text style={[styles.title, { color: theme.text }]}>{item.title}</Text>
+                <Text style={[styles.time, { color: theme.mode === "dark" ? "#cfd2d6" : "#6b7280" }]}>
+                  {item.time}
+                </Text>
+                {item.location && (
+                  <Text
+                    style={[
+                      styles.location,
+                      { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" },
+                    ]}
+                  >
+                    {item.location}
+                  </Text>
+                )}
+              </View>
+            );
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    fontSize: 32,
-    fontWeight: "700",
-    margin: 16,
-  },
-  eventCard: {
+  container: { flex: 1 },
+  header: { fontSize: 22, fontWeight: "700", margin: 16 },
+  card: {
     marginHorizontal: 16,
     marginVertical: 8,
     padding: 16,
     borderRadius: 14,
     borderWidth: 2,
     shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    elevation: 3, // For Android shadow
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  courseText: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  timeText: {
-    marginTop: 4,
-  },
-  locationText: {
-    marginTop: 2,
-  },
-  listContent: {
-    paddingBottom: 24,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 32,
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
-  },
+  title: { fontSize: 18, fontWeight: "600" },
+  time: { marginTop: 4 },
+  location: { marginTop: 2 },
+  empty: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyText: { fontSize: 16 },
 });
-
-export default function CalendarView(): React.JSX.Element {
-  // Safe data handling with fallback
-  const displayData = SAMPLE_SCHEDULE;
-
-  const theme = React.useContext(ThemeContext);
-
-  const headerColor = theme.text;
-  const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
-  const courseColor = theme.text;
-  const timeColor = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
-  const locationColor = theme.mode === "dark" ? "#9ca3af" : "#6b7280";
-  const emptyColor = theme.mode === "dark" ? "#9ca3af" : "#6b7280";
-
-  const getBorderColor = React.useCallback((type?: EventType): string => {
-    if (type && type in COLOR_MAP) {
-      return COLOR_MAP[type];
-    }
-    return COLOR_MAP.default;
-  }, []);
-
-  const renderItem = React.useCallback(({ item }: { item: ClassEvent }) => {
-    const borderColor = getBorderColor(item.type);
-
-    return (
-      <View
-        style={[
-          styles.eventCard,
-          { borderColor, backgroundColor: cardBg } // Dynamic border and background
-        ]}
-      >
-       <Text style={[styles.courseText, { color: courseColor }]}>
-        {item.course}
-        </Text>
-        <Text style={[styles.timeText, { color: timeColor }]}>
-        {item.time}
-        </Text>
-        <Text style={[styles.locationText, { color: locationColor }]}>
-        {item.location}
-        </Text>
-      </View>
-    );
-  }, [getBorderColor]);
-
-  const keyExtractor = React.useCallback((item: ClassEvent): string => {
-    return item.id || `event-${Math.random().toString(36).substr(2, 9)}`;
-  }, []);
-
-  const renderEmptyState = React.useCallback((): React.JSX.Element => {
-    return (
-      <View style={styles.emptyState}>
-        <Text style={[styles.emptyText, { color: emptyColor }] }>
-          No classes scheduled for today
-        </Text>
-      </View>
-    );
-  }, [emptyColor]);
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <Text style={[styles.header, { color: headerColor }] }>
-        Today
-      </Text>
-      <FlatList
-        data={displayData}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={10}
-        maxToRenderPerBatch={5}
-        windowSize={5}
-      />
-    </View>
-  );
-}
-
-// Keep the original function for backward compatibility if needed elsewhere
-export function getColors(type?: EventType): { border: string } {
-  return {
-    border: type && type in COLOR_MAP ? COLOR_MAP[type] : COLOR_MAP.default
-  };
-}

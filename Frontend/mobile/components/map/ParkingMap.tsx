@@ -1,11 +1,12 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import MapView, { Region, MapViewProps } from "react-native-maps";
 import { INITIAL_REGION, MIN_ZOOM_LEVEL, MAX_ZOOM_LEVEL } from "../../constants/map";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ThemeContext } from "../../theme/ThemeProvider";
-import { Config}  from "react-native-config";
 import GooglePlacesTextInput from "react-native-google-places-textinput";
+import StyledGooglePlacesTextInput from "./GooglePlacesInput";
+
 
 
 // Public props for the reusable map component.
@@ -15,15 +16,21 @@ interface ParkingMapProps extends MapViewProps {
   children?: React.ReactNode;
 }
 
+
+
 // Renders a themed, full-bleed map with sane defaults for Boiler Park.
 export default function ParkingMap({ children, initialRegion }: ParkingMapProps) {
   const region: Region = initialRegion ?? INITIAL_REGION;
   const mapRef = useRef<MapView>(null);
   const theme = React.useContext(ThemeContext);
+  const [place, setPlace] = useState();
+
+  
+
+
 
   return (
     <View style={styles.container}>
-        {/*<script asyncmsrc={Config.GOOGLE_MAPS_URL}></script>*/}
       {/* Base map. Keep config minimal; avoid coupling to data here. */}
       <MapView
         ref={mapRef}
@@ -61,21 +68,7 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         {/* Purdue gold icon for brand consistency */}
         <MaterialIcons name="my-location" size={22} color={theme.primary} />
       </Pressable>
-      <GooglePlacesTextInput 
-        apiKey="APIKEY"//TODO
-        placeHolderText="Search for a garage"
-        fetchDetails={true}
-        detailsFields={['formattedAddress', 'location']}
-        locationRestriction={{
-          rectangle: {
-            low: { latitude: 40.39286, longitude: -86.954622},
-            high: { latitude: 40.466874, longitude: -86.871755 }
-          }
-        }}
-        onPlaceSelect={ handlePlaceSelect }  >
-
-        </GooglePlacesTextInput>
-
+        <StyledGooglePlacesTextInput></StyledGooglePlacesTextInput>
     </View>
   );
 }
@@ -102,6 +95,9 @@ const styles = StyleSheet.create({
 });
 
 
-const handlePlaceSelect = (place: any) => {
-    console.log('Selected place:', place.details.formattedAddress);
-  };
+
+
+  
+  
+  
+

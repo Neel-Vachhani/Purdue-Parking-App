@@ -6,37 +6,38 @@ type Lot = {
   id: number;
   code: string;
   name: string;
+  total: number
 };
 
 const PARKING_LOTS: Lot[] = [
-  { id: 1, code: "PGH", name: "Harrison Street Parking Garage" },
-  { id: 2, code: "PGG", name: "Grant Street Parking Garage" },
-  { id: 3, code: "PGU", name: "University Street Parking Garage" },
-  { id: 4, code: "PGNW", name: "Northwestern Avenue Parking Garage" },
-  { id: 5, code: "PGMD", name: "McCutcheon Drive Parking Garage" },
-  { id: 6, code: "PGW", name: "Wood Street Parking Garage" },
-  { id: 7, code: "PGGH", name: "Graduate House Parking Garage" },
-  { id: 8, code: "PGM", name: "Marsteller Street Parking Garage" },
-  { id: 9, code: "LOT_R", name: "Lot R" },
-  { id: 10, code: "LOT_H", name: "Lot H" },
-  { id: 11, code: "LOT_FB", name: "Lot FB" },
-  { id: 12, code: "KFPC", name: "Kozuch Football Performance Complex Lot" },
-  { id: 13, code: "LOT_A", name: "Lot A" },
-  { id: 14, code: "CREC", name: "Co-Rec Parking Lots" },
-  { id: 15, code: "LOT_O", name: "Lot O" },
-  { id: 16, code: "TARK_WILY", name: "Tarkington Wiley Parking Lots" },
-  { id: 17, code: "LOT_AA", name: "Lot AA" },
-  { id: 18, code: "LOT_BB", name: "Lot BB" },
-  { id: 19, code: "WND_KRACH", name: "Windsor & Krach Shared Parking Lot" },
-  { id: 20, code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot" },
-  { id: 21, code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Shared Lot" },
-  { id: 22, code: "DUHM", name: "Duhme Hall Parking Lot" },
-  { id: 23, code: "PIERCE_ST", name: "Pierce Street Parking Lot" },
-  { id: 24, code: "SMTH_BCHM", name: "Smith & Biochemistry Lot" },
-  { id: 25, code: "DISC_A", name: "Discovery Lot (A Permit)" },
-  { id: 26, code: "DISC_AB", name: "Discovery Lot (AB Permit)" },
-  { id: 27, code: "DISC_ABC", name: "Discovery Lot (ABC Permit)" },
-  { id: 28, code: "AIRPORT", name: "Airport Parking Lots" },
+  { id: 1, code: "PGH", name: "Harrison Street Parking Garage", total: 240 },
+  { id: 2, code: "PGG", name: "Grant Street Parking Garage", total: 240 },
+  { id: 3, code: "PGU", name: "University Street Parking Garage", total: 240 },
+  { id: 4, code: "PGNW", name: "Northwestern Avenue Parking Garage", total: 240 },
+  { id: 5, code: "PGMD", name: "McCutcheon Drive Parking Garage", total: 240 },
+  { id: 6, code: "PGW", name: "Wood Street Parking Garage", total: 240 },
+  { id: 7, code: "PGGH", name: "Graduate House Parking Garage", total: 240 },
+  { id: 8, code: "PGM", name: "Marsteller Street Parking Garage", total: 240 },
+  { id: 9, code: "LOT_R", name: "Lot R", total: 120 },
+  { id: 10, code: "LOT_H", name: "Lot H", total: 80 },
+  { id: 11, code: "LOT_FB", name: "Lot FB", total: 100 },
+  { id: 12, code: "KFPC", name: "Kozuch Football Performance Complex Lot", total: 100 },
+  { id: 13, code: "LOT_A", name: "Lot A", total: 120 },
+  { id: 14, code: "CREC", name: "Co-Rec Parking Lots", total: 150 },
+  { id: 15, code: "LOT_O", name: "Lot O", total: 100 },
+  { id: 16, code: "TARK_WILY", name: "Tarkington Wiley Parking Lots", total: 100 },
+  { id: 17, code: "LOT_AA", name: "Lot AA", total: 100 },
+  { id: 18, code: "LOT_BB", name: "Lot BB", total: 80 },
+  { id: 19, code: "WND_KRACH", name: "Windsor & Krach Shared Parking Lot", total: 100 },
+  { id: 20, code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", total: 120 },
+  { id: 21, code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Shared Lot", total: 100 },
+  { id: 22, code: "DUHM", name: "Duhme Hall Parking Lot", total: 60 },
+  { id: 23, code: "PIERCE_ST", name: "Pierce Street Parking Lot", total: 100 },
+  { id: 24, code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", total: 120 },
+  { id: 25, code: "DISC_A", name: "Discovery Lot (A Permit)", total: 100 },
+  { id: 26, code: "DISC_AB", name: "Discovery Lot (AB Permit)", total: 100 },
+  { id: 27, code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", total: 100 },
+  { id: 28, code: "AIRPORT", name: "Airport Parking Lots", total: 80 },
 ];
 
 const WEEKDAYS = ["All Days", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -88,11 +89,19 @@ export default function PredictiveInsights() {
       }
 
       const res = await fetch(`http://localhost:7500/parking/hourly-average?${params.toString()}`);
-      
+      console.log(res)
       if (!res.ok) throw new Error("Failed to fetch data");
       
       const data = await res.json();
-      setResult(data);
+      console.log(data)
+      const average_occupancy = selectedLot.total - data.average_availability;
+      console.log(average_occupancy)
+          setResult({
+      ...data,
+      average_occupancy: average_occupancy,
+      likely_full: data.average_occupancy >= threshold, // optional
+    });
+
     } catch (err) {
       console.error("Error fetching predictive data:", err);
       setResult(null);
@@ -411,7 +420,7 @@ export default function PredictiveInsights() {
                     color: "#22c55e",
                     transform: [{ scale: pulseAnim }]
                   }]}>
-                    {Math.round(100 - result.average_occupancy)}
+                    {Math.round((selectedLot.total - result.average_occupancy))}
                   </Animated.Text>
                 </View>
 
@@ -424,7 +433,7 @@ export default function PredictiveInsights() {
 
                 <View style={styles.bigNumberBox}>
                   <Text style={styles.bigNumberLabel}>Total Spots</Text>
-                  <Text style={[styles.bigNumber, { color: "#6b7280" }]}>100</Text>
+                  <Text style={[styles.bigNumber, { color: "#6b7280" }]}>{selectedLot.total}</Text>
                 </View>
               </View>
 

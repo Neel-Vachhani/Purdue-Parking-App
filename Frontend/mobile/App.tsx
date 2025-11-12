@@ -9,18 +9,18 @@ import { StatusBar } from "expo-status-bar";
 import ThemeProvider, { ThemeContext } from "./theme/ThemeProvider";
 import ThemedView from "./components/ThemedView";
 import BottomBar from "./components/BottomBar";
-import ParkingMapScreen from "./screens/Parking/ParkingMapScreen";
 import SettingsScreen from "./screens/Settings/SettingsScreen";
-import GarageList from "./components/Garagelist";
+import GarageMap from "./screens/GarageMap/GarageMap";
 import Calendar from "./screens/Calender/Calender";
 import AuthScreen from "./screens/Auth/AuthScreen";
 import Insights from "./screens/Insights/Insights";
 import PredictiveInsights from "./screens/Predictions/PredictiveInsights"
 import ParkingWS from "./components/ParkingWS";
+import NavigationScreen from "./screens/Navigation/NavigationScreen";
 
 
 // Tab type
-type TabKey = "garages" | "map" | "settings" | "calendar" | "insights" | "predictions";
+type TabKey = "garages" | "settings" | "calendar" | "insights" | "predictions" | "navigation";
 
 export default function App() {
   const [tab, setTab] = React.useState<TabKey>("garages");
@@ -59,12 +59,12 @@ export default function App() {
       <ThemedView style={{ flex: 1 }}>
         <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
         <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-          {(tab === "garages") ? <GarageList /> : null}
-          {(tab === "map") ? <ParkingMapScreen /> : null}
+          {(tab === "garages") ? <GarageMap></GarageMap> : null}
           {(tab === "calendar") ? <Calendar /> : null}
           {(tab === "settings") ? <SettingsScreen onLogout={() => setIsAuthed(false)} /> : null}
           {(tab === "insights") ? <Insights /> : null}
           {(tab === "predictions") ? <PredictiveInsights /> : null}
+          {(tab == "navigation") ? <NavigationScreen></NavigationScreen> : null}
         </SafeAreaView>
         <BottomBar active={tab} onChange={setTab} />
       </ThemedView>
