@@ -13,9 +13,10 @@ import {
   Dimensions,
   Animated,
   Easing,
+  Linking,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons, FontAwesome } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { ThemeContext } from "../theme/ThemeProvider";
 import { useEffect } from "react";
 import GarageDetail from "./DetailedGarage";
@@ -266,7 +267,16 @@ export default function GarageList({
 
   // TODO: Figure out what to do here
   const handleOpenInMaps = React.useCallback(
-    (garage: Garage) => onOpenInMaps?.(garage),
+    (garage: Garage) => {
+      const garageName: string = garage.name
+      garageName.replace(" ", "+")
+      const url = Platform.select({
+      //ios: `http://maps.apple.com/?saddr=40.428604085531404+-86.91934994154656&daddr=${garage.lat},${garage.lng}`,
+      ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${garageName}+West+Lafayette+IN&travelmode=driving`,
+      android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${garageName}+West+Lafayette+IN&travelmode=driving`,
+    })
+    Linking.openURL(url!)
+    },
     [onOpenInMaps]
   );
 
@@ -449,19 +459,12 @@ export default function GarageList({
             </View>
 
             <View style={{ alignItems: "flex-end" }}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <TouchableOpacity
-                  onPress={() => handleOpenInMaps(item)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="location-outline" size={20} color={theme.primary} />
-                </TouchableOpacity>
-              </View>
+              
 
               <TouchableOpacity
                 onPress={() => handleToggleFavorite(item)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                style={{ marginTop: 16 }}
+                style={{ marginTop: 2 }}
               >
                 <Ionicons
                   name={item.favorite ? "star" : "star-outline"}
@@ -469,6 +472,15 @@ export default function GarageList({
                   color={theme.primary}
                 />
               </TouchableOpacity>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <TouchableOpacity
+                  onPress={() => handleOpenInMaps(item)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={{ marginTop: 12 }}
+                >
+                  <Ionicons name="navigate-outline" size={20} color={theme.primary} />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 

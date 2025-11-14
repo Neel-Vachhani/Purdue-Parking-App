@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking } from "react-native";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
 import * as SecureStore from "expo-secure-store";
@@ -71,6 +71,8 @@ function toMiles(meters?: number) {
   return (meters / 1609.344).toFixed(1);
 }
 
+
+
 function percent(occupied?: number, total?: number) {
   if (!total || total <= 0) return 0;
   const val = Math.max(0, Math.min(1, (occupied ?? 0) / total));
@@ -128,6 +130,7 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
   address: { fontSize: 13, color: theme.text },
   summaryRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 6 },
   pill: { backgroundColor: theme.bg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9999, flexDirection: "row", gap: 6, alignItems: "center" },
+  directions: { flexDirection: "row", alignItems: "flex-end"},
   pillText: { color: theme.text, fontSize: 12, fontWeight: "600" },
 
   card: {
@@ -171,7 +174,7 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
 
   priceRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   priceLabel: { color: theme.text },
-  priceAmt: { color: theme.text, fontWeight: "700" },
+  priceAmt: { color: theme.text, fontWeight: "500" },
 
   hoursRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
   hoursDays: { color: theme.text },
@@ -255,6 +258,20 @@ export default function GarageDetail({
   // State for events (User Story #10)
   const [events, setEvents] = React.useState<LotEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = React.useState(false);
+
+  const handleOpenInMaps = () => {
+      console.log("here")
+      const garageName: string = garage.name
+      const urlName = garageName.replace(" ", "+")
+      console.log(garage.name)
+      const url = Platform.select({
+      //ios: `http://maps.apple.com/?saddr=40.428604085531404+-86.91934994154656&daddr=${garage.lat},${garage.lng}`,
+      ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
+      android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
+    })
+    Linking.openURL(url!)
+    };
+
 
   // Load travel time when garage changes (User Story #9 - AC3)
   React.useEffect(() => {
@@ -416,6 +433,12 @@ export default function GarageDetail({
                   </>
                 )}
               </Pill>
+              <TouchableOpacity onPress={() => handleOpenInMaps()}>
+              <Pill>
+                  <Ionicons name="navigate-outline" size={14}  /> Directions
+              </Pill>
+              </TouchableOpacity>
+
             </View>
             {/* Reliability indicator */}
             <View
