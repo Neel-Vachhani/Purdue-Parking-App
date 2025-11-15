@@ -402,7 +402,19 @@ export default function GarageDetail({
         <View style={styles.summaryCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{garage.name}</Text>
-            <Text style={styles.address} numberOfLines={2}>{garage.address}</Text>
+             <View style={[{flexDirection:'row', alignItems:'center'}]}>
+                <View style={[{flex:1,flexDirection:'row'}]}>
+                    <Text style={styles.address} numberOfLines={2}>{garage.address}</Text>
+                </View>
+                <View style={[{justifyContent:'space-evenly', marginVertical:10}]}>
+                         <TouchableOpacity onPress={() => handleOpenInMaps()}>
+              <Pill>
+                  <Ionicons name="navigate-outline" size={14}  /> Directions
+              </Pill>
+              </TouchableOpacity>
+                </View>
+            </View>
+            
             <View style={styles.summaryRow}>
               {loadingTravel && (
                 <Pill>
@@ -433,12 +445,6 @@ export default function GarageDetail({
                   </>
                 )}
               </Pill>
-              <TouchableOpacity onPress={() => handleOpenInMaps()}>
-              <Pill>
-                  <Ionicons name="navigate-outline" size={14}  /> Directions
-              </Pill>
-              </TouchableOpacity>
-
             </View>
             {/* Reliability indicator */}
             <View
