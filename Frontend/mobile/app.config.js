@@ -84,10 +84,10 @@ export default {
       androidCollapsedTitle: "#{unread_notifications} new notifications"
     },
     extra: {
-      // apiBaseUrl: process.env.NODE_ENV === 'development'
-      //   ? process.env.API_BASE_URL_DEV
-      //   : process.env.API_BASE_URL_PROD,
-      apiBaseUrl: process.env.API_BASE_URL_PROD,
+      apiBaseUrl: process.env.NODE_ENV === 'development'
+        ? process.env.API_BASE_URL_DEV
+        : process.env.API_BASE_URL_PROD,
+      // apiBaseUrl: process.env.API_BASE_URL_PROD,
       googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       eas: {
         projectId: "f7f0a87c-ad0b-4832-90a4-c220db3cb701"
