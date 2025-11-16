@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemedText } from "./ThemedText";
 import { ThemedView } from "./ThemedView";
@@ -28,11 +28,11 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       <ThemedText style={styles.message}>{message}</ThemedText>
       {actionText && onActionPress && (
         <View style={styles.buttonWrapper}>
-          <View style={styles.button}>
-            <ThemedText style={styles.buttonText} onPress={onActionPress}>
+          <TouchableOpacity style={styles.button} onPress={onActionPress}>
+            <ThemedText style={styles.buttonText}>
               {actionText}
             </ThemedText>
-          </View>
+          </TouchableOpacity>
         </View>
       )}
     </ThemedView>
