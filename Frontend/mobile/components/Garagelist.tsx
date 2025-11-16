@@ -17,8 +17,10 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import { ThemeContext } from "../theme/ThemeProvider";
-import GarageDetail from "./DetailedGarage";
 import { useEffect } from "react";
+import GarageDetail from "./DetailedGarage";
+import { EmptyState } from "./EmptyState";
+import { BackToTopButton } from "./BackToTopButton";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
 
 type Garage = {
@@ -209,6 +211,8 @@ export default function GarageList({
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
   const filtersLoadedRef = React.useRef(false);
+  const listRef = React.useRef<FlatList<Garage> | null>(null);
+  const [showBackToTop, setShowBackToTop] = React.useState(false);
 
   // detail panel state
   const [selected, setSelected] = React.useState<Garage | null>(null);
@@ -405,6 +409,21 @@ export default function GarageList({
 
   const clearPassFilters = React.useCallback(() => {
     setSelectedPasses([]);
+  }, []);
+  const handleClearFilters = React.useCallback(() => {
+    setSearchQuery("");
+    setSelectedPasses([]);
+    setShowFavoritesOnly(false);
+    AsyncStorage.removeItem(FILTER_STORAGE_KEY).catch(() => {});
+  }, []);
+
+  const handleScroll = React.useCallback((event: any) => {
+    const offsetY = event?.nativeEvent?.contentOffset?.y ?? 0;
+    setShowBackToTop(offsetY > 300);
+  }, []);
+
+  const scrollToTop = React.useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, []);
 
   // Function to render every garage item in non-detailed view
@@ -707,10 +726,24 @@ export default function GarageList({
       </Modal>
 
       <FlatList
+        ref={listRef}
         data={visibleGarages}
         keyExtractor={(g) => g.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: 8, flexGrow: 1 }}
+        ListEmptyComponent={
+          filtersLoadedRef.current ? (
+            <EmptyState
+              iconName="search-outline"
+              title="No garages match your filters"
+              message="Try clearing your filters or searching for a different code."
+              actionText="Clear filters"
+              onActionPress={handleClearFilters}
+            />
+          ) : null
+        }
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       />
 
       <Text
@@ -751,6 +784,7 @@ export default function GarageList({
           />
         </Animated.View>
       )}
+      <BackToTopButton visible={showBackToTop} onPress={scrollToTop} />
     </View>
   );
 }
