@@ -13,13 +13,13 @@ import ThemedText from "../../components/ThemedText";
 
 import axios from "axios";
 import GoogleLoginButton from "../../components/GoogleLoginButton";
+import { API_BASE_URL } from "../../config/env";
 
 // platform-safe base URL:
 // - iOS Simulator: http://localhost:7500
 // - Android Emulator: http://10.0.2.2:7500
 // - Physical device: use your laptop's LAN IP, e.g., http://192.168.1.23:7500
-const API_BASE =
-  Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+const API_BASE = API_BASE_URL
 
 
 WebBrowser.maybeCompleteAuthSession();
