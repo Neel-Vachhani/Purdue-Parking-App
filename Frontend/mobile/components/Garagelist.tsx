@@ -183,6 +183,7 @@ function mapListGarageToDetail(g:   Garage): GarageDetailType {
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const FILTER_STORAGE_KEY = "garage_filters";
+const SCROLL_THRESHOLD = 300; // pixels to scroll before showing back-to-top button
 
 export default function GarageList({
   data = INITIAL_GARAGES,
@@ -419,7 +420,7 @@ export default function GarageList({
 
   const handleScroll = React.useCallback((event: any) => {
     const offsetY = event?.nativeEvent?.contentOffset?.y ?? 0;
-    setShowBackToTop(offsetY > 300);
+    setShowBackToTop(offsetY > SCROLL_THRESHOLD);
   }, []);
 
   const scrollToTop = React.useCallback(() => {
