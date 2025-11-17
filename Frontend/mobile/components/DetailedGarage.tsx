@@ -5,6 +5,8 @@ import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
 import * as SecureStore from "expo-secure-store";
 import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../utils/travelTime";
 import { useActionSheet } from '@expo/react-native-action-sheet';
+import StarRating from 'react-native-star-rating-widget';
+
 
 
 export type Amenity =
@@ -54,6 +56,7 @@ export interface Garage {
   heightClearanceMeters?: number;
   evPorts?: number;
   accessibleSpots?: number;
+  rating: number;
 }
 
 export interface GarageDetailProps {
@@ -261,6 +264,18 @@ export default function GarageDetail({
   // State for events (User Story #10)
   const [events, setEvents] = React.useState<LotEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = React.useState(false);
+
+
+  const RatingWidget = () => {
+    const [rating, setRating] = React.useState(0);
+    return (
+        <StarRating
+          rating={rating}
+          color="#ceb888"
+          onChange={setRating}
+        />
+    );
+  };
 
   const handleOpenInMaps = () => {
         const options = ['Apple Maps', 'Google Maps', 'Cancel'];
@@ -529,6 +544,14 @@ export default function GarageDetail({
                 <Text style={styles.hoursTime}>{h.close === "24/7" ? "24/7" : `${h.open} – ${h.close}`}</Text>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* Rating Block */}
+        {!!(garage.rating) && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Rating</Text>
+            <RatingWidget></RatingWidget>
           </View>
         )}
 
