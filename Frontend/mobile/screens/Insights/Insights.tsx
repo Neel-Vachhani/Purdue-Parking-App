@@ -281,15 +281,7 @@ const getChartData = () => {
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 24 }}>
-          <Text style={{ color: theme.text, fontSize: 32, fontWeight: "700", letterSpacing: -0.5 }}>
-            Parking Insights
-          </Text>
-          <Text style={{ color: secondaryText, fontSize: 15, marginTop: 6 }}>
-            Real-time availability and trends
-          </Text>
-        </View>
+       
 
         {/* Lot Selector */}
         <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
