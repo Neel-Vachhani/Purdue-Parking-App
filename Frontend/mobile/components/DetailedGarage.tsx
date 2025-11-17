@@ -4,6 +4,8 @@ import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
 import * as SecureStore from "expo-secure-store";
 import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../utils/travelTime";
+import { useActionSheet } from '@expo/react-native-action-sheet';
+
 
 export type Amenity =
   | "covered"
@@ -243,6 +245,7 @@ export default function GarageDetail({
   const miles = toMiles(garage.distanceMeters);
   const p = percent(garage.occupiedSpots, garage.totalSpots);
   const pctStr = `${Math.round(p * 100)}%`;
+  const { showActionSheetWithOptions } = useActionSheet();
 
   const [reliability, setReliability] = React.useState<number>(() => Math.floor(Math.random() * 101));
 
@@ -260,16 +263,37 @@ export default function GarageDetail({
   const [loadingEvents, setLoadingEvents] = React.useState(false);
 
   const handleOpenInMaps = () => {
-      console.log("here")
-      const garageName: string = garage.name
-      const urlName = garageName.replace(" ", "+")
-      console.log(garage.name)
-      const url = Platform.select({
+        const options = ['Apple Maps', 'Google Maps', 'Cancel'];
+        const destructiveButtonIndex = 3;
+        const cancelButtonIndex = 2;
+        const garageName: string = garage.name
+        const urlName = garageName.replace(" ", "+")
+        let url = ``
+        showActionSheetWithOptions({
+            options,
+            cancelButtonIndex,
+            destructiveButtonIndex
+          }, (selectedIndex) => {
+            switch (selectedIndex) {
+              case 0:
+                url =  `http://maps.apple.com/?saddr=28+Hilltop+Dr+Lafayette+IN&daddr=${urlName}+West+Lafayette+IN`
+                Linking.openURL(url)
+                break;
+
+              case 1:
+                url = `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`
+                Linking.openURL(url)
+                break;
+
+              case cancelButtonIndex:
+                // Canceled
+            }});
+              //const url = Platform.select({
       //ios: `http://maps.apple.com/?saddr=40.428604085531404+-86.91934994154656&daddr=${garage.lat},${garage.lng}`,
-      ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
-      android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
-    })
-    Linking.openURL(url!)
+      //ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
+      //android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
+    //})
+    //Linking.openURL(url!)
     };
 
 
