@@ -124,15 +124,12 @@ export default function InsightsScreen() {
             const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=day`);
             const data = await res.json();
             
-            // Get the initial garage data to use correct totals
             const initialGarage = INITIAL_GARAGES.find(g => g.name === lotName);
             const total = initialGarage?.total ?? 100;
             
-            // Get the most recent availability data
             const latestData = Array.isArray(data) && data.length > 0 ? data[data.length - 1] : null;
             const availableSpots = latestData?.availability ?? 0;
             
-            // Calculate occupied spots: total - available = occupied
             const occupied = total - availableSpots;
             
             
@@ -144,15 +141,12 @@ export default function InsightsScreen() {
               occupancy_percentage: (occupied / total) * 100,
             };
           } catch (err) {
-            // console.error(`Error fetching data for ${lotName}:`, err);
-            // Return initial data if fetch fails
             const initialGarage = INITIAL_GARAGES[idx];
             return initialGarage;
           }
         })
       );
       setGarages(mappedGarages);
-      //console.log(garages)
       if (!selectedLotId && mappedGarages.length > 0) setSelectedLotId("0");
     } catch (err) {
       console.error("Error fetching current parking data:", err);
@@ -169,21 +163,19 @@ export default function InsightsScreen() {
       const lotColumn = LOT_COLUMNS[selectedGarage.name];
       const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=${period}`);
       const data = await res.json();
-      //console.log(data)
       if (!Array.isArray(data)) {
         console.error("Historical data not an array:", data);
         setHistoricalData([]);
         return;
       }
 
-      // Get the total capacity for this lot
       const total = selectedGarage.total;
 
       setHistoricalData(
         data.map((d: any) => {
           const ts = new Date(d.timestamp);
 
-          const availableSpots = d.availability; // This is actual number of available spots
+          const availableSpots = d.availability; 
           const occupiedSpots = total - availableSpots;
           
           return {
@@ -230,11 +222,11 @@ const aggregateData = (
 
     let label = "";
     if (period === "day") {
-      const startHour = chunk[0].timestamp.getHours(); // ✅ now a number
+      const startHour = chunk[0].timestamp.getHours(); 
       label = `${startHour.toString().padStart(2, "0")}:00`;
     } else if (period === "week") {
       const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      const day = chunk[0].timestamp.getDay();          // use timestamp
+      const day = chunk[0].timestamp.getDay();         
       label = weekdayNames[day];
     } else if (period === "month") {
       label = `Wk ${i + 1}`;
@@ -536,7 +528,6 @@ const getChartData = () => {
               height={240}
               yAxisSuffix="%"
               yAxisInterval={1}
-              //yAxisLabel="Test"
               segments={4}
               chartConfig={{
                 backgroundColor: cardBg,
