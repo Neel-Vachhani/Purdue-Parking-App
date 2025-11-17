@@ -28,6 +28,8 @@ type NotifPrefs = {
   eventClosures: boolean;
   priceDrop: boolean;
   passOnSale: boolean;
+  favoriteLotAlerts: boolean;
+  favoriteLotThreshold: number;
   frequency: Frequency;
 };
 
@@ -37,6 +39,8 @@ const DEFAULT_PREFS: NotifPrefs = {
   eventClosures: true,
   priceDrop: false,
   passOnSale: false,
+  favoriteLotAlerts: false,
+  favoriteLotThreshold: 25,
   frequency: "realtime",
 };
 
@@ -213,11 +217,22 @@ export default function SettingsScreen({ onLogout }: Props) {
     }
   };
 
-  const setToggle = (key: keyof Omit<NotifPrefs, "frequency">, val: boolean) =>
+  type BooleanPrefKey =
+    | "garageFull"
+    | "permitExpiring"
+    | "eventClosures"
+    | "priceDrop"
+    | "passOnSale"
+    | "favoriteLotAlerts";
+
+  const setToggle = (key: BooleanPrefKey, val: boolean) =>
     setPrefs(p => ({ ...p, [key]: val }));
 
   const setFrequency = (freq: Frequency) =>
     setPrefs(p => ({ ...p, frequency: freq }));
+
+  const setFavoriteLotThreshold = (threshold: number) =>
+    setPrefs(p => ({ ...p, favoriteLotThreshold: threshold }));
 
   const savePrefs = async () => {
     try {
@@ -225,7 +240,13 @@ export default function SettingsScreen({ onLogout }: Props) {
       await AsyncStorage.setItem("notification_prefs", JSON.stringify(prefs));
       
       // If all notifications are disabled, clear the push token
-      const allDisabled = !prefs.garageFull && !prefs.permitExpiring && !prefs.eventClosures && !prefs.priceDrop && !prefs.passOnSale;
+      const allDisabled =
+        !prefs.garageFull &&
+        !prefs.permitExpiring &&
+        !prefs.eventClosures &&
+        !prefs.priceDrop &&
+        !prefs.passOnSale &&
+        !prefs.favoriteLotAlerts;
       if (allDisabled) {
         const userJson = await SecureStore.getItemAsync("user");
         const user = userJson ? JSON.parse(userJson) : null;
@@ -642,6 +663,54 @@ export default function SettingsScreen({ onLogout }: Props) {
               onValueChange={handlePassOnSaleToggle}
             />
           </Row>
+
+          <View style={{
+            paddingVertical: 8,
+            borderTopWidth: 1,
+            borderTopColor: theme.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"
+          }}>
+            <Row label="Favorited Lot Availability">
+              <Switch
+                value={prefs.favoriteLotAlerts}
+                onValueChange={v => setToggle("favoriteLotAlerts", v)}
+              />
+            </Row>
+
+            <ThemedText style={{ fontSize: 13, opacity: 0.7, marginTop: 4, marginBottom: 12 }}>
+              Notify me when a favorited lot drops below my selected availability threshold.
+            </ThemedText>
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {[10, 20, 25, 30, 40, 50].map(option => {
+                const active = prefs.favoriteLotThreshold === option;
+                const disabled = !prefs.favoriteLotAlerts;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    onPress={() => !disabled && setFavoriteLotThreshold(option)}
+                    disabled={disabled}
+                    style={{
+                      paddingVertical: 6,
+                      paddingHorizontal: 10,
+                      borderRadius: 999,
+                      borderWidth: 1.5,
+                      borderColor: active ? theme.primary : "#6B7280",
+                      backgroundColor: active ? theme.primary + "22" : "transparent",
+                      opacity: disabled ? 0.35 : 1,
+                    }}
+                  >
+                    <ThemedText style={{ fontWeight: "600", fontSize: 13 }}>{option}%</ThemedText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {prefs.favoriteLotAlerts && (
+              <ThemedText style={{ fontSize: 13, opacity: 0.75, marginTop: 10 }}>
+                Alerts trigger when any favorited lot is below {prefs.favoriteLotThreshold}% available.
+              </ThemedText>
+            )}
+          </View>
 
           {/* Frequency chips */}
           <View style={{ marginTop: 8 }}>
