@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import { Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import AuthInput from '../../../components/AuthInput';
 import ThemedView from "../../../components/ThemedView";
 import ThemedText from "../../../components/ThemedText";
