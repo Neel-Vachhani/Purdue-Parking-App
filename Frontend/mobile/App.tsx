@@ -17,6 +17,7 @@ import Insights from "./screens/Insights/Insights";
 import PredictiveInsights from "./screens/Predictions/PredictiveInsights"
 import ParkingWS from "./components/ParkingWS";
 import NavigationScreen from "./screens/Navigation/NavigationScreen";
+import { ActionSheetProvider } from '@expo/react-native-action-sheet';
 
 
 // Tab type
@@ -56,6 +57,7 @@ export default function App() {
   function Tabs() {
     const theme = React.useContext(ThemeContext);
     return (
+      <ActionSheetProvider>
       <ThemedView style={{ flex: 1 }}>
         <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
         <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
@@ -68,6 +70,7 @@ export default function App() {
         </SafeAreaView>
         <BottomBar active={tab} onChange={setTab} />
       </ThemedView>
+      </ActionSheetProvider>
     );
   }
 
