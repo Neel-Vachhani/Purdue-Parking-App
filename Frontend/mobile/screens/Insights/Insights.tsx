@@ -1,692 +1,568 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
+import * as React from "react";
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Platform, Modal } from "react-native";
+import { BarChart } from "react-native-chart-kit";
+import Constants from "expo-constants";
+import { ThemeContext } from "../../theme/ThemeProvider";
+import { Dimensions } from "react-native";
 
-// Types
+const { width } = Dimensions.get("window");
+
+type Garage = {
+  id: string;
+  name: string;
+  current: number;
+  total: number;
+  occupancy_percentage: number;
+};
+
 type TimePeriod = "day" | "week" | "month";
 
-type ParkingLot = {
-  id: number;
-  code: string;
-  name: string;
-  total: number;
-};
-
 type HistoricalDataPoint = {
+  timestamp: Date,
   label: string;
   occupancy_percentage: number;
+  available_spots: number;
+  occupied_spots: number;
 };
 
-type CurrentStatus = {
-  available: number;
-  occupied: number;
-  total: number;
-  occupancy_percentage: number;
+const LOT_COLUMNS: Record<string, string> = {
+  "Harrison Street Parking Garage": "pgmd",
+  "Grant Street Parking Garage": "pgu",
+  "University Street Parking Garage": "pgnw",
+  "Northwestern Avenue Parking Garage": "pgg",
+  "McCutcheon Drive Parking Garage": "pgw",
+  "Wood Street Parking Garage": "pgm",
+  "Graduate House Parking Garage": "pggh",
+  "Marsteller Street Parking Garage": "pgh",
+  "Lot R": "lot_r",
+  "Lot H": "lot_h",
+  "Lot FB": "lot_fb",
+  "Krach Leadership Center Parking": "kfpc",
+  "Lot A": "lot_a",
+  "CoRec Parking": "crec",
+  "Lot O": "lot_o",
+  "Tarkington/Wiley Lot": "tark_wily",
+  "Lot AA": "lot_aa",
+  "Lot BB": "lot_bb",
+  "Windsor/Krach Lot": "wnd_krach",
+  "Shriver/Earhart/Meredith Lot": "shrv_erht_mrdh",
+  "McCutcheon/Harrison Hill Lot": "mcut_harr_hill",
+  "Duhme Lot": "duhm",
+  "Pierce Street Lot": "pierce_st",
+  "Smith/Biochemistry Lot": "smth_bchm",
+  "Discovery Park Lot A": "disc_a",
+  "Discovery Park Lot AB": "disc_ab",
+  "Discovery Park Lot ABC": "disc_abc",
+  "Airport Lot": "airport",
 };
 
-type PredictiveResult = {
-  average_occupancy: number;
-  likely_full: boolean;
-};
-
-// Mock theme context for standalone demo
-const ThemeContext = React.createContext({
-  mode: 'dark',
-  bg: '#000000',
-  text: '#ffffff'
-});
-
-const PARKING_LOTS: ParkingLot[] = [
-  { id: 1, code: "PGH", name: "Harrison Street Parking Garage", total: 240 },
-  { id: 2, code: "PGG", name: "Grant Street Parking Garage", total: 240 },
-  { id: 3, code: "PGU", name: "University Street Parking Garage", total: 240 },
-  { id: 4, code: "PGNW", name: "Northwestern Avenue Parking Garage", total: 240 },
-  { id: 5, code: "PGMD", name: "McCutcheon Drive Parking Garage", total: 240 },
-  { id: 6, code: "PGW", name: "Wood Street Parking Garage", total: 240 },
-  { id: 7, code: "PGGH", name: "Graduate House Parking Garage", total: 240 },
-  { id: 8, code: "PGM", name: "Marsteller Street Parking Garage", total: 240 },
-  { id: 9, code: "LOT_R", name: "Lot R", total: 120 },
-  { id: 10, code: "LOT_H", name: "Lot H", total: 80 },
-  { id: 11, code: "LOT_FB", name: "Lot FB", total: 100 },
-  { id: 12, code: "KFPC", name: "Kozuch Football Performance Complex Lot", total: 100 },
-  { id: 13, code: "LOT_A", name: "Lot A", total: 120 },
-  { id: 14, code: "CREC", name: "Co-Rec Parking Lots", total: 150 },
+const periodOptions: { value: TimePeriod; label: string }[] = [
+  { value: "day", label: "24 Hours" },
+  { value: "week", label: "7 Days" },
+  { value: "month", label: "30 Days" },
 ];
 
-const WEEKDAYS: string[] = ["All Days", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const INITIAL_GARAGES: Garage[] = [
+  { id: "0", name: "Harrison Street Parking Garage", current: 80, total: 240, occupancy_percentage: (80 / 240) * 100 },
+  { id: "1", name: "Grant Street Parking Garage", current: 158, total: 240, occupancy_percentage: (158 / 240) * 100 },
+  { id: "2", name: "University Street Parking Garage", current: 120, total: 240, occupancy_percentage: (120 / 240) * 100 },
+  { id: "3", name: "Northwestern Avenue Parking Garage", current: 190, total: 240, occupancy_percentage: (190 / 240) * 100 },
+  { id: "4", name: "McCutcheon Drive Parking Garage", current: 60, total: 240, occupancy_percentage: (60 / 240) * 100 },
+  { id: "5", name: "Wood Street Parking Garage", current: 200, total: 240, occupancy_percentage: (200 / 240) * 100 },
+  { id: "6", name: "Graduate House Parking Garage", current: 130, total: 240, occupancy_percentage: (130 / 240) * 100 },
+  { id: "7", name: "Marsteller Street Parking Garage", current: 180, total: 240, occupancy_percentage: (180 / 240) * 100 },
+  { id: "8", name: "Lot R", current: 70, total: 120, occupancy_percentage: (70 / 120) * 100 },
+  { id: "9", name: "Lot H", current: 50, total: 80, occupancy_percentage: (50 / 80) * 100 },
+  { id: "10", name: "Lot FB", current: 30, total: 100, occupancy_percentage: (30 / 100) * 100 },
+  { id: "11", name: "Krach Leadership Center Parking", current: 75, total: 100, occupancy_percentage: (75 / 100) * 100 },
+  { id: "12", name: "Lot A", current: 90, total: 120, occupancy_percentage: (90 / 120) * 100 },
+  { id: "13", name: "CoRec Parking", current: 110, total: 150, occupancy_percentage: (110 / 150) * 100 },
+  { id: "14", name: "Lot O", current: 40, total: 100, occupancy_percentage: (40 / 100) * 100 },
+  { id: "15", name: "Tarkington/Wiley Lot", current: 45, total: 100, occupancy_percentage: (45 / 100) * 100 },
+  { id: "16", name: "Lot AA", current: 60, total: 100, occupancy_percentage: (60 / 100) * 100 },
+  { id: "17", name: "Lot BB", current: 30, total: 80, occupancy_percentage: (30 / 80) * 100 },
+  { id: "18", name: "Windsor/Krach Lot", current: 65, total: 100, occupancy_percentage: (65 / 100) * 100 },
+  { id: "19", name: "Shriver/Earhart/Meredith Lot", current: 80, total: 120, occupancy_percentage: (80 / 120) * 100 },
+  { id: "20", name: "McCutcheon/Harrison Hill Lot", current: 55, total: 100, occupancy_percentage: (55 / 100) * 100 },
+  { id: "21", name: "Duhme Lot", current: 20, total: 60, occupancy_percentage: (20 / 60) * 100 },
+  { id: "22", name: "Pierce Street Lot", current: 35, total: 100, occupancy_percentage: (35 / 100) * 100 },
+  { id: "23", name: "Smith/Biochemistry Lot", current: 75, total: 120, occupancy_percentage: (75 / 120) * 100 },
+  { id: "24", name: "Discovery Park Lot A", current: 40, total: 100, occupancy_percentage: (40 / 100) * 100 },
+  { id: "25", name: "Discovery Park Lot AB", current: 45, total: 100, occupancy_percentage: (45 / 100) * 100 },
+  { id: "26", name: "Discovery Park Lot ABC", current: 50, total: 100, occupancy_percentage: (50 / 100) * 100 },
+  { id: "27", name: "Airport Lot", current: 25, total: 80, occupancy_percentage: (25 / 80) * 100 },
+];
 
-type TimePeriodSelectorProps = {
-  value: TimePeriod;
-  onChange: (period: TimePeriod) => void;
-};
+export default function InsightsScreen() {
+  const theme = React.useContext(ThemeContext);
+  const [garages, setGarages] = React.useState<Garage[]>(INITIAL_GARAGES);
+  const [selectedLotId, setSelectedLotId] = React.useState<string>("0");
+  const [timePeriod, setTimePeriod] = React.useState<TimePeriod>("day");
+  const [historicalData, setHistoricalData] = React.useState<HistoricalDataPoint[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [showLotDropdown, setShowLotDropdown] = React.useState(false);
 
-const TimePeriodSelector: React.FC<TimePeriodSelectorProps> = ({ value, onChange }) => {
-  const periods: Array<{ value: TimePeriod; label: string }> = [
-    { value: "day", label: "24 Hours" },
-    { value: "week", label: "7 Days" },
-    { value: "month", label: "30 Days" }
-  ];
+  const isDark = theme.mode === "dark";
+  const cardBg = isDark ? "#1a1d21" : "#FFFFFF";
+  const secondaryBg = isDark ? "#252930" : "#f9fafb";
+  const borderColor = isDark ? "#2d3139" : "#e5e7eb";
+  const secondaryText = isDark ? "#9ca3af" : "#6b7280";
+  const accentColor = "#6366f1";
 
-  return (
-    <div className="flex gap-2 mb-6">
-      {periods.map(period => (
-        <button
-          key={period.value}
-          onClick={() => onChange(period.value)}
-          className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all ${
-            value === period.value
-              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/50'
-              : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-          }`}
-        >
-          {period.label}
-        </button>
-      ))}
-    </div>
-  );
-};
+  const getApiBaseUrl = (): string => {
+    return "http://localhost:7500";
+  };
 
-type BarChartProps = {
-  data: HistoricalDataPoint[];
-  period: TimePeriod;
-};
+  const fetchCurrentData = async () => {
+    setLoading(true);
+    try {
+      const mappedGarages: Garage[] = await Promise.all(
+        Object.keys(LOT_COLUMNS).map(async (lotName, idx) => {
+          const lotColumn = LOT_COLUMNS[lotName];
+          
+          try {
+            const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=day`);
+            const data = await res.json();
+            
+            // Get the initial garage data to use correct totals
+            const initialGarage = INITIAL_GARAGES.find(g => g.name === lotName);
+            const total = initialGarage?.total ?? 100;
+            
+            // Get the most recent availability data
+            const latestData = Array.isArray(data) && data.length > 0 ? data[data.length - 1] : null;
+            const availableSpots = latestData?.availability ?? 0;
+            
+            // Calculate occupied spots: total - available = occupied
+            const occupied = total - availableSpots;
+            
+            
+            return {
+              id: idx.toString(),
+              name: lotName,
+              current: occupied,
+              total: total,
+              occupancy_percentage: (occupied / total) * 100,
+            };
+          } catch (err) {
+            // console.error(`Error fetching data for ${lotName}:`, err);
+            // Return initial data if fetch fails
+            const initialGarage = INITIAL_GARAGES[idx];
+            return initialGarage;
+          }
+        })
+      );
+      setGarages(mappedGarages);
+      //console.log(garages)
+      if (!selectedLotId && mappedGarages.length > 0) setSelectedLotId("0");
+    } catch (err) {
+      console.error("Error fetching current parking data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const BarChart: React.FC<BarChartProps> = ({ data, period }) => {
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
-        No data available
-      </div>
-    );
+  const fetchHistoricalData = async (lotId: string, period: TimePeriod) => {
+    if (!garages.length) return;
+    setLoading(true);
+    try {
+      const selectedGarage = garages[parseInt(lotId)];
+      const lotColumn = LOT_COLUMNS[selectedGarage.name];
+      const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=${period}`);
+      const data = await res.json();
+      //console.log(data)
+      if (!Array.isArray(data)) {
+        console.error("Historical data not an array:", data);
+        setHistoricalData([]);
+        return;
+      }
+
+      // Get the total capacity for this lot
+      const total = selectedGarage.total;
+
+      setHistoricalData(
+        data.map((d: any) => {
+          const ts = new Date(d.timestamp);
+
+          const availableSpots = d.availability; // This is actual number of available spots
+          const occupiedSpots = total - availableSpots;
+          
+          return {
+            timestamp: ts,
+            label: new Date(d.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            occupancy_percentage: (occupiedSpots / total) * 100,
+            available_spots: availableSpots,
+            occupied_spots: occupiedSpots,
+          };
+        })
+      );
+    } catch (err) {
+      console.error("Error fetching historical data:", err);
+      setHistoricalData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchCurrentData();
+  }, []);
+
+  React.useEffect(() => {
+    if (selectedLotId !== "") fetchHistoricalData(selectedLotId, timePeriod);
+  }, [selectedLotId, timePeriod, garages]);
+
+  const currentStatus = garages[parseInt(selectedLotId)] || garages[0];
+
+const aggregateData = (
+  data: HistoricalDataPoint[],
+  segments: number,
+  period: TimePeriod
+) => {
+  const chunkSize = Math.ceil(data.length / segments);
+  const aggregated: { label: string; occupancy_percentage: number }[] = [];
+
+  for (let i = 0; i < segments; i++) {
+    const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize);
+    if (!chunk.length) continue;
+
+    const avgOccupancy =
+      chunk.reduce((sum, d) => sum + d.occupancy_percentage, 0) / chunk.length;
+
+    let label = "";
+    if (period === "day") {
+      const startHour = chunk[0].timestamp.getHours(); // ✅ now a number
+      label = `${startHour.toString().padStart(2, "0")}:00`;
+    } else if (period === "week") {
+      const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const day = chunk[0].timestamp.getDay();          // use timestamp
+      label = weekdayNames[day];
+    } else if (period === "month") {
+      label = `Wk ${i + 1}`;
+    }
+
+    aggregated.push({ label, occupancy_percentage: avgOccupancy });
   }
 
-  const maxValue = Math.max(...data.map(d => d.occupancy_percentage), 100);
-
-  const getBarColor = (percentage: number): string => {
-    if (percentage >= 85) return '#ef4444';
-    if (percentage >= 70) return '#f97316';
-    if (percentage >= 50) return '#eab308';
-    if (percentage >= 30) return '#84cc16';
-    return '#22c55e';
-  };
-
-  return (
-    <div className="relative">
-      <div className="flex items-end justify-between gap-2 h-64 px-4">
-        {data.map((item, index) => {
-          const heightPercent = (item.occupancy_percentage / maxValue) * 100;
-          
-          return (
-            <div key={index} className="flex-1 flex flex-col items-center gap-2">
-              <div className="relative w-full flex flex-col items-center justify-end h-full">
-                <span className="text-xs font-bold text-white mb-1">
-                  {Math.round(item.occupancy_percentage)}%
-                </span>
-                <div
-                  className="w-full rounded-t-lg transition-all duration-500 hover:opacity-80"
-                  style={{
-                    height: `${heightPercent}%`,
-                    backgroundColor: getBarColor(item.occupancy_percentage),
-                    minHeight: '8px'
-                  }}
-                />
-              </div>
-              <span className="text-xs text-gray-400 text-center break-words w-full">
-                {item.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      
-      {/* Y-axis grid lines */}
-      <div className="absolute inset-0 pointer-events-none">
-        {[0, 25, 50, 75, 100].map(val => (
-          <div
-            key={val}
-            className="absolute left-0 right-0 border-t border-gray-800"
-            style={{ bottom: `${(val / maxValue) * 100}%` }}
-          >
-            <span className="absolute -left-8 -translate-y-1/2 text-xs text-gray-500">
-              {val}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return aggregated;
 };
 
-export default function Insights() {
-  const theme = useContext(ThemeContext);
-  
-  // Predictive insights state
-  const [selectedLot, setSelectedLot] = useState<ParkingLot>(PARKING_LOTS[0]);
-  const [selectedHour, setSelectedHour] = useState<number>(new Date().getHours());
-  const [selectedWeekday, setSelectedWeekday] = useState<string>("All Days");
-  const [threshold, setThreshold] = useState<number>(80);
-  const [predictiveResult, setPredictiveResult] = useState<PredictiveResult | null>(null);
-  
-  // Historical data state
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>("day");
-  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
-  const [currentStatus, setCurrentStatus] = useState<CurrentStatus | null>(null);
-  
-  // UI state
-  const [loading, setLoading] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<"current" | "predictive">("current");
-  const [showLotPicker, setShowLotPicker] = useState<boolean>(false);
-  const [showTimePicker, setShowTimePicker] = useState<boolean>(false);
-  const [showDayPicker, setShowDayPicker] = useState<boolean>(false);
-  const [showThresholdPicker, setShowThresholdPicker] = useState<boolean>(false);
+const getChartData = () => {
+  let chartData: { label: string; occupancy_percentage: number }[] = [];
 
-  // Fetch current status and historical data
-  useEffect(() => {
-    fetchCurrentAndHistoricalData();
-  }, [selectedLot, timePeriod]);
+  if (timePeriod === "day") chartData = aggregateData(historicalData, 6, "day");
+  else if (timePeriod === "week") chartData = aggregateData(historicalData, 7, "week");
+  else if (timePeriod === "month") chartData = aggregateData(historicalData, 5, "month");
 
-  // Fetch predictive data
-  useEffect(() => {
-    if (activeTab === "predictive") {
-      fetchPredictiveData();
-    }
-  }, [selectedLot, selectedHour, selectedWeekday, threshold, activeTab]);
+  return {
+    labels: chartData.map((d) => d.label),
+    datasets: [
+      {
+        data: chartData.map((d) => Math.max(0, Math.round(d.occupancy_percentage))),
+        colors: chartData.map((d) => {
+          const value = d.occupancy_percentage;
+          if (value < 50) return (opacity = 1) => `rgba(76, 175, 80, ${opacity})`;
+          if (value < 80) return (opacity = 1) => `rgba(255, 193, 7, ${opacity})`;
+          return (opacity = 1) => `rgba(244, 67, 54, ${opacity})`;
+        }),
+      },
+    ],
+  };
+};
 
-  const fetchCurrentAndHistoricalData = async () => {
-    setLoading(true);
-    try {
-      // Simulated API call - replace with actual endpoint
-      const response = await fetch(
-        `http://localhost:7500/postgres-parking?lot=${selectedLot.code.toLowerCase()}&period=${timePeriod}`
-      );
-      const data = await response.json();
 
-      if (Array.isArray(data) && data.length > 0) {
-        // Get latest data point for current status
-        const latest = data[data.length - 1];
-        const occupied = selectedLot.total - latest.availability;
-        
-        setCurrentStatus({
-          available: latest.availability,
-          occupied: occupied,
-          total: selectedLot.total,
-          occupancy_percentage: (occupied / selectedLot.total) * 100
-        });
 
-        // Process historical data for chart
-        const processedData = aggregateData(
-          data.map(d => ({
-            timestamp: new Date(d.timestamp),
-            availability: d.availability,
-            occupancy_percentage: ((selectedLot.total - d.availability) / selectedLot.total) * 100
-          })),
-          timePeriod
-        );
-        
-        setHistoricalData(processedData);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      // Use mock data for demo
-      setCurrentStatus({
-        available: 80,
-        occupied: 160,
-        total: selectedLot.total,
-        occupancy_percentage: 66.7
-      });
-      setHistoricalData(generateMockData(timePeriod));
-    } finally {
-      setLoading(false);
-    }
+
+  const getOccupancyColor = (percentage: number) => {
+    if (percentage >= 90) return "#ef4444";
+    if (percentage >= 70) return "#f59e0b";
+    if (percentage >= 25) return "#eab308";
+    return "#10b981";
   };
 
-  const fetchPredictiveData = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        lot: selectedLot.code.toLowerCase(),
-        hour: selectedHour.toString(),
-        threshold: threshold.toString(),
-      });
-      
-      if (selectedWeekday !== "All Days") {
-        params.append("weekday", selectedWeekday.toLowerCase());
-      }
-
-      const res = await fetch(`http://localhost:7500/parking/hourly-average?${params.toString()}`);
-      const data = await res.json();
-      
-      const average_occupancy = selectedLot.total - data.average_availability;
-      setPredictiveResult({
-        ...data,
-        average_occupancy: average_occupancy,
-        likely_full: average_occupancy >= threshold,
-      });
-    } catch (error) {
-      console.error("Error fetching predictive data:", error);
-      // Mock data for demo
-      setPredictiveResult({
-        average_occupancy: 150,
-        likely_full: false
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const aggregateData = (
-    data: Array<{ timestamp: Date; availability: number; occupancy_percentage: number }>,
-    period: TimePeriod
-  ): HistoricalDataPoint[] => {
-    const segments = period === "day" ? 6 : period === "week" ? 7 : 5;
-    const chunkSize = Math.ceil(data.length / segments);
-    const aggregated: HistoricalDataPoint[] = [];
-
-    for (let i = 0; i < segments; i++) {
-      const chunk = data.slice(i * chunkSize, (i + 1) * chunkSize);
-      if (chunk.length === 0) continue;
-
-      const avgOccupancy = chunk.reduce((sum, d) => sum + d.occupancy_percentage, 0) / chunk.length;
-
-      let label = "";
-      if (period === "day") {
-        const startHour = chunk[0].timestamp.getHours();
-        label = `${startHour.toString().padStart(2, "0")}:00`;
-      } else if (period === "week") {
-        const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        label = weekdays[chunk[0].timestamp.getDay()];
-      } else {
-        label = `Wk ${i + 1}`;
-      }
-
-      aggregated.push({ label, occupancy_percentage: avgOccupancy });
-    }
-
-    return aggregated;
-  };
-
-  const generateMockData = (period: TimePeriod): HistoricalDataPoint[] => {
-    const segments = period === "day" ? 6 : period === "week" ? 7 : 5;
-    return Array.from({ length: segments }, (_, i) => {
-      let label = "";
-      if (period === "day") label = `${(i * 4).toString().padStart(2, "0")}:00`;
-      else if (period === "week") label = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i];
-      else label = `Wk ${i + 1}`;
-      
-      return {
-        label,
-        occupancy_percentage: 30 + Math.random() * 60
-      };
-    });
-  };
-
-  const getOccupancyColor = (percentage: number): string => {
-    if (percentage >= 85) return "#ef4444";
-    if (percentage >= 70) return "#f97316";
-    if (percentage >= 50) return "#eab308";
-    if (percentage >= 30) return "#84cc16";
-    return "#22c55e";
-  };
-
-  const getStatusBadge = (percentage: number): { label: string; color: string } => {
-    if (percentage >= 90) return { label: "Nearly Full", color: "#ef4444" };
-    if (percentage >= 70) return { label: "Busy", color: "#f97316" };
-    if (percentage >= 50) return { label: "Moderate", color: "#eab308" };
-    return { label: "Available", color: "#22c55e" };
-  };
-
-  const formatTimeAMPM = (hour: number): string => {
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:00 ${ampm}`;
-  };
-
-  const formatLotName = (name: string): string => {
-    return name.replace(" Parking Garage", "").replace(" Parking Lot", "");
+  const getStatusText = (percentage: number) => {
+    if (percentage >= 90) return "Nearly Full";
+    if (percentage >= 70) return "Busy";
+    if (percentage >= 25) return "Moderate";
+    return "Available";
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <div className="px-5 pt-16 pb-6">
-        <h1 className="text-4xl font-extrabold mb-2">Parking Insights</h1>
-        <p className="text-gray-400 text-base">Real-time availability and trends</p>
-      </div>
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 24 }}>
+          <Text style={{ color: theme.text, fontSize: 32, fontWeight: "700", letterSpacing: -0.5 }}>
+            Parking Insights
+          </Text>
+          <Text style={{ color: secondaryText, fontSize: 15, marginTop: 6 }}>
+            Real-time availability and trends
+          </Text>
+        </View>
 
-      {/* Tab Selector */}
-      <div className="px-5 mb-6">
-        <div className="flex gap-2 bg-gray-900 rounded-2xl p-1">
-          <button
-            onClick={() => setActiveTab("current")}
-            className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
-              activeTab === "current"
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-400 hover:text-white'
-            }`}
+        {/* Lot Selector */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
+          <Text style={{ color: theme.text, fontSize: 13, fontWeight: "600", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            Parking Location
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowLotDropdown(!showLotDropdown)}
+            style={{ 
+              borderRadius: 16, 
+              backgroundColor: cardBg,
+              padding: 16,
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDark ? 0.3 : 0.1,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
           >
-            Current Status
-          </button>
-          <button
-            onClick={() => setActiveTab("predictive")}
-            className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
-              activeTab === "predictive"
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Predictive
-          </button>
-        </div>
-      </div>
+            <Text style={{ color: theme.text, fontSize: 16, fontWeight: "500" }}>
+              {garages[parseInt(selectedLotId)]?.name || "Select a lot"}
+            </Text>
+            <Text style={{ color: secondaryText, fontSize: 18 }}>
+              {showLotDropdown ? "▲" : "▼"}
+            </Text>
+          </TouchableOpacity>
 
-      {/* Location Selector */}
-      <div className="px-5 mb-5">
-        <label className="text-xs font-bold text-gray-500 tracking-wider mb-3 block">
-          PARKING LOCATION
-        </label>
-        <div className="relative">
-          <button
-            onClick={() => setShowLotPicker(!showLotPicker)}
-            className="w-full bg-gray-900 rounded-2xl p-5 flex justify-between items-center border border-gray-800 hover:border-gray-700 transition-colors"
-          >
-            <div>
-              <div className="text-lg font-semibold">{formatLotName(selectedLot.name)}</div>
-              <div className="text-sm text-gray-500">{selectedLot.code}</div>
-            </div>
-            <span className="text-3xl text-gray-600 font-light">›</span>
-          </button>
-
-          {showLotPicker && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-gray-900 rounded-2xl border border-gray-800 max-h-64 overflow-y-auto z-50 shadow-2xl">
-              {PARKING_LOTS.map(lot => (
-                <button
+          {/* Dropdown Menu */}
+          {showLotDropdown && (
+            <View style={{
+              marginTop: 8,
+              borderRadius: 16,
+              backgroundColor: cardBg,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDark ? 0.3 : 0.1,
+              shadowRadius: 8,
+              elevation: 3,
+              overflow: "hidden",
+            }}>
+              {garages.map((lot, index) => (
+                <TouchableOpacity
                   key={lot.id}
-                  onClick={() => {
-                    setSelectedLot(lot);
-                    setShowLotPicker(false);
+                  onPress={() => {
+                    setSelectedLotId(lot.id);
+                    setShowLotDropdown(false);
                   }}
-                  className={`w-full p-4 text-left border-b border-gray-800 last:border-b-0 hover:bg-gray-800 transition-colors ${
-                    selectedLot.id === lot.id ? 'bg-gray-800' : ''
-                  }`}
+                  style={{
+                    padding: 16,
+                    backgroundColor: selectedLotId === lot.id ? accentColor + "15" : "transparent",
+                    borderBottomWidth: index < garages.length - 1 ? 1 : 0,
+                    borderBottomColor: borderColor,
+                  }}
                 >
-                  <div className="font-medium">{formatLotName(lot.name)}</div>
-                  <div className="text-sm text-gray-500">{lot.code}</div>
-                </button>
+                  <Text style={{ 
+                    color: selectedLotId === lot.id ? accentColor : theme.text, 
+                    fontSize: 16,
+                    fontWeight: selectedLotId === lot.id ? "600" : "400",
+                  }}>
+                    {lot.name}
+                  </Text>
+                </TouchableOpacity>
               ))}
-            </div>
+            </View>
           )}
-        </div>
-      </div>
+        </View>
 
-      {/* Current Status Tab */}
-      {activeTab === "current" && (
-        <div className="px-5">
-          <TimePeriodSelector value={timePeriod} onChange={setTimePeriod} />
-
-          {/* Current Stats Card */}
-          {currentStatus && (
-            <div className="bg-gray-900 rounded-3xl p-6 mb-6 border border-gray-800">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold">{formatLotName(selectedLot.name)}</h3>
-                  <p className="text-sm text-gray-500">Current Status</p>
-                </div>
-                <div
-                  className="px-3 py-1 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: `${getStatusBadge(currentStatus.occupancy_percentage).color}20`, color: getStatusBadge(currentStatus.occupancy_percentage).color }}
-                >
-                  {getStatusBadge(currentStatus.occupancy_percentage).label}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center">
-                  <div className="text-sm text-gray-500 mb-2">Available</div>
-                  <div className="text-3xl font-extrabold text-green-500">{currentStatus.available}</div>
-                </div>
-                <div className="text-center border-x border-gray-800">
-                  <div className="text-sm text-gray-500 mb-2">Occupied</div>
-                  <div className="text-3xl font-extrabold text-red-500">{currentStatus.occupied}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-gray-500 mb-2">Total</div>
-                  <div className="text-3xl font-extrabold text-gray-500">{currentStatus.total}</div>
-                </div>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="mb-4">
-                <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      width: `${currentStatus.occupancy_percentage}%`,
-                      backgroundColor: getOccupancyColor(currentStatus.occupancy_percentage)
-                    }}
-                  />
-                </div>
-                <div className="flex justify-between mt-2 text-xs text-gray-500">
-                  <span>0%</span>
-                  <span className="font-bold">{Math.round(currentStatus.occupancy_percentage)}% Full</span>
-                  <span>100%</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 bg-gray-800 rounded-xl p-4">
-                <span className="text-2xl">📊</span>
-                <p className="text-sm text-gray-400">Based on real-time sensor data</p>
-              </div>
-            </div>
-          )}
-
-          {/* Historical Bar Chart */}
-          <div className="bg-gray-900 rounded-3xl p-6 border border-gray-800">
-            <h3 className="text-lg font-bold mb-6">Occupancy Trend</h3>
-            {loading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
-              </div>
-            ) : (
-              <BarChart data={historicalData} period={timePeriod} />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Predictive Tab */}
-      {activeTab === "predictive" && (
-        <div className="px-5">
-          {/* Time & Day Selector */}
-          <div className="mb-5">
-            <label className="text-xs font-bold text-gray-500 tracking-wider mb-3 block">
-              TIME & DAY
-            </label>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowTimePicker(!showTimePicker)}
-                className="flex-1 bg-indigo-600 py-4 rounded-xl font-semibold"
-              >
-                {formatTimeAMPM(selectedHour)}
-              </button>
-              <button
-                onClick={() => setShowDayPicker(!showDayPicker)}
-                className="flex-1 bg-indigo-600 py-4 rounded-xl font-semibold"
-              >
-                {selectedWeekday === "All Days" ? "All Days" : selectedWeekday.slice(0, 3)}
-              </button>
-            </div>
-          </div>
-
-          {/* Threshold Selector */}
-          <div className="mb-6">
-            <label className="text-xs font-bold text-gray-500 tracking-wider mb-3 block">
-              FULL THRESHOLD
-            </label>
-            <button
-              onClick={() => setShowThresholdPicker(!showThresholdPicker)}
-              className="w-full bg-gray-900 rounded-2xl p-5 flex justify-between items-center border border-gray-800"
-            >
-              <div>
-                <div className="text-2xl font-bold text-indigo-500 mb-1">{threshold}%</div>
-                <div className="text-sm text-gray-500">Occupancy threshold for "likely full"</div>
-              </div>
-              <span className="text-3xl text-gray-600 font-light">›</span>
-            </button>
-          </div>
-
-          {/* Predictive Results */}
-          <div className="bg-gray-900 rounded-3xl p-6 border border-gray-800">
-            {loading ? (
-              <div className="flex flex-col items-center py-16">
-                <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent mb-4"></div>
-                <p className="text-gray-500">Analyzing patterns...</p>
-              </div>
-            ) : predictiveResult ? (
-              <>
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg font-semibold">{formatLotName(selectedLot.name)}</h3>
-                  <div
-                    className="px-3 py-1 rounded-full text-xs font-bold"
-                    style={{
-                      backgroundColor: `${getStatusBadge(predictiveResult.average_occupancy).color}20`,
-                      color: getStatusBadge(predictiveResult.average_occupancy).color
-                    }}
-                  >
-                    {getStatusBadge(predictiveResult.average_occupancy).label}
-                  </div>
-                </div>
-                <p className="text-sm text-gray-500 mb-6">Predicted Occupancy</p>
-
-                <div className="grid grid-cols-3 gap-4 mb-8">
-                  <div className="text-center">
-                    <div className="text-sm text-gray-500 mb-2">Available</div>
-                    <div className="text-4xl font-extrabold text-green-500">
-                      {Math.round(selectedLot.total - predictiveResult.average_occupancy)}
-                    </div>
-                  </div>
-                  <div className="text-center border-x border-gray-800">
-                    <div className="text-sm text-gray-500 mb-2">Occupied</div>
-                    <div className="text-4xl font-extrabold" style={{ color: getOccupancyColor(predictiveResult.average_occupancy) }}>
-                      {Math.round(predictiveResult.average_occupancy)}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-gray-500 mb-2">Total</div>
-                    <div className="text-4xl font-extrabold text-gray-500">{selectedLot.total}</div>
-                  </div>
-                </div>
-
-                <div className="mb-6">
-                  <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${predictiveResult.average_occupancy}%`,
-                        backgroundColor: getOccupancyColor(predictiveResult.average_occupancy)
-                      }}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-2 text-xs text-gray-500">
-                    <span>0%</span>
-                    <span className="font-bold">{Math.round(predictiveResult.average_occupancy)}% Full</span>
-                    <span>100%</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 bg-gray-800 rounded-xl p-4">
-                  <span className="text-2xl">📊</span>
-                  <p className="text-sm text-gray-400">Based on historical data from the past 30 days</p>
-                </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center py-16">
-                <span className="text-5xl mb-4">✅</span>
-                <h4 className="text-xl font-semibold mb-2">Usually Available</h4>
-                <p className="text-sm text-gray-500 text-center">
-                  This location typically has open spots at this time
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Simple Modals */}
-      {showTimePicker && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-end z-50" onClick={() => setShowTimePicker(false)}>
-          <div className="bg-gray-900 rounded-t-3xl w-full max-h-96 overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-gray-900 p-5 border-b border-gray-800 flex justify-between items-center">
-              <h3 className="text-xl font-bold">Select Time</h3>
-              <button onClick={() => setShowTimePicker(false)} className="text-indigo-500 font-semibold">Done</button>
-            </div>
-            {Array.from({ length: 24 }, (_, i) => i).map(hour => (
-              <button
-                key={hour}
-                onClick={() => {
-                  setSelectedHour(hour);
-                  setShowTimePicker(false);
+        {/* Time Period Pills */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+          <Text style={{ color: theme.text, fontSize: 13, fontWeight: "600", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            Time Range
+          </Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            {periodOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                onPress={() => setTimePeriod(option.value)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 12,
+                  backgroundColor: timePeriod === option.value ? accentColor : secondaryBg,
+                  alignItems: "center",
+                  shadowColor: timePeriod === option.value ? accentColor : "transparent",
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: timePeriod === option.value ? 4 : 0,
                 }}
-                className={`w-full p-4 text-left border-b border-gray-800 hover:bg-gray-800 ${
-                  selectedHour === hour ? 'bg-gray-800 text-indigo-500 font-semibold' : ''
-                }`}
               >
-                {formatTimeAMPM(hour)}
-              </button>
+                <Text style={{ 
+                  color: timePeriod === option.value ? "#ffffff" : theme.text, 
+                  fontSize: 14, 
+                  fontWeight: "600" 
+                }}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
             ))}
-          </div>
-        </div>
-      )}
+          </View>
+        </View>
 
-      {showDayPicker && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-end z-50" onClick={() => setShowDayPicker(false)}>
-          <div className="bg-gray-900 rounded-t-3xl w-full" onClick={e => e.stopPropagation()}>
-            <div className="p-5 border-b border-gray-800 flex justify-between items-center">
-              <h3 className="text-xl font-bold">Select Day</h3>
-              <button onClick={() => setShowDayPicker(false)} className="text-indigo-500 font-semibold">Done</button>
-            </div>
-            {WEEKDAYS.map(day => (
-              <button
-                key={day}
-                onClick={() => {
-                  setSelectedWeekday(day);
-                  setShowDayPicker(false);
-                }}
-                className={`w-full p-4 text-left border-b border-gray-800 hover:bg-gray-800 ${
-                  selectedWeekday === day ? 'bg-gray-800 text-indigo-500 font-semibold' : ''
-                }`}
-              >
-                {day}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+        {/* Stats Card */}
+        {currentStatus && (
+          <View style={{ 
+            marginHorizontal: 20, 
+            marginBottom: 24, 
+            padding: 24, 
+            borderRadius: 20, 
+            backgroundColor: cardBg,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: isDark ? 0.4 : 0.1,
+            shadowRadius: 12,
+            elevation: 5,
+          }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <View>
+                <Text style={{ color: theme.text, fontSize: 20, fontWeight: "700" }}>
+                  {currentStatus.name}
+                </Text>
+                <Text style={{ color: secondaryText, fontSize: 13, marginTop: 4 }}>
+                  Current Status
+                </Text>
+              </View>
+              <View style={{
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+                borderRadius: 20,
+                backgroundColor: getOccupancyColor(currentStatus.occupancy_percentage) + "20",
+              }}>
+                <Text style={{ 
+                  color: getOccupancyColor(currentStatus.occupancy_percentage), 
+                  fontSize: 13, 
+                  fontWeight: "700" 
+                }}>
+                  {getStatusText(currentStatus.occupancy_percentage)}
+                </Text>
+              </View>
+            </View>
 
-      {showThresholdPicker && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-end z-50" onClick={() => setShowThresholdPicker(false)}>
-          <div className="bg-gray-900 rounded-t-3xl w-full" onClick={e => e.stopPropagation()}>
-            <div className="p-5 border-b border-gray-800 flex justify-between items-center">
-              <h3 className="text-xl font-bold">Full Threshold</h3>
-              <button onClick={() => setShowThresholdPicker(false)} className="text-indigo-500 font-semibold">Done</button>
-            </div>
-            <div className="p-5 border-b border-gray-800">
-              <p className="text-sm text-gray-400">Set the occupancy percentage at which a lot is considered "likely full"</p>
-            </div>
-            {[60, 65, 70, 75, 80, 85, 90, 95].map(t => (
-              <button
-                key={t}
-                onClick={() => {
-                  setThreshold(t);
-                  setShowThresholdPicker(false);
-                }}
-                className={`w-full p-4 text-left border-b border-gray-800 hover:bg-gray-800 ${
-                  threshold === t ? 'bg-gray-800 text-indigo-500 font-semibold' : ''
-                }`}
-              >
-                {t}% or higher
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+            <View style={{ 
+              flexDirection: "row", 
+              justifyContent: "space-between", 
+              paddingTop: 20,
+              borderTopWidth: 1,
+              borderTopColor: borderColor,
+            }}>
+              <View style={{ alignItems: "center", flex: 1 }}>
+                <Text style={{ fontSize: 28, fontWeight: "800", color: "#10b981" }}>
+                  {currentStatus.total - currentStatus.current}
+                </Text>
+                <Text style={{ fontSize: 12, color: secondaryText, marginTop: 6, fontWeight: "500" }}>
+                  Available
+                </Text>
+              </View>
+              <View style={{ width: 1, backgroundColor: borderColor }} />
+              <View style={{ alignItems: "center", flex: 1 }}>
+                <Text style={{ fontSize: 28, fontWeight: "800", color: "#ef4444" }}>
+                  {currentStatus.current}
+                </Text>
+                <Text style={{ fontSize: 12, color: secondaryText, marginTop: 6, fontWeight: "500" }}>
+                  Occupied
+                </Text>
+              </View>
+              <View style={{ width: 1, backgroundColor: borderColor }} />
+              <View style={{ alignItems: "center", flex: 1 }}>
+                <Text style={{ fontSize: 28, fontWeight: "800", color: theme.text }}>
+                  {currentStatus.total}
+                </Text>
+                <Text style={{ fontSize: 12, color: secondaryText, marginTop: 6, fontWeight: "500" }}>
+                  Total Spots
+                </Text>
+              </View>
+            </View>
+
+            {/* Occupancy Bar */}
+            <View style={{ marginTop: 20 }}>
+              <View style={{ 
+                height: 8, 
+                backgroundColor: secondaryBg, 
+                borderRadius: 4, 
+                overflow: "hidden" 
+              }}>
+                <View style={{ 
+                  height: "100%", 
+                  width: `${currentStatus.occupancy_percentage}%`, 
+                  backgroundColor: getOccupancyColor(currentStatus.occupancy_percentage),
+                  borderRadius: 4,
+                }} />
+              </View>
+              <Text style={{ 
+                color: secondaryText, 
+                fontSize: 12, 
+                marginTop: 8, 
+                textAlign: "center",
+                fontWeight: "500" 
+              }}>
+                {currentStatus.occupancy_percentage.toFixed(0)}% Occupied
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Loading Indicator */}
+        {loading && (
+          <View style={{ alignItems: "center", marginVertical: 20 }}>
+            <ActivityIndicator size="large" color={accentColor} />
+          </View>
+        )}
+
+        {/* Historical Chart */}
+        {!loading && historicalData.length > 0 && (
+          <View style={{ 
+            marginHorizontal: 20, 
+            marginBottom: 32, 
+            padding: 20, 
+            borderRadius: 20, 
+            backgroundColor: cardBg,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: isDark ? 0.4 : 0.1,
+            shadowRadius: 12,
+            elevation: 5,
+          }}>
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: "700", marginBottom: 16 }}>
+              Occupancy Trend
+            </Text>
+            <BarChart
+              data={getChartData()}
+              width={width - 80}
+              height={240}
+              yAxisSuffix="%"
+              yAxisInterval={1}
+              //yAxisLabel="Test"
+              segments={4}
+              chartConfig={{
+                backgroundColor: cardBg,
+                backgroundGradientFrom: cardBg,
+                backgroundGradientTo: cardBg,
+                decimalPlaces: 0,
+                color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
+                labelColor: () => secondaryText,
+                propsForBackgroundLines: { 
+                  strokeDasharray: "", 
+                  stroke: borderColor,
+                  strokeWidth: 1,
+                },
+                propsForLabels: {
+                  fontSize: 11,
+                },
+              }}
+              fromZero
+              style={{ borderRadius: 16, marginVertical: 8 }}
+              showValuesOnTopOfBars
+              withCustomBarColorFromData
+              flatColor
+            />
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
