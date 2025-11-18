@@ -303,12 +303,6 @@ export default function GarageDetail({
               case cancelButtonIndex:
                 // Canceled
             }});
-              //const url = Platform.select({
-      //ios: `http://maps.apple.com/?saddr=40.428604085531404+-86.91934994154656&daddr=${garage.lat},${garage.lng}`,
-      //ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
-      //android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
-    //})
-    //Linking.openURL(url!)
     };
 
 
