@@ -13,10 +13,10 @@ urlpatterns = [
     path('notification_test/', views.notification_test),
     path('user/origin/', views.user_origin),
     path('geocode/', views.geocode_address),
-    
+
     # Lot events (User Story #10)
     path('lots/<str:lot_code>/events/', views.list_lot_events),
-    
+
     # Push notifications (User Story #2 and #11)
     path('notify/sale/', views.notify_parking_pass_sale),
     path('notify/closures/', views.notify_upcoming_closures),
@@ -28,4 +28,6 @@ urlpatterns = [
     path("parking/hourly-average/", views.get_hourly_average_parking),
     path('api/calendar/upload-ics/', views.upload_ics_events),
     path('api/calendar/events/', views.list_calendar_events),
+    path('api/update_rating', views.send_user_rating),
+    path('api/get_rating', views.get_garage_rating)
 ]

@@ -171,6 +171,7 @@ function mapListGarageToDetail(g:   Garage): GarageDetailType {
   const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
   return {
     id: g.id,
+    code: g.code,
     name: g.name,
     address: "Address coming from API", // replace with real field if you have it
     totalSpots: g.total,
@@ -362,7 +363,7 @@ export default function GarageList({
     }).start();
   };
 
-  const closeDetail = () => {
+  const closeDetail = (code: string) => {
     Animated.timing(translateX, {
       toValue: SCREEN_WIDTH,
       duration: 200,
@@ -371,6 +372,14 @@ export default function GarageList({
     }).start(({ finished }) => {
       if (finished) setSelected(null);
     });
+    const selected_garage = garages.find((garage) => garage.code == code)
+    if (selected_garage) {
+      getRatings(code).then((new_rating) => {
+        selected_garage.rating = new_rating
+        
+      })
+    }
+    
   };
   
 
@@ -414,13 +423,36 @@ export default function GarageList({
     setSelectedPasses([]);
   }, []);
 
+  const getRatings = async (code: string) => {
+      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+      //TODO: API Call to backend to update the rating in the backend
+      let avg_rating: number = 0
+      await fetch(`${API_BASE}/api/get_rating`, {
+        method: "POST",
+        headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          code: code
+        })
+      }).then(res => res.json())
+      .then((res) => {
+        avg_rating = res['avg_rating']
+  });
+      return avg_rating
+      
+    }
+
   // Function to render every garage item in non-detailed view
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
     const pct = Math.min(item.current / total, 1);
     const colors = getColors(pct);
     const passesLabel = item.passes.join(", ");
-
+    const avg_rating = async () => {
+      item.rating = await getRatings(item.code)
+    }
     const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
     const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
 
@@ -447,6 +479,7 @@ export default function GarageList({
               </Text>
               {/* Rating Pill */}
               <View
+              onLayout={() => avg_rating()}
                 style={{
                     borderWidth:1,
                     borderColor:'black',
@@ -464,6 +497,7 @@ export default function GarageList({
                   marginTop: 2.5,
                   color: '#000',
                   fontWeight: "bold"
+                  //TODO: parse to float
                 }}>{item.rating.toFixed(1) + " "}
                 <Ionicons
                   name={"star"}
@@ -772,7 +806,12 @@ export default function GarageList({
           <GarageDetail
             garage={mapListGarageToDetail(selected)}
             isFavorite={!!selected.favorite}
-            onBack={closeDetail}
+            onBack={
+              () => {
+                closeDetail(selected.code)
+                
+              }
+            }
             onRefresh={() => {}}
             onToggleFavorite={(id, next) =>
               handleToggleFavorite({ ...selected, id, favorite: next })

@@ -870,18 +870,33 @@ def notify_upcoming_closures(request):
 
 
 @api_view(['POST'])
-def send_user_rating(request, user_rating):
+def send_user_rating(request):
     """Send user rating too the backend and then update it"""
     parking_lot = ParkingLot.objects.get(code=request.data.get("code"))
-    avg_rating = ParkingLot.rating
-    num_of_ratings = ParkingLot.num_of_ratings
-    num_of_ratings += 1
-    avg_rating += user_rating
-    new_avg_rating = avg_rating / num_of_ratings
-    parking_lot.rating = avg_rating
-    parking_lot.num_of_ratings = num_of_ratings
-    parking_lot.save(update_fields=["rating", "num_of_ratings"])
+    user_rating = float(request.data.get("user_rating"))
+    if parking_lot:
+        total_rating = parking_lot.rating
+        num_of_ratings = int(parking_lot.num_of_ratings)
+        num_of_ratings += 1
+        total_rating += user_rating
+        new_avg_rating = total_rating / num_of_ratings
+        parking_lot.rating = total_rating
+        parking_lot.num_of_ratings = num_of_ratings
+        parking_lot.save(update_fields=["rating", "num_of_ratings"])
     return (Response({"rating": new_avg_rating}))
+
+
+@api_view(['POST'])
+def get_garage_rating(request):
+    parking_lot = ParkingLot.objects.get(code=request.data.get("code"))
+    total_rating = parking_lot.rating
+    num_of_ratings = parking_lot.num_of_ratings
+    if num_of_ratings != 0:
+        avg_rating = total_rating / num_of_ratings
+        print(avg_rating)
+        return Response({"avg_rating": avg_rating})
+    else:
+        return Response({"avg_rating": 0})
 
 
 @api_view(['GET'])

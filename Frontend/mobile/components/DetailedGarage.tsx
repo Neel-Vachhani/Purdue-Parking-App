@@ -264,18 +264,36 @@ export default function GarageDetail({
   // State for events (User Story #10)
   const [events, setEvents] = React.useState<LotEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = React.useState(false);
+  const [rating, setRating] = React.useState(0);
 
 
   const RatingWidget = () => {
-    const [rating, setRating] = React.useState(0);
+    
     return (
         <StarRating
           rating={rating}
           color="#ceb888"
-          onChange={setRating}
+          onChange={ratingChange}
         />
     );
   };
+
+  const ratingChange = async (rating: number) => {
+    setRating(rating)
+    const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+    //TODO: API Call to backend to update the rating in the backend
+    await fetch(`${API_BASE}/api/update_rating`, {
+      method: "POST",
+      headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        code: garage.code,
+        user_rating: rating
+      })
+    })
+  }
 
   const handleOpenInMaps = () => {
         const options = ['Apple Maps', 'Google Maps', 'Cancel'];
@@ -542,12 +560,12 @@ export default function GarageDetail({
         )}
 
         {/* Rating Block */}
-        {!!(garage.rating) && (
+        {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Rating</Text>
             <RatingWidget></RatingWidget>
           </View>
-        )}
+        }
 
         {/* Amenities */}
         <View style={styles.card}>
