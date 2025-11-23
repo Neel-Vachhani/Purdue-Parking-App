@@ -1,70 +1,132 @@
 import React from "react";
-import { View, Pressable } from "react-native";
-import { ThemeContext } from "../theme/ThemeProvider";
+import { View, Pressable, Animated, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import ThemedText from "./ThemedText";
 
-// Add "calendar" to TabKey
-type TabKey = "garages" | "settings" | "calendar" | "insights" | "navigation";
-type Props = { active: TabKey; onChange: (key: TabKey) => void };
+import { ThemeContext } from "../theme/ThemeProvider";
+import { TabConfigEntry, TabKey } from "./navigation/tabConfig";
 
-// Update labels to include Calendar
-const TAB_LABELS: Record<TabKey, string> = {
-  garages: "Garages",
-  calendar: "Calendar",
-  settings: "Settings",
-  insights: "Insights",
-  navigation: "Navigation"
+type Props = {
+  tabs: TabConfigEntry[];
+  active: TabKey;
+  onChange: (key: TabKey) => void;
 };
 
-export default function BottomBar({ active, onChange }: Props) {
+export default function BottomBar({ tabs, active, onChange }: Props) {
   const theme = React.useContext(ThemeContext);
   const insets = useSafeAreaInsets();
+  const [trackWidth, setTrackWidth] = React.useState(0);
+  const indicatorX = React.useRef(new Animated.Value(0)).current;
+
+  const activeIndex = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.key === active)
+  );
+  const segmentWidth = trackWidth > 0 ? trackWidth / tabs.length : 0;
+  const activeContentColor = theme.mode === "dark" ? theme.bg : "#111111";
+  const inactiveContentColor =
+    theme.mode === "dark" ? "rgba(255,255,255,0.6)" : "rgba(17,24,39,0.45)";
+  const trackBackground =
+    theme.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(17,24,39,0.05)";
+
+  React.useEffect(() => {
+    if (segmentWidth === 0) {
+      indicatorX.setValue(activeIndex * segmentWidth);
+      return;
+    }
+    Animated.spring(indicatorX, {
+      toValue: activeIndex * segmentWidth,
+      useNativeDriver: true,
+      mass: 0.6,
+      stiffness: 200,
+      damping: 18,
+    }).start();
+  }, [activeIndex, indicatorX, segmentWidth]);
 
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        borderTopWidth: 1,
-        borderColor: theme.border,
-        backgroundColor: theme.bg,
-        paddingBottom: Math.max(8, insets.bottom),
-        paddingTop: 8,
-        shadowColor: "#000",
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: -2 },
-        elevation: 6,
-      }}
-    >
-      {(Object.keys(TAB_LABELS) as TabKey[]).map((key) => {
-        const isActive = key === active;
-        return (
-          <Pressable
-            key={key}
-            onPress={() => onChange(key)}
-            style={{
-              flex: 1,
-              paddingVertical: 8,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: isActive ? theme.primary : "transparent",
-              borderRadius: 8,
-              marginHorizontal: 4,
-            }}
-          >
-            <ThemedText
-              style={{
-                fontWeight: isActive ? "700" : "400",
-                fontSize: 16,
-                color: isActive ? "#000000" : theme.text,
+    <View style={[styles.shell, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View
+        style={[
+          styles.track,
+          {
+            backgroundColor: trackBackground,
+            borderColor: theme.border,
+          },
+        ]}
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+      >
+        {segmentWidth > 0 ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.indicator,
+              {
+                backgroundColor: theme.primary,
+                width: segmentWidth,
+                transform: [{ translateX: indicatorX }],
+              },
+            ]}
+          />
+        ) : null}
+        {tabs.map((tab) => {
+          const isActive = tab.key === active;
+          const iconColor = isActive ? activeContentColor : inactiveContentColor;
+
+          return (
+            <Pressable
+              key={tab.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={`${tab.label} tab`}
+              hitSlop={8}
+              onPress={() => {
+                if (!isActive) {
+                  onChange(tab.key);
+                }
               }}
+              style={styles.tabButton}
             >
-              {TAB_LABELS[key]}
-            </ThemedText>
-          </Pressable>
-        );
-      })}
+              <View style={styles.tabContent}>
+                {tab.renderIcon({ color: iconColor, size: isActive ? 26 : 22 })}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  shell: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    shadowColor: "#000000",
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8,
+  },
+  track: {
+    flexDirection: "row",
+    borderRadius: 18,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    overflow: "hidden",
+    position: "relative",
+  },
+  indicator: {
+    position: "absolute",
+    top: 6,
+    bottom: 6,
+    borderRadius: 12,
+  },
+  tabButton: {
+    flex: 1,
+  },
+  tabContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+  },
+});
