@@ -59,15 +59,11 @@ export default function EmptyState({
     outputRange: [16, 0],
   });
 
-  const surfaceColor =
-    theme.mode === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)";
-  const borderColor =
-    theme.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
-  const mutedText =
-    theme.mode === "dark" ? "rgba(255,255,255,0.65)" : "rgba(15,23,42,0.65)";
-  const buttonTextColor = theme.mode === "dark" ? "#111827" : "#111827";
-  const iconColor =
-    theme.mode === "dark" ? "rgba(255,255,255,0.75)" : "rgba(15,23,42,0.65)";
+  const surfaceColor = theme.surfaceMuted;
+  const borderColor = theme.border;
+  const mutedText = theme.textMuted;
+  const buttonTextColor = theme.primaryText;
+  const iconColor = theme.textMuted;
 
   return (
     <Animated.View
@@ -84,7 +80,15 @@ export default function EmptyState({
       ]}
       accessibilityRole="summary"
     >
-      <View style={styles.iconWrapper}>
+      <View
+        style={[
+          styles.iconWrapper,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.borderMuted,
+          },
+        ]}
+      >
         {icon ? (
           icon
         ) : (
@@ -122,7 +126,7 @@ export default function EmptyState({
           style={[
             styles.secondaryAction,
             {
-              borderColor,
+              borderColor: theme.borderMuted,
             },
           ]}
         >
@@ -153,6 +157,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   title: {
     fontSize: 18,

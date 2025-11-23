@@ -273,7 +273,7 @@ export default function GarageDetail({
     return (
         <StarRating
           rating={rating}
-          color="#ceb888"
+          color={theme.primary}
           onChange={ratingChange}
         />
     );

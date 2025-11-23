@@ -22,11 +22,9 @@ export default function BottomBar({ tabs, active, onChange }: Props) {
     tabs.findIndex((tab) => tab.key === active)
   );
   const segmentWidth = trackWidth > 0 ? trackWidth / tabs.length : 0;
-  const activeContentColor = theme.mode === "dark" ? theme.bg : "#111111";
-  const inactiveContentColor =
-    theme.mode === "dark" ? "rgba(255,255,255,0.6)" : "rgba(17,24,39,0.45)";
-  const trackBackground =
-    theme.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(17,24,39,0.05)";
+  const activeContentColor = theme.primaryText;
+  const inactiveContentColor = theme.textMuted;
+  const trackBackground = theme.surfaceMuted;
 
   React.useEffect(() => {
     if (segmentWidth === 0) {
@@ -43,7 +41,17 @@ export default function BottomBar({ tabs, active, onChange }: Props) {
   }, [activeIndex, indicatorX, segmentWidth]);
 
   return (
-    <View style={[styles.shell, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
+    <View
+      style={[
+        styles.shell,
+        {
+          backgroundColor: theme.surface,
+          borderTopColor: theme.border,
+          paddingBottom: Math.max(insets.bottom, 12),
+          shadowColor: theme.shadow,
+        },
+      ]}
+    >
       <View
         style={[
           styles.track,
@@ -101,8 +109,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
     paddingTop: 10,
-    shadowColor: "#000000",
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,

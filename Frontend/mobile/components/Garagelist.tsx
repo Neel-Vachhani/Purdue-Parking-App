@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { ThemeContext } from "../theme/ThemeProvider";
+import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { useEffect } from "react";
 import GarageDetail from "./DetailedGarage";
 import EmptyState from "./EmptyState";
@@ -482,13 +482,13 @@ export default function GarageList({
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
     const pct = Math.min(item.current / total, 1);
-    const colors = getColors(pct);
+    const occupancy = getOccupancyColors(pct, theme);
     const passesLabel = item.passes.join(", ");
     const avg_rating = async () => {
       item.rating = await getRatings(item.code)
     }
-    const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
-    const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
+    const cardBg = theme.surface;
+    const secondaryText = theme.textMuted;
 
     return (
       <TouchableOpacity activeOpacity={0.9} onPress={() => openDetail(item)}>
@@ -499,11 +499,14 @@ export default function GarageList({
             padding: 16,
             borderRadius: 14,
             backgroundColor: cardBg,
-            borderWidth: 2,
-            borderColor: colors.border,
-            shadowColor: "#000",
-            shadowOpacity: 0.2,
-            shadowRadius: 6,
+            borderWidth: 1,
+            borderColor: theme.border,
+            borderLeftWidth: 4,
+            borderLeftColor: occupancy.fill,
+            shadowColor: theme.shadow,
+            shadowOpacity: theme.mode === "dark" ? 0.35 : 0.12,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 6 },
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
@@ -513,31 +516,29 @@ export default function GarageList({
               </Text>
               {/* Rating Pill */}
               <View
-              onLayout={() => avg_rating()}
+                onLayout={() => avg_rating()}
                 style={{
-                    borderWidth:1,
-                    borderColor:'black',
-                    alignItems:'center',
-                    justifyContent:'center',
-                    width:60,
-                    height:25,
-                    backgroundColor:'#ceb888',
-                    borderRadius:50,
-                    marginTop: 5,
-                  }}
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 64,
+                  height: 28,
+                  backgroundColor: theme.surfaceMuted,
+                  borderRadius: 999,
+                  marginTop: 5,
+                  paddingHorizontal: 8,
+                }}
               >
-                <Text 
-                style = {{
-                  marginTop: 2.5,
-                  color: '#000',
-                  fontWeight: "bold"
-                  //TODO: parse to float
-                }}>{item.rating.toFixed(1) + " "}
-                <Ionicons
-                  name={"star"}
-                  size={15}
-                  color={'#000'}
-                />
+                <Text
+                  style={{
+                    marginTop: 2,
+                    color: theme.text,
+                    fontWeight: "700",
+                  }}
+                >
+                  {item.rating.toFixed(1) + " "}
+                  <Ionicons name={"star"} size={14} color={theme.primary} />
                 </Text>
               </View>
 
@@ -579,7 +580,7 @@ export default function GarageList({
           <View
             style={{
               height: 14,
-              backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#d9d9d9",
+              backgroundColor: theme.borderMuted,
               borderRadius: 8,
               marginTop: 10,
               overflow: "hidden",
@@ -589,7 +590,7 @@ export default function GarageList({
               style={{
                 width: `${pct * 100}%`,
                 height: "100%",
-                backgroundColor: colors.fill,
+                backgroundColor: occupancy.fill,
               }}
             />
           </View>
@@ -933,11 +934,11 @@ export default function GarageList({
   );
 }
 
-function getColors(pct: number) {
-  if (pct >= 0.8) return { border: "#f91e1eff", fill: "#f91e1eff" };
-  if (pct >= 0.65) return { border: "#ff7f1eff", fill: "#ff7f1eff" };
-  if (pct >= 0.25) return { border: "#e0c542", fill: "#cbb538" };
-  return { border: "#41c463", fill: "#41c463" };
+function getOccupancyColors(pct: number, theme: AppTheme) {
+  if (pct >= 0.85) return { fill: theme.danger };
+  if (pct >= 0.65) return { fill: theme.warning };
+  if (pct >= 0.35) return { fill: theme.info };
+  return { fill: theme.success };
 }
 
 function getInitialOccupancy() {
