@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ThemeContext } from "../theme/ThemeProvider";
 import { useEffect } from "react";
 import GarageDetail from "./DetailedGarage";
+import EmptyState from "./EmptyState";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
 
 type Garage = {
@@ -250,6 +251,28 @@ export default function GarageList({
     loadFilters();
   }, []);
 
+  React.useEffect(() => {
+    if (!filtersLoadedRef.current) return;
+    const persist = async () => {
+      try {
+        if (selectedPasses.length === 0 && !showFavoritesOnly) {
+          await AsyncStorage.removeItem(FILTER_STORAGE_KEY);
+          return;
+        }
+        await AsyncStorage.setItem(
+          FILTER_STORAGE_KEY,
+          JSON.stringify({
+            passes: selectedPasses,
+            favoritesOnly: showFavoritesOnly,
+          })
+        );
+      } catch (error) {
+        console.warn("Failed to save garage filters", error);
+      }
+    };
+    persist();
+  }, [selectedPasses, showFavoritesOnly]);
+
   // Handles toggling favorite status
   const handleToggleFavorite = React.useCallback(
     (garage: Garage) => {
@@ -384,8 +407,10 @@ export default function GarageList({
   
 
   // Filtering logic for garages
+  const trimmedQuery = searchQuery.trim();
+
   const visibleGarages = React.useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = trimmedQuery.toLowerCase();
 
     let filtered = garages;
 
@@ -408,7 +433,8 @@ export default function GarageList({
     }
 
     return filtered;
-  }, [garages, searchQuery, selectedPasses, showFavoritesOnly]);
+  }, [garages, trimmedQuery, selectedPasses, showFavoritesOnly]);
+
   const toggleFavoritesFilter = React.useCallback(() => {
     setShowFavoritesOnly((prev) => !prev);
   }, []);
@@ -421,6 +447,14 @@ export default function GarageList({
 
   const clearPassFilters = React.useCallback(() => {
     setSelectedPasses([]);
+  }, []);
+
+  const handleClearFilters = React.useCallback(() => {
+    setSearchQuery("");
+    setSelectedPasses([]);
+    setShowFavoritesOnly(false);
+    setIsFilterVisible(false);
+    AsyncStorage.removeItem(FILTER_STORAGE_KEY).catch(() => {});
   }, []);
 
   const getRatings = async (code: string) => {
@@ -564,6 +598,68 @@ export default function GarageList({
     );
   };
 
+  const filtersReady = filtersLoadedRef.current;
+  const favoritesOnlyActive =
+    showFavoritesOnly && selectedPasses.length === 0 && trimmedQuery.length === 0;
+  const hasActiveFilters =
+    trimmedQuery.length > 0 || selectedPasses.length > 0 || showFavoritesOnly;
+
+  const emptyStateContent = React.useMemo(() => {
+    if (!filtersReady || visibleGarages.length > 0) {
+      return null;
+    }
+
+    if (favoritesOnlyActive) {
+      return (
+        <EmptyState
+          title="No favorites yet"
+          description="Tap the star on any garage to save it, then it will appear in this view."
+          iconName="star-outline"
+          primaryActionLabel="Browse garages"
+          onPrimaryAction={handleClearFilters}
+          testID="garage-favorites-empty"
+        />
+      );
+    }
+
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          title="No garages match your filters"
+          description="Try adjusting your search or clear filters to see every garage again."
+          iconName="funnel-outline"
+          primaryActionLabel="Clear filters"
+          onPrimaryAction={handleClearFilters}
+          testID="garage-filters-empty"
+        />
+      );
+    }
+
+    return (
+      <EmptyState
+        title="No garages available"
+        description="Garages will appear here once data is available."
+        iconName="car-outline"
+        testID="garage-empty"
+      />
+    );
+  }, [
+    filtersReady,
+    visibleGarages.length,
+    hasActiveFilters,
+    favoritesOnlyActive,
+    handleClearFilters,
+  ]);
+
+  const renderEmptyComponent = React.useCallback(() => {
+    if (!emptyStateContent) return null;
+    return (
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 48 }}>
+        {emptyStateContent}
+      </View>
+    );
+  }, [emptyStateContent]);
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
@@ -619,6 +715,11 @@ export default function GarageList({
           />
           <TouchableOpacity
             onPress={toggleFavoritesFilter}
+            testID="favorites-filter-toggle"
+            accessibilityRole="button"
+            accessibilityLabel={
+              showFavoritesOnly ? "Showing favorites only" : "Filter favorites"
+            }
             style={{
               width: 36,
               height: 36,
@@ -776,7 +877,13 @@ export default function GarageList({
         data={visibleGarages}
         keyExtractor={(g) => g.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
+        ListEmptyComponent={renderEmptyComponent}
+        contentContainerStyle={{
+          paddingBottom: 24,
+          paddingTop: 8,
+          flexGrow: visibleGarages.length === 0 ? 1 : 0,
+          justifyContent: visibleGarages.length === 0 ? "center" : undefined,
+        }}
       />
 
       <Text
