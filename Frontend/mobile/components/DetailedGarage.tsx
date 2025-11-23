@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking, Modal, TextInput, Alert } from "react-native";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
 import * as SecureStore from "expo-secure-store";
@@ -202,6 +202,38 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
   loadingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "flex-end" },
   loadingPill: { marginBottom: 24, backgroundColor: theme.bg, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 },
   loadingText: { color: theme.text, fontWeight: "700" },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 20,
+  },
+  reportInput: {
+    minHeight: 120,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.mode === "dark" ? "rgba(148,163,184,0.35)" : "rgba(107,114,128,0.35)",
+    color: theme.text,
+    backgroundColor: theme.mode === "dark" ? "rgba(17,24,39,0.8)" : "rgba(255,255,255,0.95)",
+    textAlignVertical: "top",
+  },
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  submitBtn: {
+    paddingHorizontal: 20,
+    backgroundColor: "#fbbf24",
+    borderRadius: 12,
+  },
 });
 
 const Pill = ({ children }: { children: React.ReactNode }) => {
@@ -265,6 +297,8 @@ export default function GarageDetail({
   const [events, setEvents] = React.useState<LotEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = React.useState(false);
   const [rating, setRating] = React.useState(0);
+  const [reportModalVisible, setReportModalVisible] = React.useState(false);
+  const [reportDescription, setReportDescription] = React.useState("");
 
 
   const RatingWidget = () => {
@@ -322,6 +356,26 @@ export default function GarageDetail({
                 // Canceled
             }});
     };
+
+  const openReportModal = () => {
+    setReportDescription("");
+    setReportModalVisible(true);
+  };
+
+  const closeReportModal = () => setReportModalVisible(false);
+
+  const submitReport = () => {
+    if (!reportDescription.trim()) {
+      Alert.alert("Describe the issue", "Please add a brief description before submitting.");
+      return;
+    }
+
+    Alert.alert(
+      "Report submitted",
+      "Thanks for flagging the issue. We'll review it shortly.",
+      [{ text: "OK", onPress: closeReportModal }]
+    );
+  };
 
 
   // Load travel time when garage changes (User Story #9 - AC3)
@@ -560,12 +614,10 @@ export default function GarageDetail({
         )}
 
         {/* Rating Block */}
-        {
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Rating</Text>
-            <RatingWidget></RatingWidget>
-          </View>
-        }
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Rating</Text>
+          <RatingWidget />
+        </View>
 
         {/* Amenities */}
         <View style={styles.card}>
@@ -653,28 +705,16 @@ export default function GarageDetail({
           )}
         </View>
 
-        {/* Actions */}
-        {/* <View style={[styles.card, styles.actionsCard]}>
-          <Pressable style={[styles.actionBtn, styles.primary]} onPress={() => onStartParking?.(garage)}>
-            <Ionicons name="car" size={18} />
-            <Text style={styles.actionText}>Start Parking</Text>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Need to flag something?</Text>
+          <Text style={{ color: theme.text, opacity: 0.7, fontSize: 13, marginBottom: 12 }}>
+            Let us know if anything looks incorrect for this garage.
+          </Text>
+          <Pressable style={[styles.actionBtn, styles.primary]} onPress={openReportModal}>
+            <Ionicons name="alert" size={18} color={theme.mode === "dark" ? "#0f172a" : "#0b0b0c"} />
+            <Text style={[styles.actionText, { color: theme.mode === "dark" ? "#0f172a" : "#0b0b0c" }]}>Report an Issue</Text>
           </Pressable>
-          <Line />
-          <View style={styles.actionsRow}>
-            <Pressable style={styles.iconBtn} onPress={() => onStartNavigation?.(garage)}>
-              <Ionicons name="navigate" size={18} />
-              <Text style={styles.iconBtnLabel}>Navigate</Text>
-            </Pressable>
-            <Pressable style={styles.iconBtn} onPress={() => onShare?.(garage)}>
-              <Ionicons name="share-social" size={18} />
-              <Text style={styles.iconBtnLabel}>Share</Text>
-            </Pressable>
-            <Pressable style={styles.iconBtn} onPress={onRefresh}>
-              <Ionicons name="refresh" size={18} />
-              <Text style={styles.iconBtnLabel}>Refresh</Text>
-            </Pressable>
-          </View>
-        </View> */}
+        </View>
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -686,6 +726,44 @@ export default function GarageDetail({
           </View>
         </View>
       )}
+
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeReportModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.card, styles.modalContent]}
+          >
+            <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Report an Issue</Text>
+            <Text style={{ color: theme.text, opacity: 0.7, marginBottom: 12 }}>
+              Garage: {garage.name}
+            </Text>
+
+            <TextInput
+              value={reportDescription}
+              onChangeText={setReportDescription}
+              placeholder="Describe what's incorrect (availability, signage, etc.)"
+              placeholderTextColor={theme.mode === "dark" ? "#9CA3AF" : "#6B7280"}
+              style={styles.reportInput}
+              multiline
+            />
+
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 16, gap: 12 }}>
+              <Pressable style={styles.cancelBtn} onPress={closeReportModal}>
+                <Text style={{ color: theme.text, fontWeight: "600" }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.actionBtn, styles.submitBtn, { opacity: reportDescription.trim() ? 1 : 0.6 }]}
+                onPress={submitReport}
+              >
+                <Text style={[styles.actionText, { color: "#000" }]}>Submit</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
