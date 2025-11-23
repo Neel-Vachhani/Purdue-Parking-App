@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ThemedText from "./ThemedText";
 
 // Add "calendar" to TabKey
-type TabKey = "garages" | "settings" | "calendar" | "insights" | "predictions" | "navigation";
+type TabKey = "garages" | "settings" | "calendar" | "insights" | "navigation";
 type Props = { active: TabKey; onChange: (key: TabKey) => void };
 
 // Update labels to include Calendar
@@ -13,8 +13,7 @@ const TAB_LABELS: Record<TabKey, string> = {
   garages: "Garages",
   calendar: "Calendar",
   settings: "Settings",
-  insights: "Data",
-  predictions: "Insights",
+  insights: "Insights",
   navigation: "Navigation"
 };
 

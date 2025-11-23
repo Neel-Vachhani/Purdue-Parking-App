@@ -335,10 +335,7 @@ export default function PredictiveInsights() {
     <View style={{ flex: 1, backgroundColor: "#000" }}>
       <ScrollView style={{ flex: 1 }}>
         {/* Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Parking Insights</Text>
-          <Text style={styles.headerSubtitle}>Real-time availability and trends</Text>
-        </View>
+        
 
         {/* Location Card */}
         <View style={styles.section}>

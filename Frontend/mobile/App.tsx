@@ -18,10 +18,12 @@ import PredictiveInsights from "./screens/Predictions/PredictiveInsights"
 import ParkingWS from "./components/ParkingWS";
 import NavigationScreen from "./screens/Navigation/NavigationScreen";
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
+import Combined from "./screens/Insights/Combined";
+
 
 
 // Tab type
-type TabKey = "garages" | "settings" | "calendar" | "insights" | "predictions" | "navigation";
+type TabKey = "garages" | "settings" | "calendar" | "insights" | "navigation";
 
 export default function App() {
   const [tab, setTab] = React.useState<TabKey>("garages");
@@ -64,8 +66,7 @@ export default function App() {
           {(tab === "garages") ? <GarageMap></GarageMap> : null}
           {(tab === "calendar") ? <Calendar /> : null}
           {(tab === "settings") ? <SettingsScreen onLogout={() => setIsAuthed(false)} /> : null}
-          {(tab === "insights") ? <Insights /> : null}
-          {(tab === "predictions") ? <PredictiveInsights /> : null}
+          {(tab === "insights") ? <Combined /> : null}
           {(tab == "navigation") ? <NavigationScreen></NavigationScreen> : null}
         </SafeAreaView>
         <BottomBar active={tab} onChange={setTab} />
