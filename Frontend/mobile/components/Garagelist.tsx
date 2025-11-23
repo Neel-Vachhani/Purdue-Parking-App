@@ -14,6 +14,7 @@ import {
   Animated,
   Easing,
   Linking,
+  Pressable,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +22,7 @@ import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { useEffect } from "react";
 import GarageDetail from "./DetailedGarage";
 import EmptyState from "./EmptyState";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
 
 type Garage = {
@@ -189,6 +191,7 @@ function mapListGarageToDetail(g:   Garage): GarageDetailType {
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const FILTER_STORAGE_KEY = "garage_filters";
+const BACK_TO_TOP_THRESHOLD = 420;
 
 export default function GarageList({
   data = INITIAL_GARAGES,
@@ -203,7 +206,12 @@ export default function GarageList({
   setView: React.Dispatch<React.SetStateAction<"garage" | "map">>;
 }) {
   const theme = React.useContext(ThemeContext);
+  const insets = useSafeAreaInsets();
+  const fabBottomOffset = React.useMemo(() => Math.max(20, insets.bottom + 20), [insets.bottom]);
   const [garages, setGarages] = React.useState<Garage[]>(data);
+  const listRef = React.useRef<FlatList<Garage>>(null);
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  const [showBackToTop, setShowBackToTop] = React.useState(false);
   const [lastUpdated, setLastUpdated] = React.useState<string>(() =>
     new Date().toLocaleString("en-US", {
       hour: "numeric",
@@ -221,6 +229,42 @@ export default function GarageList({
   // detail panel state
   const [selected, setSelected] = React.useState<Garage | null>(null);
   const translateX = React.useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const fabOpacity = React.useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [BACK_TO_TOP_THRESHOLD - 140, BACK_TO_TOP_THRESHOLD - 20, BACK_TO_TOP_THRESHOLD + 60],
+        outputRange: [0, 0, 1],
+        extrapolate: "clamp",
+      }),
+    [scrollY]
+  );
+  const fabTranslateY = React.useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [BACK_TO_TOP_THRESHOLD - 20, BACK_TO_TOP_THRESHOLD + 80],
+        outputRange: [32, 0],
+        extrapolate: "clamp",
+      }),
+    [scrollY]
+  );
+  const handleListScroll = React.useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+        listener: ({ nativeEvent }) => {
+          const offsetY = nativeEvent.contentOffset.y;
+          setShowBackToTop((prev) => {
+            if (prev && offsetY < BACK_TO_TOP_THRESHOLD * 0.4) return false;
+            if (!prev && offsetY > BACK_TO_TOP_THRESHOLD) return true;
+            return prev;
+          });
+        },
+      }),
+    [scrollY]
+  );
+  const handleBackToTopPress = React.useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
   React.useEffect(() => setGarages(data), [data]);
 
@@ -874,11 +918,14 @@ export default function GarageList({
         </TouchableWithoutFeedback>
       </Modal>
 
-      <FlatList
+      <Animated.FlatList
+        ref={listRef}
         data={visibleGarages}
         keyExtractor={(g) => g.id}
         renderItem={renderItem}
         ListEmptyComponent={renderEmptyComponent}
+        onScroll={handleListScroll}
+        scrollEventThrottle={16}
         contentContainerStyle={{
           paddingBottom: 24,
           paddingTop: 8,
@@ -886,6 +933,45 @@ export default function GarageList({
           justifyContent: visibleGarages.length === 0 ? "center" : undefined,
         }}
       />
+
+      <Animated.View
+        pointerEvents={showBackToTop ? "auto" : "none"}
+        style={[
+          {
+            position: "absolute",
+            right: 20,
+            bottom: fabBottomOffset,
+            zIndex: 4,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: theme.mode === "dark" ? 0.35 : 0.18,
+            shadowRadius: 12,
+            elevation: 6,
+          },
+          { opacity: fabOpacity, transform: [{ translateY: fabTranslateY }] },
+        ]}
+      >
+        <Pressable
+          onPress={handleBackToTopPress}
+          accessibilityRole="button"
+          accessibilityLabel="Back to top"
+          accessibilityHint="Scrolls the garage list to the beginning"
+          testID="garage-list-back-to-top"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={({ pressed }) => ({
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: pressed ? theme.fabBackgroundPressed : theme.fabBackground,
+            borderWidth: theme.mode === "dark" ? 0 : 1,
+            borderColor: theme.mode === "dark" ? "transparent" : "rgba(0,0,0,0.08)",
+          })}
+        >
+          <Ionicons name="arrow-up" size={22} color={theme.fabIcon} />
+        </Pressable>
+      </Animated.View>
 
       <Text
         style={{
