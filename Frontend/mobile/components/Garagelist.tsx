@@ -33,6 +33,7 @@ type Garage = {
   lat?: number;
   lng?: number;
   passes: ParkingPass[];
+  rating: number;
 };
 export type Amenity =
   | "covered"
@@ -71,6 +72,7 @@ export interface GarageDetailType {
   lastUpdatedIso?: string;
   heroImageUrl?: string;
   heightClearanceMeters?: number;
+  rating: number;
   evPorts?: number;
   accessibleSpots?: number;
 }
@@ -82,38 +84,39 @@ type GarageDefinition = {
   lat?: number;
   lng?: number;
   passes: ParkingPass[];
+  rating: number;
 };
 const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall", "Paid"];
 
 const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"] },
-  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"] },
-  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"] },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"] },
-  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"] },
-  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"] },
-  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, lat: 40.43095, lng: -86.91625, passes: ["Grad House", "Paid"] },
-  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"] },
-  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"] },
-  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"] },
-  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"] },
-  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"] },
-  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"] },
-  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"] },
-  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"] },
-  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"] },
-  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"] },
-  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"] },
-  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"] },
-  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"] },
-  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"] },
-  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"] },
-  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"] },
-  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"] },
-  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"] },
-  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"] },
-  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"] },
-  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"] },
+  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"], rating: 3.5 },
+  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"], rating: 4 },
+  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"], rating: 3 },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"], rating: 5 },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"], rating: 2 },
+  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"], rating: 2 },
+  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, lat: 40.43095, lng: -86.91625, passes: ["Grad House", "Paid"], rating: 2 },
+  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"], rating: 2  },
+  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"], rating: 2  },
+  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"], rating: 2  },
+  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"], rating: 2  },
+  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"], rating: 2 },
+  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"], rating: 2  },
+  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"], rating: 2 },
+  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"], rating: 2  },
+  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"], rating: 2  },
+  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"], rating: 2  },
+  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"], rating: 2  },
+  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"], rating: 2.0 },
+  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"], rating: 2  },
+  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"], rating: 2  },
+  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"], rating: 2  },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"], rating: 2 },
+  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"], rating: 2  },
+  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"], rating: 2  },
+  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"], rating: 2  },
+  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"], rating: 2  },
+  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"], rating: 2  },
 ];
 
 const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
@@ -128,6 +131,7 @@ const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => 
     total: initialCounts.total,
     lat: definition.lat,
     lng: definition.lng,
+    rating: definition.rating,
     passes: definition.passes,
   };
 });
@@ -167,12 +171,14 @@ function mapListGarageToDetail(g:   Garage): GarageDetailType {
   const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
   return {
     id: g.id,
+    code: g.code,
     name: g.name,
     address: "Address coming from API", // replace with real field if you have it
     totalSpots: g.total,
     occupiedSpots: occupied,
     covered: true,
     shaded: true,
+    rating: g.rating,
     amenities: ["covered", "lighting"],
     price: g.paid ? "Paid Lot" : "Free",
     hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
@@ -257,23 +263,15 @@ export default function GarageList({
     [onToggleFavorite]
   );
 
-  const sortGaragesByPrice = React.useCallback(() => {
-    setGarages((prev) => {
-      const sorted = [...prev];
-      sorted.sort((a, b) => Number(b.paid) - Number(a.paid));
-      return sorted;
-    });
-  }, []);
 
-  // TODO: Figure out what to do here
   const handleOpenInMaps = React.useCallback(
     (garage: Garage) => {
       const garageName: string = garage.name
-      garageName.replace(" ", "+")
+      const urlName = garageName.replace(" ", "+")
       const url = Platform.select({
       //ios: `http://maps.apple.com/?saddr=40.428604085531404+-86.91934994154656&daddr=${garage.lat},${garage.lng}`,
-      ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${garageName}+West+Lafayette+IN&travelmode=driving`,
-      android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${garageName}+West+Lafayette+IN&travelmode=driving`,
+      ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
+      android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
     })
     Linking.openURL(url!)
     },
@@ -365,7 +363,7 @@ export default function GarageList({
     }).start();
   };
 
-  const closeDetail = () => {
+  const closeDetail = (code: string) => {
     Animated.timing(translateX, {
       toValue: SCREEN_WIDTH,
       duration: 200,
@@ -374,6 +372,14 @@ export default function GarageList({
     }).start(({ finished }) => {
       if (finished) setSelected(null);
     });
+    const selected_garage = garages.find((garage) => garage.code == code)
+    if (selected_garage) {
+      getRatings(code).then((new_rating) => {
+        selected_garage.rating = new_rating
+        
+      })
+    }
+    
   };
   
 
@@ -417,13 +423,36 @@ export default function GarageList({
     setSelectedPasses([]);
   }, []);
 
+  const getRatings = async (code: string) => {
+      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+      //TODO: API Call to backend to update the rating in the backend
+      let avg_rating: number = 0
+      await fetch(`${API_BASE}/api/get_rating`, {
+        method: "POST",
+        headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          code: code
+        })
+      }).then(res => res.json())
+      .then((res) => {
+        avg_rating = res['avg_rating']
+  });
+      return avg_rating
+      
+    }
+
   // Function to render every garage item in non-detailed view
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
     const pct = Math.min(item.current / total, 1);
     const colors = getColors(pct);
     const passesLabel = item.passes.join(", ");
-
+    const avg_rating = async () => {
+      item.rating = await getRatings(item.code)
+    }
     const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
     const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
 
@@ -448,10 +477,35 @@ export default function GarageList({
               <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
                 {item.name}
               </Text>
-
-              <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
-                Code: {item.code}
-              </Text>
+              {/* Rating Pill */}
+              <View
+              onLayout={() => avg_rating()}
+                style={{
+                    borderWidth:1,
+                    borderColor:'black',
+                    alignItems:'center',
+                    justifyContent:'center',
+                    width:60,
+                    height:25,
+                    backgroundColor:'#ceb888',
+                    borderRadius:50,
+                    marginTop: 5,
+                  }}
+              >
+                <Text 
+                style = {{
+                  marginTop: 2.5,
+                  color: '#000',
+                  fontWeight: "bold"
+                  //TODO: parse to float
+                }}>{item.rating.toFixed(1) + " "}
+                <Ionicons
+                  name={"star"}
+                  size={15}
+                  color={'#000'}
+                />
+                </Text>
+              </View>
 
               <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
                 Passes: {passesLabel}
@@ -752,7 +806,12 @@ export default function GarageList({
           <GarageDetail
             garage={mapListGarageToDetail(selected)}
             isFavorite={!!selected.favorite}
-            onBack={closeDetail}
+            onBack={
+              () => {
+                closeDetail(selected.code)
+                
+              }
+            }
             onRefresh={() => {}}
             onToggleFavorite={(id, next) =>
               handleToggleFavorite({ ...selected, id, favorite: next })
