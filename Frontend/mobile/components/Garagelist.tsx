@@ -415,7 +415,7 @@ export default function GarageList({
     const loadAvailability = async () => {
       // *** TEMPORARILY DISABLED FOR TESTING FULL GARAGE POPUP ***
       // This prevents API data from overriding our static test values
-      console.log("🧪 [Garagelist] API call disabled for testing - using static 1/480 values");
+      console.log("🧪 [Garagelist] API call disabled for testing - using static test values");
       return; // Early return to skip API call
       
       try {
@@ -1115,10 +1115,3 @@ function getOccupancyColors(pct: number, theme: AppTheme) {
   return { fill: theme.success };
 }
 
-function getInitialOccupancy() {
-  const total = 480;
-  // *** MODIFIED FOR TESTING FULL GARAGE ALERTS ***
-  // Return specific test values instead of random
-  const current = 1; // Set to 1 to trigger "nearly full" alert
-  return { current, total };
-}
