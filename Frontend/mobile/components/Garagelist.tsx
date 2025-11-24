@@ -15,6 +15,7 @@ import {
   Easing,
   Linking,
   Pressable,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
@@ -123,15 +124,33 @@ const GARAGE_DEFINITIONS: GarageDefinition[] = [
 ];
 
 const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
-  const initialCounts = getInitialOccupancy();
+  // *** CUSTOM TEST VALUES FOR FULL GARAGE ALERTS ***
+  let testCurrent: number;
+  let testTotal: number;
+  
+  if (definition.code === "PGH") { // Harrison Street Parking Garage
+    testCurrent = 0; // Completely full
+    testTotal = 480;
+  } else if (definition.code === "PGG") { // Grant Street Parking Garage  
+    testCurrent = 3; // Nearly full
+    testTotal = 650;
+  } else if (definition.code === "PGU") { // University Street Parking Garage
+    testCurrent = 1; // Nearly full
+    testTotal = 820;
+  } else {
+    // All other garages have good availability
+    testCurrent = 150;
+    testTotal = 400;
+  }
+
   return {
     id: String(index + 1),
     code: definition.code,
     name: definition.name,
     paid: definition.paid ?? false,
     favorite: definition.favorite ?? false,
-    current: initialCounts.current,
-    total: initialCounts.total,
+    current: testCurrent,
+    total: testTotal,
     lat: definition.lat,
     lng: definition.lng,
     rating: definition.rating,
@@ -330,6 +349,51 @@ export default function GarageList({
     [onToggleFavorite]
   );
 
+  // Helper function to determine if a garage is full
+  const isGarageFull = (available: number): boolean => {
+    return available <= 5; // Consider garage full if 5 or fewer spots available
+  };
+
+  // Helper function to get garage status text
+  const getGarageStatus = (available: number, total: number): string => {
+    if (available === 0) return "completely full";
+    if (available <= 5) return "nearly full";
+    const percentage = Math.round((available / total) * 100);
+    return `${percentage}% available`;
+  };
+
+  // Handle garage press interaction for full garage popup
+  const handleGaragePress = React.useCallback((garage: Garage) => {
+    if (isGarageFull(garage.current)) {
+      const statusText = getGarageStatus(garage.current, garage.total);
+      const alertTitle = garage.current === 0 ? "Garage Full" : "Garage Nearly Full";
+      const alertMessage = `${garage.name} is ${statusText} with ${garage.current} spots remaining.\n\nConsider checking other nearby garages for better availability.`;
+
+      Alert.alert(
+        alertTitle,
+        alertMessage,
+        [
+          {
+            text: "OK",
+            style: "default",
+          },
+          {
+            text: "View Alternatives", 
+            style: "default",
+            onPress: () => {
+              // Future enhancement: could scroll to or highlight other garages
+              console.log("View alternatives pressed");
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } else {
+      // For garages with good availability, show success info
+      openDetail(garage);
+    }
+  }, []);
+
 
   const handleOpenInMaps = React.useCallback(
     (garage: Garage) => {
@@ -349,6 +413,11 @@ export default function GarageList({
     let isMounted = true;
 
     const loadAvailability = async () => {
+      // *** TEMPORARILY DISABLED FOR TESTING FULL GARAGE POPUP ***
+      // This prevents API data from overriding our static test values
+      console.log("🧪 [Garagelist] API call disabled for testing - using static 1/480 values");
+      return; // Early return to skip API call
+      
       try {
         const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
         if (!response.ok) {
@@ -535,7 +604,10 @@ export default function GarageList({
     const secondaryText = theme.textMuted;
 
     return (
-      <TouchableOpacity activeOpacity={0.9} onPress={() => openDetail(item)}>
+      <TouchableOpacity 
+        activeOpacity={0.9} 
+        onPress={() => handleGaragePress(item)} // ← Changed to use handleGaragePress instead of openDetail
+      >
         <View
           style={{
             marginHorizontal: 16,
@@ -551,13 +623,29 @@ export default function GarageList({
             shadowOpacity: theme.mode === "dark" ? 0.35 : 0.12,
             shadowRadius: 10,
             shadowOffset: { width: 0, height: 6 },
+            // Add subtle opacity for full garages
+            opacity: isGarageFull(item.current) ? 0.8 : 1,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
-                {item.name}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
+                  {item.name}
+                </Text>
+                {isGarageFull(item.current) && (
+                  <View style={{
+                    backgroundColor: "#ef4444",
+                    borderRadius: 10,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                  }}>
+                    <Text style={{ fontSize: 10, color: "white", fontWeight: "600" }}>
+                      {item.current === 0 ? "FULL" : "LOW"}
+                    </Text>
+                  </View>
+                )}
+              </View>
               {/* Rating Pill */}
               <View
                 onLayout={() => avg_rating()}
@@ -1029,6 +1117,8 @@ function getOccupancyColors(pct: number, theme: AppTheme) {
 
 function getInitialOccupancy() {
   const total = 480;
-  const current = Math.floor(Math.random() * (total + 1));
+  // *** MODIFIED FOR TESTING FULL GARAGE ALERTS ***
+  // Return specific test values instead of random
+  const current = 1; // Set to 1 to trigger "nearly full" alert
   return { current, total };
 }
