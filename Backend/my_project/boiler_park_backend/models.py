@@ -138,3 +138,19 @@ class NotificationLog(models.Model):
     def __str__(self):
         status = "✓" if self.success else "✗"
         return f"{status} {self.notification_type} to {self.user.email} at {self.sent_at}"
+
+
+class GarageIssueReport(models.Model):
+    """Stores user-submitted issue reports for parking garages."""
+
+    lot_code = models.CharField(max_length=32)
+    lot_name = models.CharField(max_length=120)
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["lot_code", "-created_at"])]
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.lot_code} report at {self.created_at:%Y-%m-%d %H:%M}" 

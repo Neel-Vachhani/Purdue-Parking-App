@@ -29,5 +29,6 @@ urlpatterns = [
     path('api/calendar/upload-ics/', views.upload_ics_events),
     path('api/calendar/events/', views.list_calendar_events),
     path('api/update_rating', views.send_user_rating),
-    path('api/get_rating', views.get_garage_rating)
+    path('api/get_rating', views.get_garage_rating),
+    path('reports/', views.garage_reports),
 ]

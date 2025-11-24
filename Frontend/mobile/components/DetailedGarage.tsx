@@ -299,6 +299,7 @@ export default function GarageDetail({
   const [rating, setRating] = React.useState(0);
   const [reportModalVisible, setReportModalVisible] = React.useState(false);
   const [reportDescription, setReportDescription] = React.useState("");
+  const [reportSubmitting, setReportSubmitting] = React.useState(false);
 
 
   const RatingWidget = () => {
@@ -364,17 +365,42 @@ export default function GarageDetail({
 
   const closeReportModal = () => setReportModalVisible(false);
 
-  const submitReport = () => {
+  const submitReport = async () => {
     if (!reportDescription.trim()) {
       Alert.alert("Describe the issue", "Please add a brief description before submitting.");
       return;
     }
 
-    Alert.alert(
-      "Report submitted",
-      "Thanks for flagging the issue. We'll review it shortly.",
-      [{ text: "OK", onPress: closeReportModal }]
-    );
+    try {
+      setReportSubmitting(true);
+      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+      const response = await fetch(`${API_BASE}/reports/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          lot_code: garage.code ?? "",
+          lot_name: garage.name,
+          description: reportDescription.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        const message = errorBody?.detail || "Unable to submit report right now.";
+        throw new Error(message);
+      }
+
+      setReportDescription("");
+      setReportModalVisible(false);
+      Alert.alert("Report submitted", "Thanks for flagging the issue. We'll review it shortly.");
+    } catch (err: any) {
+      const message = err?.message || "Unexpected error while submitting report.";
+      Alert.alert("Submit failed", message);
+    } finally {
+      setReportSubmitting(false);
+    }
   };
 
 
@@ -755,10 +781,17 @@ export default function GarageDetail({
                 <Text style={{ color: theme.text, fontWeight: "600" }}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={[styles.actionBtn, styles.submitBtn, { opacity: reportDescription.trim() ? 1 : 0.6 }]}
+                style={[
+                  styles.actionBtn,
+                  styles.submitBtn,
+                  { opacity: reportDescription.trim() && !reportSubmitting ? 1 : 0.6 },
+                ]}
                 onPress={submitReport}
+                disabled={reportSubmitting || !reportDescription.trim()}
               >
-                <Text style={[styles.actionText, { color: "#000" }]}>Submit</Text>
+                <Text style={[styles.actionText, { color: "#000" }]}>
+                  {reportSubmitting ? "Submitting..." : "Submit"}
+                </Text>
               </Pressable>
             </View>
           </View>

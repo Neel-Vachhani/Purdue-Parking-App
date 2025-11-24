@@ -15,8 +15,8 @@ from redis.exceptions import RedisError
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, ParkingLot
-from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer
+from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, ParkingLot, GarageIssueReport
+from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer, GarageIssueReportSerializer
 from .services import verify_apple_identity, issue_session_token
 from django.utils.timezone import make_aware
 
@@ -1327,6 +1327,28 @@ def list_shade_cover_indicators(request):
             "uncovered_pct_available": analysis["totals"]["uncovered_pct_available"],
         })
     return Response({"garages": results}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def garage_reports(request):
+    """Create or list garage issue reports submitted by users."""
+
+    if request.method == 'POST':
+        serializer = GarageIssueReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        report = serializer.save()
+        return Response(GarageIssueReportSerializer(report).data, status=status.HTTP_201_CREATED)
+
+    limit = min(int(request.query_params.get('limit', 50)), 200)
+    lot_code = request.query_params.get('lot_code')
+
+    reports = GarageIssueReport.objects.all()
+    if lot_code:
+        reports = reports.filter(lot_code__iexact=lot_code)
+
+    reports = reports[:limit]
+    return Response(GarageIssueReportSerializer(reports, many=True).data)
 
 
 @api_view(['GET'])
