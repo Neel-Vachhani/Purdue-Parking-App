@@ -546,13 +546,6 @@ def get_data(request):
     return Response(serializer.data)
 
 
-@api_view(['POST'])
-def add_item(request):
-    serializer = ItemSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-    return Response(serializer.data)
-
 
 @api_view(['POST'])
 def sign_up(request):
@@ -897,6 +890,23 @@ def get_garage_rating(request):
         return Response({"avg_rating": avg_rating})
     else:
         return Response({"avg_rating": 0})
+
+
+@api_view(['POST'])
+def update_specific_rating(request):
+    email = request.data.get(
+        "email") if request.method == 'POST' else request.query_params.get("email")
+    if not email:
+        return Response({"detail": "email required"}, status=400)
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response({"detail": "user not found"}, status=404)
+    code = request.data.get("code")
+    user_rating = float(request.data.get("user_rating"))
+    user.lot_ratings['codes'][code] = user_rating
+    user.save()
+    return Response({"status": "Successfully saved"})
 
 
 @api_view(['GET'])

@@ -18,12 +18,15 @@ import PredictiveInsights from "./screens/Predictions/PredictiveInsights"
 import ParkingWS from "./components/ParkingWS";
 import NavigationScreen from "./screens/Navigation/NavigationScreen";
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
+import { UserContext } from './utils/UserContext'
 
 
 // Tab type
 type TabKey = "garages" | "settings" | "calendar" | "insights" | "predictions" | "navigation";
 
 export default function App() {
+  const [backendUser, setBackendUser] = React.useState();
+  const value = {backendUser, setBackendUser}
   const [tab, setTab] = React.useState<TabKey>("garages");
   const [expoPushToken, setExpoPushToken] = React.useState<string | null>(null);
   const [booting, setBooting] = React.useState(true);
@@ -75,6 +78,7 @@ export default function App() {
   }
 
   return (
+    <UserContext.Provider value={value}>
     <ThemeProvider>
       <SafeAreaProvider>
         {booting ? (
@@ -91,5 +95,6 @@ export default function App() {
         )}
       </SafeAreaProvider>
     </ThemeProvider>
+    </UserContext.Provider>
   );
 }

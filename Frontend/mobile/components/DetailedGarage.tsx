@@ -279,9 +279,12 @@ export default function GarageDetail({
   };
 
   const ratingChange = async (rating: number) => {
+    const userJson = await SecureStore.getItemAsync("user");
+    const user = userJson ? JSON.parse(userJson) : null;
+    const email = user?.email;
+    if (!email) return;
     setRating(rating)
     const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
-    //TODO: API Call to backend to update the rating in the backend
     await fetch(`${API_BASE}/api/update_rating`, {
       method: "POST",
       headers: {
@@ -289,6 +292,20 @@ export default function GarageDetail({
       'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        code: garage.code,
+        user_rating: rating
+      })
+    })
+    
+    await fetch(`${API_BASE}/api/update_specific_rating`, {
+      
+      method: "POST",
+      headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: email,
         code: garage.code,
         user_rating: rating
       })

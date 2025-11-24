@@ -1,5 +1,5 @@
 // screens/Auth/AuthScreen.tsx
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useContext } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -9,6 +9,7 @@ import Constants from "expo-constants";
 import AuthInput from "../../components/AuthInput";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
+import UserContext from "../../App"
 
 
 import axios from "axios";
@@ -47,12 +48,15 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  //const [backendUser, setBackendUser] = useContext(UserContext)
+  
 
   const saveSessionAndContinue = async (token: string, user?: any) => {
     await SecureStore.setItemAsync("sessionToken", token);
     if (user) {
       await SecureStore.setItemAsync("user", JSON.stringify(user));
     }
+    //setBackendUser
     onAuthed();
   };
 
@@ -118,7 +122,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
     const { token, user } = res.data || {};
     await SecureStore.setItemAsync("sessionToken", token ?? "apple_ios");
     if (user) await SecureStore.setItemAsync("user", JSON.stringify(user));
-
+    
     onAuthed(); // continue to main app
   } catch (e: any) {
     if (e?.code !== "ERR_CANCELED") {

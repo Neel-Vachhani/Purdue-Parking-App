@@ -3,7 +3,6 @@ from . import views
 
 urlpatterns = [
     path('', views.get_data),
-    path('add/', views.add_item),
     path('signup/', views.sign_up),
     path('parking/availability/', views.get_parking_availability),
     path('login/', views.log_in),
@@ -29,5 +28,6 @@ urlpatterns = [
     path('api/calendar/upload-ics/', views.upload_ics_events),
     path('api/calendar/events/', views.list_calendar_events),
     path('api/update_rating', views.send_user_rating),
-    path('api/get_rating', views.get_garage_rating)
+    path('api/get_rating', views.get_garage_rating),
+    path('api/update_specific_rating', views.update_specific_rating)
 ]
