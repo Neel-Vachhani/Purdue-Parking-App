@@ -28,6 +28,10 @@ class User(models.Model):
     default_origin = models.CharField(
         max_length=255, blank=True, null=True)
     closure_notifications_enabled = models.BooleanField(default=True)
+    lot_ratings = models.JSONField(default=dict, null=True)
+    favorite_lots = models.JSONField(default=list, null=True, blank=True)
+    events = models.CharField(max_length=255, null=True, blank=True)
+
     # events = models.CharField()
 
 
