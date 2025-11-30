@@ -553,6 +553,16 @@ def add_item(request):
         serializer.save()
     return Response(serializer.data)
 
+LOT_CAPACITY_MAP = {
+    "pgh": 240, "pgg": 240, "pgu": 240, "pgnw": 240, "pgmd": 240, "pgw": 240,
+    "pggh": 240, "pgm": 240, "lot_r": 120, "lot_h": 80, "lot_fb": 100, "kfpc": 100,
+    "lot_a": 120, "crec": 150, "lot_o": 100, "tark_wily": 100, "lot_aa": 100,
+    "lot_bb": 80, "wnd_krach": 100, "shrv_erht_mrdh": 120, "mcut_harr_hill": 100,
+    "duhm": 60, "pierce_st": 100, "smth_bchm": 120, "disc_a": 100, "disc_ab": 100,
+    "disc_abc": 100, "airport": 80,
+}
+
+
 @api_view(["GET"])
 def get_parking_comparison(request):
     """
@@ -591,7 +601,6 @@ def get_parking_comparison(request):
     # Parse query parameters
     lots_param = request.GET.get("lots", "")
     period = request.GET.get("period", "day").lower()
-    
     if not lots_param:
         return Response(
             {"error": "Missing 'lots' query parameter. Use comma-separated lot codes (e.g., 'pgh,pgg,pgu')"},
@@ -606,7 +615,7 @@ def get_parking_comparison(request):
     
     # Parse lot codes
     lot_codes = [code.strip().upper() for code in lots_param.split(",")]
-    
+    print(lot_codes)
     if len(lot_codes) > 4:
         return Response(
             {"error": "Maximum 4 lots can be compared at once."},
@@ -622,7 +631,7 @@ def get_parking_comparison(request):
             (lot for lot in PARKING_LOTS if lot["code"].upper() == lot_code),
             None
         )
-        
+        print(lot_entry)
         if not lot_entry:
             invalid_lots.append(lot_code)
             continue
@@ -655,7 +664,7 @@ def get_parking_comparison(request):
             
             # Get total capacity (you may need to add this to PARKING_LOTS or fetch from DB)
             # Using default 240 for garages, adjust based on your actual data
-            total_capacity = 240  # You should map this properly for each lot
+            total_capacity = LOT_CAPACITY_MAP.get(lot_code.lower(), 240)
             
             # Get current availability from Redis
             try:

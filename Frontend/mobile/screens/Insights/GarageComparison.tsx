@@ -21,8 +21,28 @@ const GARAGES: Garage[] = [
   { id: "6", name: "Wood Street Parking Garage", code: "pgw", current: 200, total: 240, occupancy_percentage: 83.3 },
   { id: "7", name: "Graduate House Parking Garage", code: "pggh", current: 130, total: 240, occupancy_percentage: 54.2 },
   { id: "8", name: "Marsteller Street Parking Garage", code: "pgm", current: 180, total: 240, occupancy_percentage: 75 },
+  // Missing lots/garages from PARKING_LOTS
+  { id: "9", name: "Lot R", code: "lot_r", current: 0, total: 120, occupancy_percentage: 0 },
+  { id: "10", name: "Lot H", code: "lot_h", current: 0, total: 80, occupancy_percentage: 0 },
+  { id: "11", name: "Lot FB", code: "lot_fb", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "12", name: "Kozuch Football Performance Complex Lot", code: "kfpc", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "13", name: "Lot A", code: "lot_a", current: 0, total: 120, occupancy_percentage: 0 },
+  { id: "14", name: "Co-Rec Parking Lots", code: "crec", current: 0, total: 150, occupancy_percentage: 0 },
+  { id: "15", name: "Lot O", code: "lot_o", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "16", name: "Tarkington Wiley Parking Lots", code: "tark_wily", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "17", name: "Lot AA", code: "lot_aa", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "18", name: "Lot BB", code: "lot_bb", current: 0, total: 80, occupancy_percentage: 0 },
+  { id: "19", name: "Windsor & Krach Shared Parking Lot", code: "wnd_krach", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "20", name: "Shreve, Earhart & Meredith Shared Lot", code: "shrv_erht_mrdh", current: 0, total: 120, occupancy_percentage: 0 },
+  { id: "21", name: "McCutcheon, Harrison & Hillenbrand Shared Lot", code: "mcut_harr_hill", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "22", name: "Duhme Hall Parking Lot", code: "duhm", current: 0, total: 60, occupancy_percentage: 0 },
+  { id: "23", name: "Pierce Street Parking Lot", code: "pierce_st", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "24", name: "Smith & Biochemistry Lot", code: "smth_bchm", current: 0, total: 120, occupancy_percentage: 0 },
+  { id: "25", name: "Discovery Lot (A Permit)", code: "disc_a", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "26", name: "Discovery Lot (AB Permit)", code: "disc_ab", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "27", name: "Discovery Lot (ABC Permit)", code: "disc_abc", current: 0, total: 100, occupancy_percentage: 0 },
+  { id: "28", name: "Airport Parking Lots", code: "airport", current: 0, total: 80, occupancy_percentage: 0 },
 ];
-
 type ComparisonData = {
   garage: Garage;
   hourlyAvg: number[];
@@ -38,38 +58,82 @@ export default function GarageComparison() {
   const [timePeriod, setTimePeriod] = useState<"day" | "week">("day");
 
   // Fetch comparison data for selected garages
-  const fetchComparisonData = async () => {
-    setLoading(true);
-    try {
-      const data: ComparisonData[] = await Promise.all(
-        selectedGarages.map(async (garageId) => {
-          const garage = GARAGES.find(g => g.id === garageId)!;
-          
-          // Simulated API call - replace with actual endpoint
-          // const response = await fetch(`http://localhost:7500/parking/comparison?lot=${garage.code}&period=${timePeriod}`);
-          // const apiData = await response.json();
-          
-          // Simulated data for demonstration
-          const hourlyAvg = Array.from({ length: 24 }, () => Math.random() * 100);
-          const peakHour = hourlyAvg.indexOf(Math.max(...hourlyAvg));
-          const avgOccupancy = hourlyAvg.reduce((a, b) => a + b, 0) / hourlyAvg.length;
-          
+// Replace your existing fetchComparisonData with this function:
+const fetchComparisonData = async () => {
+  setLoading(true);
+  try {
+    // Build an array of ComparisonData by fetching backend for each selected garage
+    const data: ComparisonData[] = await Promise.all(
+      selectedGarages.map(async (garageId) => {
+        const garage = GARAGES.find((g) => g.id === garageId)!;
+        if (!garage) throw new Error(`Garage id ${garageId} not found in GARAGES`);
+
+        const BACKEND_BASE = "http://127.0.0.1:7500"; // change to your backend host if different
+        const url = `${BACKEND_BASE}/parking/comparison?lots=${encodeURIComponent(garage.code)}&period=${timePeriod}`;
+
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.warn(`Fetch failed for ${garage.code}: ${resp.status}`);
+          // Return a fallback object so UI doesn't break
           return {
             garage,
-            hourlyAvg,
-            peakHour,
-            avgOccupancy,
-          };
-        })
-      );
-      
-      setComparisonData(data);
-    } catch (error) {
-      console.error("Error fetching comparison data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+            hourlyAvg: Array.from({ length: 24 }, () => 0),
+            peakHour: 0,
+            avgOccupancy: 0,
+          } as ComparisonData;
+        }
+
+        const json = await resp.json();
+
+        // Backend returns { comparisons: [ { ... } ], period:, timestamp: }
+        if (!json.comparisons || json.comparisons.length === 0) {
+          console.warn(`No comparison data returned for ${garage.code}`);
+          return {
+            garage,
+            hourlyAvg: Array.from({ length: 24 }, () => 0),
+            peakHour: 0,
+            avgOccupancy: 0,
+          } as ComparisonData;
+        }
+
+        const c = json.comparisons[0];
+        console.log(c)
+        // Map backend fields to your frontend types
+        // Backend fields used in your snippet: current_occupancy, total_capacity, hourly_averages, peak_hour, average_occupancy
+        const hourlyAvg: number[] = Array.isArray(c.hourly_averages)
+          ? c.hourly_averages.map((n: any) => Number(n))
+          : Array.from({ length: 24 }, () => 0);
+
+        const peakHour = typeof c.peak_hour === "number" ? c.peak_hour : 0;
+        const avgOccupancy = typeof c.average_occupancy === "number" ? c.average_occupancy : 0;
+
+        // Update the garage object with current values returned by backend (optional but helpful)
+        const mappedGarage: Garage = {
+          ...garage,
+          current: typeof c.current_occupancy === "number" ? c.current_occupancy : garage.current,
+          total: typeof c.total_capacity === "number" ? c.total_capacity : garage.total,
+          occupancy_percentage:
+            typeof c.total_capacity === "number" && typeof c.current_occupancy === "number"
+              ? Number(((c.current_occupancy / c.total_capacity) * 100).toFixed(1))
+              : garage.occupancy_percentage,
+        };
+
+        return {
+          garage: mappedGarage,
+          hourlyAvg,
+          peakHour,
+          avgOccupancy,
+        } as ComparisonData;
+      })
+    );
+
+    setComparisonData(data);
+  } catch (error) {
+    console.error("Error fetching comparison data:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     if (selectedGarages.length > 0) {
