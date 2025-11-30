@@ -2,9 +2,12 @@ import React, { useContext } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking } from "react-native";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
+import EmptyState from "./EmptyState";
 import * as SecureStore from "expo-secure-store";
 import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../utils/travelTime";
 import { useActionSheet } from '@expo/react-native-action-sheet';
+import StarRating from 'react-native-star-rating-widget';
+
 
 
 export type Amenity =
@@ -54,6 +57,7 @@ export interface Garage {
   heightClearanceMeters?: number;
   evPorts?: number;
   accessibleSpots?: number;
+  rating: number;
 }
 
 export interface GarageDetailProps {
@@ -261,6 +265,36 @@ export default function GarageDetail({
   // State for events (User Story #10)
   const [events, setEvents] = React.useState<LotEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = React.useState(false);
+  const [rating, setRating] = React.useState(0);
+
+
+  const RatingWidget = () => {
+    
+    return (
+        <StarRating
+          rating={rating}
+          color={theme.primary}
+          onChange={ratingChange}
+        />
+    );
+  };
+
+  const ratingChange = async (rating: number) => {
+    setRating(rating)
+    const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+    //TODO: API Call to backend to update the rating in the backend
+    await fetch(`${API_BASE}/api/update_rating`, {
+      method: "POST",
+      headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        code: garage.code,
+        user_rating: rating
+      })
+    })
+  }
 
   const handleOpenInMaps = () => {
         const options = ['Apple Maps', 'Google Maps', 'Cancel'];
@@ -288,12 +322,6 @@ export default function GarageDetail({
               case cancelButtonIndex:
                 // Canceled
             }});
-              //const url = Platform.select({
-      //ios: `http://maps.apple.com/?saddr=40.428604085531404+-86.91934994154656&daddr=${garage.lat},${garage.lng}`,
-      //ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
-      //android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
-    //})
-    //Linking.openURL(url!)
     };
 
 
@@ -532,6 +560,14 @@ export default function GarageDetail({
           </View>
         )}
 
+        {/* Rating Block */}
+        {
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Rating</Text>
+            <RatingWidget></RatingWidget>
+          </View>
+        }
+
         {/* Amenities */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Amenities</Text>
@@ -603,18 +639,12 @@ export default function GarageDetail({
               ))}
             </View>
           ) : (
-            <View style={{ 
-              paddingVertical: 16,
-              paddingHorizontal: 12,
-              alignItems: "center",
-              backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-              borderRadius: 10
-            }}>
-              <Ionicons name="calendar-outline" size={32} color={theme.text} style={{ opacity: 0.3, marginBottom: 8 }} />
-              <Text style={{ color: theme.text, opacity: 0.6, fontSize: 13, textAlign: "center" }}>
-                No upcoming closures or events
-              </Text>
-            </View>
+            <EmptyState
+              title="No upcoming closures"
+              description="We'll post events and closures here as soon as they’re scheduled for this garage."
+              iconName="calendar-outline"
+              style={{ backgroundColor: "transparent", borderColor: theme.border }}
+            />
           )}
         </View>
 

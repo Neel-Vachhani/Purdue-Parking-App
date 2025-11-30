@@ -15,7 +15,7 @@ from redis.exceptions import RedisError
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent
+from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, ParkingLot
 from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer
 from .services import verify_apple_identity, issue_session_token
 from django.utils.timezone import make_aware
@@ -1052,6 +1052,36 @@ def notify_upcoming_closures(request):
     lot = request.data.get("lot") or "PGH"
     date = request.data.get("date") or "tomorrow"
     return Response({"queued": True, "lot": lot, "date": date})
+
+
+@api_view(['POST'])
+def send_user_rating(request):
+    """Send user rating too the backend and then update it"""
+    parking_lot = ParkingLot.objects.get(code=request.data.get("code"))
+    user_rating = float(request.data.get("user_rating"))
+    if parking_lot:
+        total_rating = parking_lot.rating
+        num_of_ratings = int(parking_lot.num_of_ratings)
+        num_of_ratings += 1
+        total_rating += user_rating
+        new_avg_rating = total_rating / num_of_ratings
+        parking_lot.rating = total_rating
+        parking_lot.num_of_ratings = num_of_ratings
+        parking_lot.save(update_fields=["rating", "num_of_ratings"])
+    return (Response({"rating": new_avg_rating}))
+
+
+@api_view(['POST'])
+def get_garage_rating(request):
+    parking_lot = ParkingLot.objects.get(code=request.data.get("code"))
+    total_rating = parking_lot.rating
+    num_of_ratings = parking_lot.num_of_ratings
+    if num_of_ratings != 0:
+        avg_rating = total_rating / num_of_ratings
+        print(avg_rating)
+        return Response({"avg_rating": avg_rating})
+    else:
+        return Response({"avg_rating": 0})
 
 
 @api_view(['GET'])

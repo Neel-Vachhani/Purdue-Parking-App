@@ -14,12 +14,15 @@ import {
   Animated,
   Easing,
   Linking,
+  Pressable,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { ThemeContext } from "../theme/ThemeProvider";
+import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { useEffect } from "react";
 import GarageDetail from "./DetailedGarage";
+import EmptyState from "./EmptyState";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
 
 type Garage = {
@@ -33,6 +36,7 @@ type Garage = {
   lat?: number;
   lng?: number;
   passes: ParkingPass[];
+  rating: number;
 };
 export type Amenity =
   | "covered"
@@ -71,6 +75,7 @@ export interface GarageDetailType {
   lastUpdatedIso?: string;
   heroImageUrl?: string;
   heightClearanceMeters?: number;
+  rating: number;
   evPorts?: number;
   accessibleSpots?: number;
 }
@@ -82,38 +87,39 @@ type GarageDefinition = {
   lat?: number;
   lng?: number;
   passes: ParkingPass[];
+  rating: number;
 };
 const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall", "Paid"];
 
 const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"] },
-  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"] },
-  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"] },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"] },
-  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"] },
-  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"] },
-  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, lat: 40.43095, lng: -86.91625, passes: ["Grad House", "Paid"] },
-  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"] },
-  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"] },
-  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"] },
-  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"] },
-  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"] },
-  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"] },
-  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"] },
-  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"] },
-  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"] },
-  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"] },
-  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"] },
-  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"] },
-  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"] },
-  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"] },
-  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"] },
-  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"] },
-  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"] },
-  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"] },
-  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"] },
-  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"] },
-  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"] },
+  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"], rating: 3.5 },
+  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"], rating: 4 },
+  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"], rating: 3 },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"], rating: 5 },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"], rating: 2 },
+  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"], rating: 2 },
+  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, lat: 40.43095, lng: -86.91625, passes: ["Grad House", "Paid"], rating: 2 },
+  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"], rating: 2  },
+  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"], rating: 2  },
+  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"], rating: 2  },
+  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"], rating: 2  },
+  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"], rating: 2 },
+  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"], rating: 2  },
+  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"], rating: 2 },
+  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"], rating: 2  },
+  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"], rating: 2  },
+  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"], rating: 2  },
+  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"], rating: 2  },
+  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"], rating: 2.0 },
+  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"], rating: 2  },
+  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"], rating: 2  },
+  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"], rating: 2  },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"], rating: 2 },
+  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"], rating: 2  },
+  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"], rating: 2  },
+  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"], rating: 2  },
+  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"], rating: 2  },
+  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"], rating: 2  },
 ];
 
 const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
@@ -128,6 +134,7 @@ const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => 
     total: initialCounts.total,
     lat: definition.lat,
     lng: definition.lng,
+    rating: definition.rating,
     passes: definition.passes,
   };
 });
@@ -167,12 +174,14 @@ function mapListGarageToDetail(g:   Garage): GarageDetailType {
   const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
   return {
     id: g.id,
+    code: g.code,
     name: g.name,
     address: "Address coming from API", // replace with real field if you have it
     totalSpots: g.total,
     occupiedSpots: occupied,
     covered: true,
     shaded: true,
+    rating: g.rating,
     amenities: ["covered", "lighting"],
     price: g.paid ? "Paid Lot" : "Free",
     hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
@@ -182,6 +191,7 @@ function mapListGarageToDetail(g:   Garage): GarageDetailType {
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const FILTER_STORAGE_KEY = "garage_filters";
+const BACK_TO_TOP_THRESHOLD = 420;
 
 export default function GarageList({
   data = INITIAL_GARAGES,
@@ -196,7 +206,12 @@ export default function GarageList({
   setView: React.Dispatch<React.SetStateAction<"garage" | "map">>;
 }) {
   const theme = React.useContext(ThemeContext);
+  const insets = useSafeAreaInsets();
+  const fabBottomOffset = React.useMemo(() => Math.max(20, insets.bottom + 20), [insets.bottom]);
   const [garages, setGarages] = React.useState<Garage[]>(data);
+  const listRef = React.useRef<FlatList<Garage>>(null);
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  const [showBackToTop, setShowBackToTop] = React.useState(false);
   const [lastUpdated, setLastUpdated] = React.useState<string>(() =>
     new Date().toLocaleString("en-US", {
       hour: "numeric",
@@ -214,6 +229,42 @@ export default function GarageList({
   // detail panel state
   const [selected, setSelected] = React.useState<Garage | null>(null);
   const translateX = React.useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const fabOpacity = React.useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [BACK_TO_TOP_THRESHOLD - 140, BACK_TO_TOP_THRESHOLD - 20, BACK_TO_TOP_THRESHOLD + 60],
+        outputRange: [0, 0, 1],
+        extrapolate: "clamp",
+      }),
+    [scrollY]
+  );
+  const fabTranslateY = React.useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [BACK_TO_TOP_THRESHOLD - 20, BACK_TO_TOP_THRESHOLD + 80],
+        outputRange: [32, 0],
+        extrapolate: "clamp",
+      }),
+    [scrollY]
+  );
+  const handleListScroll = React.useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+        listener: ({ nativeEvent }) => {
+          const offsetY = nativeEvent.contentOffset.y;
+          setShowBackToTop((prev) => {
+            if (prev && offsetY < BACK_TO_TOP_THRESHOLD * 0.4) return false;
+            if (!prev && offsetY > BACK_TO_TOP_THRESHOLD) return true;
+            return prev;
+          });
+        },
+      }),
+    [scrollY]
+  );
+  const handleBackToTopPress = React.useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
   React.useEffect(() => setGarages(data), [data]);
 
@@ -244,6 +295,28 @@ export default function GarageList({
     loadFilters();
   }, []);
 
+  React.useEffect(() => {
+    if (!filtersLoadedRef.current) return;
+    const persist = async () => {
+      try {
+        if (selectedPasses.length === 0 && !showFavoritesOnly) {
+          await AsyncStorage.removeItem(FILTER_STORAGE_KEY);
+          return;
+        }
+        await AsyncStorage.setItem(
+          FILTER_STORAGE_KEY,
+          JSON.stringify({
+            passes: selectedPasses,
+            favoritesOnly: showFavoritesOnly,
+          })
+        );
+      } catch (error) {
+        console.warn("Failed to save garage filters", error);
+      }
+    };
+    persist();
+  }, [selectedPasses, showFavoritesOnly]);
+
   // Handles toggling favorite status
   const handleToggleFavorite = React.useCallback(
     (garage: Garage) => {
@@ -257,23 +330,15 @@ export default function GarageList({
     [onToggleFavorite]
   );
 
-  const sortGaragesByPrice = React.useCallback(() => {
-    setGarages((prev) => {
-      const sorted = [...prev];
-      sorted.sort((a, b) => Number(b.paid) - Number(a.paid));
-      return sorted;
-    });
-  }, []);
 
-  // TODO: Figure out what to do here
   const handleOpenInMaps = React.useCallback(
     (garage: Garage) => {
       const garageName: string = garage.name
-      garageName.replace(" ", "+")
+      const urlName = garageName.replace(" ", "+")
       const url = Platform.select({
       //ios: `http://maps.apple.com/?saddr=40.428604085531404+-86.91934994154656&daddr=${garage.lat},${garage.lng}`,
-      ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${garageName}+West+Lafayette+IN&travelmode=driving`,
-      android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${garageName}+West+Lafayette+IN&travelmode=driving`,
+      ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
+      android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
     })
     Linking.openURL(url!)
     },
@@ -365,7 +430,7 @@ export default function GarageList({
     }).start();
   };
 
-  const closeDetail = () => {
+  const closeDetail = (code: string) => {
     Animated.timing(translateX, {
       toValue: SCREEN_WIDTH,
       duration: 200,
@@ -374,12 +439,22 @@ export default function GarageList({
     }).start(({ finished }) => {
       if (finished) setSelected(null);
     });
+    const selected_garage = garages.find((garage) => garage.code == code)
+    if (selected_garage) {
+      getRatings(code).then((new_rating) => {
+        selected_garage.rating = new_rating
+        
+      })
+    }
+    
   };
   
 
   // Filtering logic for garages
+  const trimmedQuery = searchQuery.trim();
+
   const visibleGarages = React.useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = trimmedQuery.toLowerCase();
 
     let filtered = garages;
 
@@ -402,7 +477,8 @@ export default function GarageList({
     }
 
     return filtered;
-  }, [garages, searchQuery, selectedPasses, showFavoritesOnly]);
+  }, [garages, trimmedQuery, selectedPasses, showFavoritesOnly]);
+
   const toggleFavoritesFilter = React.useCallback(() => {
     setShowFavoritesOnly((prev) => !prev);
   }, []);
@@ -417,15 +493,46 @@ export default function GarageList({
     setSelectedPasses([]);
   }, []);
 
+  const handleClearFilters = React.useCallback(() => {
+    setSearchQuery("");
+    setSelectedPasses([]);
+    setShowFavoritesOnly(false);
+    setIsFilterVisible(false);
+    AsyncStorage.removeItem(FILTER_STORAGE_KEY).catch(() => {});
+  }, []);
+
+  const getRatings = async (code: string) => {
+      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+      //TODO: API Call to backend to update the rating in the backend
+      let avg_rating: number = 0
+      await fetch(`${API_BASE}/api/get_rating`, {
+        method: "POST",
+        headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          code: code
+        })
+      }).then(res => res.json())
+      .then((res) => {
+        avg_rating = res['avg_rating']
+  });
+      return avg_rating
+      
+    }
+
   // Function to render every garage item in non-detailed view
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
     const pct = Math.min(item.current / total, 1);
-    const colors = getColors(pct);
+    const occupancy = getOccupancyColors(pct, theme);
     const passesLabel = item.passes.join(", ");
-
-    const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
-    const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
+    const avg_rating = async () => {
+      item.rating = await getRatings(item.code)
+    }
+    const cardBg = theme.surface;
+    const secondaryText = theme.textMuted;
 
     return (
       <TouchableOpacity activeOpacity={0.9} onPress={() => openDetail(item)}>
@@ -436,11 +543,14 @@ export default function GarageList({
             padding: 16,
             borderRadius: 14,
             backgroundColor: cardBg,
-            borderWidth: 2,
-            borderColor: colors.border,
-            shadowColor: "#000",
-            shadowOpacity: 0.2,
-            shadowRadius: 6,
+            borderWidth: 1,
+            borderColor: theme.border,
+            borderLeftWidth: 4,
+            borderLeftColor: occupancy.fill,
+            shadowColor: theme.shadow,
+            shadowOpacity: theme.mode === "dark" ? 0.35 : 0.12,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 6 },
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
@@ -448,10 +558,33 @@ export default function GarageList({
               <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
                 {item.name}
               </Text>
-
-              <Text style={{ color: secondaryText, marginTop: 6, fontSize: 14 }}>
-                Code: {item.code}
-              </Text>
+              {/* Rating Pill */}
+              <View
+                onLayout={() => avg_rating()}
+                style={{
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 64,
+                  height: 28,
+                  backgroundColor: theme.surfaceMuted,
+                  borderRadius: 999,
+                  marginTop: 5,
+                  paddingHorizontal: 8,
+                }}
+              >
+                <Text
+                  style={{
+                    marginTop: 2,
+                    color: theme.text,
+                    fontWeight: "700",
+                  }}
+                >
+                  {item.rating.toFixed(1) + " "}
+                  <Ionicons name={"star"} size={14} color={theme.primary} />
+                </Text>
+              </View>
 
               <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
                 Passes: {passesLabel}
@@ -491,7 +624,7 @@ export default function GarageList({
           <View
             style={{
               height: 14,
-              backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#d9d9d9",
+              backgroundColor: theme.borderMuted,
               borderRadius: 8,
               marginTop: 10,
               overflow: "hidden",
@@ -501,7 +634,7 @@ export default function GarageList({
               style={{
                 width: `${pct * 100}%`,
                 height: "100%",
-                backgroundColor: colors.fill,
+                backgroundColor: occupancy.fill,
               }}
             />
           </View>
@@ -509,6 +642,68 @@ export default function GarageList({
       </TouchableOpacity>
     );
   };
+
+  const filtersReady = filtersLoadedRef.current;
+  const favoritesOnlyActive =
+    showFavoritesOnly && selectedPasses.length === 0 && trimmedQuery.length === 0;
+  const hasActiveFilters =
+    trimmedQuery.length > 0 || selectedPasses.length > 0 || showFavoritesOnly;
+
+  const emptyStateContent = React.useMemo(() => {
+    if (!filtersReady || visibleGarages.length > 0) {
+      return null;
+    }
+
+    if (favoritesOnlyActive) {
+      return (
+        <EmptyState
+          title="No favorites yet"
+          description="Tap the star on any garage to save it, then it will appear in this view."
+          iconName="star-outline"
+          primaryActionLabel="Browse garages"
+          onPrimaryAction={handleClearFilters}
+          testID="garage-favorites-empty"
+        />
+      );
+    }
+
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          title="No garages match your filters"
+          description="Try adjusting your search or clear filters to see every garage again."
+          iconName="funnel-outline"
+          primaryActionLabel="Clear filters"
+          onPrimaryAction={handleClearFilters}
+          testID="garage-filters-empty"
+        />
+      );
+    }
+
+    return (
+      <EmptyState
+        title="No garages available"
+        description="Garages will appear here once data is available."
+        iconName="car-outline"
+        testID="garage-empty"
+      />
+    );
+  }, [
+    filtersReady,
+    visibleGarages.length,
+    hasActiveFilters,
+    favoritesOnlyActive,
+    handleClearFilters,
+  ]);
+
+  const renderEmptyComponent = React.useCallback(() => {
+    if (!emptyStateContent) return null;
+    return (
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 48 }}>
+        {emptyStateContent}
+      </View>
+    );
+  }, [emptyStateContent]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -565,6 +760,11 @@ export default function GarageList({
           />
           <TouchableOpacity
             onPress={toggleFavoritesFilter}
+            testID="favorites-filter-toggle"
+            accessibilityRole="button"
+            accessibilityLabel={
+              showFavoritesOnly ? "Showing favorites only" : "Filter favorites"
+            }
             style={{
               width: 36,
               height: 36,
@@ -718,12 +918,60 @@ export default function GarageList({
         </TouchableWithoutFeedback>
       </Modal>
 
-      <FlatList
+      <Animated.FlatList
+        ref={listRef}
         data={visibleGarages}
         keyExtractor={(g) => g.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
+        ListEmptyComponent={renderEmptyComponent}
+        onScroll={handleListScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{
+          paddingBottom: 24,
+          paddingTop: 8,
+          flexGrow: visibleGarages.length === 0 ? 1 : 0,
+          justifyContent: visibleGarages.length === 0 ? "center" : undefined,
+        }}
       />
+
+      <Animated.View
+        pointerEvents={showBackToTop ? "auto" : "none"}
+        style={[
+          {
+            position: "absolute",
+            right: 20,
+            bottom: fabBottomOffset,
+            zIndex: 4,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: theme.mode === "dark" ? 0.35 : 0.18,
+            shadowRadius: 12,
+            elevation: 6,
+          },
+          { opacity: fabOpacity, transform: [{ translateY: fabTranslateY }] },
+        ]}
+      >
+        <Pressable
+          onPress={handleBackToTopPress}
+          accessibilityRole="button"
+          accessibilityLabel="Back to top"
+          accessibilityHint="Scrolls the garage list to the beginning"
+          testID="garage-list-back-to-top"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={({ pressed }) => ({
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: pressed ? theme.fabBackgroundPressed : theme.fabBackground,
+            borderWidth: theme.mode === "dark" ? 0 : 1,
+            borderColor: theme.mode === "dark" ? "transparent" : "rgba(0,0,0,0.08)",
+          })}
+        >
+          <Ionicons name="arrow-up" size={22} color={theme.fabIcon} />
+        </Pressable>
+      </Animated.View>
 
       <Text
         style={{
@@ -752,7 +1000,12 @@ export default function GarageList({
           <GarageDetail
             garage={mapListGarageToDetail(selected)}
             isFavorite={!!selected.favorite}
-            onBack={closeDetail}
+            onBack={
+              () => {
+                closeDetail(selected.code)
+                
+              }
+            }
             onRefresh={() => {}}
             onToggleFavorite={(id, next) =>
               handleToggleFavorite({ ...selected, id, favorite: next })
@@ -767,11 +1020,11 @@ export default function GarageList({
   );
 }
 
-function getColors(pct: number) {
-  if (pct >= 0.8) return { border: "#f91e1eff", fill: "#f91e1eff" };
-  if (pct >= 0.65) return { border: "#ff7f1eff", fill: "#ff7f1eff" };
-  if (pct >= 0.25) return { border: "#e0c542", fill: "#cbb538" };
-  return { border: "#41c463", fill: "#41c463" };
+function getOccupancyColors(pct: number, theme: AppTheme) {
+  if (pct >= 0.85) return { fill: theme.danger };
+  if (pct >= 0.65) return { fill: theme.warning };
+  if (pct >= 0.35) return { fill: theme.info };
+  return { fill: theme.success };
 }
 
 function getInitialOccupancy() {

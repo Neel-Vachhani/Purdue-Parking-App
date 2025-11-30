@@ -68,47 +68,24 @@ class User(models.Model):
     # events = models.CharField()
 
 
-'''
-
-class User(models.Model):
-    parking_passes = {
-        "A": "A",
-        "B": "B",
-        "C": "C",
-        "Res": "Resident"
-    }
-
-    id = models.AutoField(primary_key=True)
-    email = models.EmailField()
-    parking_pass = models.CharField(
-        max_length=5, choices=parking_passes, blank=True, null=True)
-    events = models.CharField()
-
-
 class ParkingLot(models.Model):
     parking_passes = {
         "A": "A",
         "B": "B",
         "C": "C",
-        "Res": "Resident"
+        "SG": "SG",
+        "Res": "Residence Hall",
+        "Paid": "Paid"
     }
-    special_lot = {
-        "FB": "Football",
-        "BB": "Basketball"
-    }
-    id = models.AutoField(primary_key=True)
-    location = PlainLocationField()
-    name = models.CharField(max_length=50)
-    capacity = models.PositiveIntegerField()
-    free_slots = models.PositiveIntegerField()
-    start_time = models.TimeField()
-    end_time = models.TimeField()
+    code = models.CharField(primary_key=True, max_length=20)
+    name = models.CharField(max_length=100)
+    paid = models.BooleanField(null=True)
+    lat = models.FloatField()
+    lng = models.FloatField()
     parking_passes = ArrayField(models.CharField(
-        max_length=10, choices=parking_passes, blank=True))
-    special_lot = models.CharField(
-        max_length=10, choices=special_lot, null=True, blank=True)
-    cameras = ArrayField(models.CharField(max_length=30))
-'''
+        max_length=100, choices=parking_passes, blank=True))
+    rating = models.FloatField(null=True)
+    num_of_ratings = models.PositiveIntegerField()
 
 
 class CalendarEvent(models.Model):
