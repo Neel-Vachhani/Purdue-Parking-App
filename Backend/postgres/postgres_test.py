@@ -1,6 +1,7 @@
 import psycopg2
 from decouple import config
 
+# Connect to Postgres
 conn = psycopg2.connect(
     host=config('DB_HOST'),
     port=config('DB_PORT'),
@@ -8,18 +9,22 @@ conn = psycopg2.connect(
     user=config('DB_USERNAME'),
     password=config('DB_PASSWORD')
 )
+
 cursor = conn.cursor()
 
-# To check if the table exists, this query gets the table and prints all of the corresponding columns
+# Query columns from your user table
 cursor.execute("""
-    SELECT column_name
+    SELECT column_name, is_nullable, data_type
     FROM information_schema.columns 
-    WHERE table_name = 'parking_availability_data'
+    WHERE table_name = 'boiler_park_backend_user'
     ORDER BY ordinal_position;
 """)
+
 columns = cursor.fetchall()
-print("All columns:")
-for column in columns:
-    print(f"- {column[0]}")
+
+print("Columns for boiler_park_backend_user:")
+for name, nullable, dtype in columns:
+    print(f"- {name} | NULL: {nullable} | TYPE: {dtype}")
+
 cursor.close()
 conn.close()
