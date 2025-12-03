@@ -270,7 +270,7 @@ export default function GarageList({
     () =>
       Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
         useNativeDriver: true,
-        listener: ({ nativeEvent }) => {
+        listener: ({ nativeEvent }: { nativeEvent: { contentOffset: { y: number } } }) => {
           const offsetY = nativeEvent.contentOffset.y;
           setShowBackToTop((prev) => {
             if (prev && offsetY < BACK_TO_TOP_THRESHOLD * 0.4) return false;
@@ -417,68 +417,6 @@ export default function GarageList({
       // This prevents API data from overriding our static test values
       console.log("🧪 [Garagelist] API call disabled for testing - using static test values");
       return; // Early return to skip API call
-      
-      try {
-        const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
-        if (!response.ok) {
-          console.error("Failed to fetch parking availability:", response.status);
-          return;
-        }
-
-        const payload: { lots?: ApiLot[] } = await response.json();
-        const lots = Array.isArray(payload?.lots) ? payload.lots : undefined;
-        if (!lots || lots.length === 0 || !isMounted) return;
-
-        // Some sort of odd mapping logic to match lots from API to our local list
-        const updatesById = new Map<string, ApiLot>();
-        const updatesByCode = new Map<string, ApiLot>();
-        const updatesByName = new Map<string, ApiLot>();
-
-        lots.forEach((lot) => {
-          if (lot.id !== undefined) {
-            updatesById.set(String(lot.id), lot);
-          }
-
-          if (lot.code) {
-            updatesByCode.set(lot.code.toUpperCase(), lot);
-          }
-
-          if (lot.name) {
-            updatesByName.set(lot.name.toLowerCase(), lot);
-          }
-        });
-
-        // Update garages with fetched availability data using all three maps for extra matching?
-        setGarages((prev) =>
-          prev.map((garage) => {
-            const update =
-              updatesByCode.get(garage.code.toUpperCase()) ||
-              updatesById.get(garage.id) ||
-              updatesByName.get(garage.name.toLowerCase());
-
-            if (!update) return garage;
-
-            return {
-              ...garage,
-              current:
-                typeof update.available === "number" ? update.available : garage.current,
-              total:
-                typeof update.capacity === "number" ? update.capacity : garage.total,
-            };
-          })
-        );
-
-        setLastUpdated(
-          new Date().toLocaleString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-            timeZoneName: "short",
-          })
-        );
-      } catch (error) {
-        console.error("Failed to load parking availability", error);
-      }
     };
 
     loadAvailability();
