@@ -552,6 +552,191 @@ def get_user(request):
     user = User.objects.filter(email=email).first()
     return (Response(UserSerializer(user).data))
 
+@api_view(["GET"])
+def get_parking_comparison(request):
+    """
+    Compare multiple parking lots with detailed metrics.
+    Used by User Story #8 - Compare insights from 2 or more garages.
+    
+    Query Parameters:
+        lots (str): Comma-separated list of lot codes (e.g., "pgh,pgg,pgu")
+        period (str): Time period - "day" (24h) or "week" (7 days). Default: "day"
+    
+    Returns:
+        {
+            "comparisons": [
+                {
+                    "lot_code": "pgh",
+                    "lot_name": "Harrison Street Parking Garage",
+                    "current_occupancy": 180,
+                    "total_capacity": 240,
+                    "occupancy_percentage": 75.0,
+                    "available_spots": 60,
+                    "hourly_averages": [45, 50, 55, ...],  # 24 values for hourly avg availability
+                    "peak_hour": 14,  # Hour with highest occupancy (0-23)
+                    "average_occupancy": 67.5  # Average occupancy % over period
+                },
+                ...
+            ],
+            "period": "day",
+            "timestamp": "2025-01-20T10:30:00Z"
+        }
+    
+    Example:
+        GET /api/parking/comparison?lots=pgh,pgg,pgu&period=day
+    """
+    from statistics import mean
+    
+    # Parse query parameters
+    lots_param = request.GET.get("lots", "")
+    period = request.GET.get("period", "day").lower()
+    
+    if not lots_param:
+        return Response(
+            {"error": "Missing 'lots' query parameter. Use comma-separated lot codes (e.g., 'pgh,pgg,pgu')"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if period not in ["day", "week"]:
+        return Response(
+            {"error": "Invalid period. Must be 'day' or 'week'."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Parse lot codes
+    lot_codes = [code.strip().upper() for code in lots_param.split(",")]
+    
+    if len(lot_codes) > 4:
+        return Response(
+            {"error": "Maximum 4 lots can be compared at once."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Validate lot codes and get lot info
+    comparisons = []
+    invalid_lots = []
+    
+    for lot_code in lot_codes:
+        lot_entry = next(
+            (lot for lot in PARKING_LOTS if lot["code"].upper() == lot_code),
+            None
+        )
+        
+        if not lot_entry:
+            invalid_lots.append(lot_code)
+            continue
+        
+        try:
+            # Get historical data from Postgres
+            conn = get_postgres_connection()
+            cursor = conn.cursor()
+            
+            column_name = lot_entry["redis_key"]
+            
+            # Determine time interval
+            interval = "1 day" if period == "day" else "7 days"
+            
+            query = f"""
+                SELECT timestamp, {column_name}
+                FROM parking_availability_data
+                WHERE timestamp >= NOW() - INTERVAL '{interval}'
+                ORDER BY timestamp ASC;
+            """
+            
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            
+            if not rows:
+                logger.warning(f"No data found for lot {lot_code}")
+                continue
+            
+            # Get total capacity (you may need to add this to PARKING_LOTS or fetch from DB)
+            # Using default 240 for garages, adjust based on your actual data
+            total_capacity = 240  # You should map this properly for each lot
+            
+            # Get current availability from Redis
+            try:
+                redis_client = _redis_connection()
+                current_availability = _parse_int(redis_client.get(lot_entry["redis_key"])) or 0
+            except RedisError:
+                # Fallback to latest Postgres value
+                current_availability = int(rows[-1][1]) if rows else 0
+            
+            current_occupancy = max(total_capacity - current_availability, 0)
+            occupancy_percentage = round((current_occupancy / total_capacity) * 100, 1)
+            
+            # Calculate hourly averages (for 24-hour view)
+            hourly_data = {}  # hour -> list of availability values
+            
+            for timestamp, availability in rows:
+                if isinstance(timestamp, str):
+                    timestamp = datetime.fromisoformat(timestamp)
+                
+                hour = timestamp.hour
+                if hour not in hourly_data:
+                    hourly_data[hour] = []
+                hourly_data[hour].append(int(availability))
+            
+            # Calculate average availability for each hour
+            hourly_averages = []
+            for hour in range(24):
+                if hour in hourly_data:
+                    avg = mean(hourly_data[hour])
+                else:
+                    avg = 0  # No data for this hour
+                hourly_averages.append(round(avg, 1))
+            
+            # Calculate hourly occupancy percentages
+            hourly_occupancy = [
+                round(((total_capacity - avg) / total_capacity) * 100, 1)
+                for avg in hourly_averages
+            ]
+            
+            # Find peak hour (highest occupancy)
+            peak_hour = hourly_occupancy.index(max(hourly_occupancy)) if hourly_occupancy else 0
+            
+            # Calculate average occupancy over the period
+            all_availability = [int(row[1]) for row in rows]
+            avg_availability = mean(all_availability)
+            average_occupancy = round(((total_capacity - avg_availability) / total_capacity) * 100, 1)
+            
+            comparisons.append({
+                "lot_code": lot_code.lower(),
+                "lot_name": lot_entry["name"],
+                "current_occupancy": current_occupancy,
+                "total_capacity": total_capacity,
+                "occupancy_percentage": occupancy_percentage,
+                "available_spots": current_availability,
+                "hourly_averages": hourly_averages,  # Average availability for each hour
+                "hourly_occupancy": hourly_occupancy,  # Average occupancy % for each hour
+                "peak_hour": peak_hour,
+                "average_occupancy": average_occupancy
+            })
+            
+        except Exception as e:
+            logger.error(f"Error fetching comparison data for lot {lot_code}: {str(e)}")
+            continue
+    
+    if invalid_lots:
+        return Response(
+            {"error": f"Invalid lot codes: {', '.join(invalid_lots)}"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if not comparisons:
+        return Response(
+            {"error": "No data available for the requested lots"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    return Response({
+        "comparisons": comparisons,
+        "period": period,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }, status=status.HTTP_200_OK)
+
 
 @api_view(['POST'])
 def sign_up(request):

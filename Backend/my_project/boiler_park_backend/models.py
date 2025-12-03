@@ -55,20 +55,53 @@ class User(models.Model):
     name = models.CharField(max_length=45)
     email = models.EmailField()
     password = models.CharField(max_length=100)
+
     parking_pass = models.CharField(
-        max_length=5, choices=parking_passes, blank=True, null=True)
+        max_length=5,
+        choices=parking_passes,
+        blank=True,
+        null=True
+    )
+
     notification_token = models.CharField(
-        max_length=255, blank=True, null=True)
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
     default_origin = models.CharField(
-        max_length=255, blank=True, null=True)
+        max_length=255,
+        blank=True,
+        null=True
+    )
     other_location = models.CharField(
         max_length=255, blank=True, null=True)
+
     closure_notifications_enabled = models.BooleanField(default=True)
-    favorite_lots = ArrayField(models.CharField(
-        max_length=20), blank=True, null=True)
-    events = models.CharField(max_length=10, null=True)
+
+    # stays JSON → matches db jsonb
     lot_ratings = models.JSONField(
-        default=empty_rating_json, null=False)
+        default=dict,
+        null=True,
+        blank=True
+    )
+
+    # FIX: must be ArrayField because DB column is VARCHAR[]
+    favorite_lots = ArrayField(
+        models.CharField(max_length=255),
+        default=list,
+        null=True,
+        blank=True
+    )
+
+    # stays varchar
+    events = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+
+    # events = models.CharField()
 
 
 class ParkingLot(models.Model):

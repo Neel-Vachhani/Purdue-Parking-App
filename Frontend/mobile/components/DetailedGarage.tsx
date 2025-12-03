@@ -2,6 +2,7 @@ import React, { useContext } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking } from "react-native";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
+import EmptyState from "./EmptyState";
 import * as SecureStore from "expo-secure-store";
 import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../utils/travelTime";
 import { useActionSheet } from '@expo/react-native-action-sheet';
@@ -281,7 +282,7 @@ export default function GarageDetail({
     return (
         <StarRating
           rating={garage.individual_rating}
-          color="#ceb888"
+          color={theme.primary}
           onChange={ratingChange}
         />
     );
@@ -715,18 +716,12 @@ export default function GarageDetail({
               ))}
             </View>
           ) : (
-            <View style={{ 
-              paddingVertical: 16,
-              paddingHorizontal: 12,
-              alignItems: "center",
-              backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-              borderRadius: 10
-            }}>
-              <Ionicons name="calendar-outline" size={32} color={theme.text} style={{ opacity: 0.3, marginBottom: 8 }} />
-              <Text style={{ color: theme.text, opacity: 0.6, fontSize: 13, textAlign: "center" }}>
-                No upcoming closures or events
-              </Text>
-            </View>
+            <EmptyState
+              title="No upcoming closures"
+              description="We'll post events and closures here as soon as they’re scheduled for this garage."
+              iconName="calendar-outline"
+              style={{ backgroundColor: "transparent", borderColor: theme.border }}
+            />
           )}
         </View>
 

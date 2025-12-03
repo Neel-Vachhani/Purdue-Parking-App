@@ -14,13 +14,17 @@ import {
   Animated,
   Easing,
   Linking,
+  Pressable,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { ThemeContext } from "../theme/ThemeProvider";
+import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { useEffect } from "react";
 import GarageDetail from "./DetailedGarage";
 import { EmailContext } from "../utils/EmailContext";
+import EmptyState from "./EmptyState";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
 
 type Garage = {
@@ -125,15 +129,33 @@ const GARAGE_DEFINITIONS: GarageDefinition[] = [
 ];
 
 const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
-  const initialCounts = getInitialOccupancy();
+  // *** CUSTOM TEST VALUES FOR FULL GARAGE ALERTS ***
+  let testCurrent: number;
+  let testTotal: number;
+  
+  if (definition.code === "PGH") { // Harrison Street Parking Garage
+    testCurrent = 0; // Completely full
+    testTotal = 480;
+  } else if (definition.code === "PGG") { // Grant Street Parking Garage  
+    testCurrent = 3; // Nearly full
+    testTotal = 650;
+  } else if (definition.code === "PGU") { // University Street Parking Garage
+    testCurrent = 1; // Nearly full
+    testTotal = 820;
+  } else {
+    // All other garages have good availability
+    testCurrent = 150;
+    testTotal = 400;
+  }
+
   return {
     id: String(index + 1),
     code: definition.code,
     name: definition.name,
     paid: definition.paid ?? false,
     favorite: definition.favorite ?? false,
-    current: initialCounts.current,
-    total: initialCounts.total,
+    current: testCurrent,
+    total: testTotal,
     lat: definition.lat,
     lng: definition.lng,
     rating: definition.rating,
@@ -217,6 +239,7 @@ function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const FILTER_STORAGE_KEY = "garage_filters";
+const BACK_TO_TOP_THRESHOLD = 420;
 
 export default function GarageList({
   data = INITIAL_GARAGES,
@@ -231,7 +254,12 @@ export default function GarageList({
   setView: React.Dispatch<React.SetStateAction<"garage" | "map">>;
 }) {
   const theme = React.useContext(ThemeContext);
+  const insets = useSafeAreaInsets();
+  const fabBottomOffset = React.useMemo(() => Math.max(20, insets.bottom + 20), [insets.bottom]);
   const [garages, setGarages] = React.useState<Garage[]>(data);
+  const listRef = React.useRef<FlatList<Garage>>(null);
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  const [showBackToTop, setShowBackToTop] = React.useState(false);
   const [lastUpdated, setLastUpdated] = React.useState<string>(() =>
     new Date().toLocaleString("en-US", {
       hour: "numeric",
@@ -251,6 +279,42 @@ export default function GarageList({
   // detail panel state
   const [selected, setSelected] = React.useState<Garage | null>(null);
   const translateX = React.useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const fabOpacity = React.useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [BACK_TO_TOP_THRESHOLD - 140, BACK_TO_TOP_THRESHOLD - 20, BACK_TO_TOP_THRESHOLD + 60],
+        outputRange: [0, 0, 1],
+        extrapolate: "clamp",
+      }),
+    [scrollY]
+  );
+  const fabTranslateY = React.useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [BACK_TO_TOP_THRESHOLD - 20, BACK_TO_TOP_THRESHOLD + 80],
+        outputRange: [32, 0],
+        extrapolate: "clamp",
+      }),
+    [scrollY]
+  );
+  const handleListScroll = React.useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+        listener: ({ nativeEvent }: { nativeEvent: { contentOffset: { y: number } } }) => {
+          const offsetY = nativeEvent.contentOffset.y;
+          setShowBackToTop((prev) => {
+            if (prev && offsetY < BACK_TO_TOP_THRESHOLD * 0.4) return false;
+            if (!prev && offsetY > BACK_TO_TOP_THRESHOLD) return true;
+            return prev;
+          });
+        },
+      }),
+    [scrollY]
+  );
+  const handleBackToTopPress = React.useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
 
   React.useEffect(() => setGarages(data), [data]);
@@ -284,6 +348,28 @@ export default function GarageList({
     loadFilters();
   }, []);
 
+  React.useEffect(() => {
+    if (!filtersLoadedRef.current) return;
+    const persist = async () => {
+      try {
+        if (selectedPasses.length === 0 && !showFavoritesOnly) {
+          await AsyncStorage.removeItem(FILTER_STORAGE_KEY);
+          return;
+        }
+        await AsyncStorage.setItem(
+          FILTER_STORAGE_KEY,
+          JSON.stringify({
+            passes: selectedPasses,
+            favoritesOnly: showFavoritesOnly,
+          })
+        );
+      } catch (error) {
+        console.warn("Failed to save garage filters", error);
+      }
+    };
+    persist();
+  }, [selectedPasses, showFavoritesOnly]);
+
   // Handles toggling favorite status
   const handleToggleFavorite = React.useCallback(
     (garage: Garage) => {
@@ -296,6 +382,135 @@ export default function GarageList({
     },
     [onToggleFavorite]
   );
+
+  // Helper function to calculate distance between two points using Haversine formula
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 3959; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in miles
+  };
+
+  // Helper function to find the nearest non-full garage
+  const findNearestAlternative = (currentGarage: Garage): Garage | null => {
+    if (!currentGarage.lat || !currentGarage.lng) return null;
+    
+    const availableGarages = garages.filter(g => 
+      g.id !== currentGarage.id && // Exclude current garage
+      !isGarageFull(g.current) && // Only non-full garages
+      g.lat && g.lng // Must have coordinates
+    );
+
+    if (availableGarages.length === 0) return null;
+
+    let nearestGarage = availableGarages[0];
+    let shortestDistance = calculateDistance(
+      currentGarage.lat, currentGarage.lng,
+      nearestGarage.lat!, nearestGarage.lng!
+    );
+
+    for (let i = 1; i < availableGarages.length; i++) {
+      const garage = availableGarages[i];
+      const distance = calculateDistance(
+        currentGarage.lat, currentGarage.lng,
+        garage.lat!, garage.lng!
+      );
+      
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        nearestGarage = garage;
+      }
+    }
+
+    return nearestGarage;
+  };
+
+  // Helper function to determine if a garage is full
+  const isGarageFull = (available: number): boolean => {
+    return available <= 5; // Consider garage full if 5 or fewer spots available
+  };
+
+  // Helper function to get garage status text
+  const getGarageStatus = (available: number, total: number): string => {
+    if (available === 0) return "completely full";
+    if (available <= 5) return "nearly full";
+    const percentage = Math.round((available / total) * 100);
+    return `${percentage}% available`;
+  };
+
+  // Handle garage press interaction for full garage popup
+  const handleGaragePress = React.useCallback((garage: Garage) => {
+    if (isGarageFull(garage.current)) {
+      const statusText = getGarageStatus(garage.current, garage.total);
+      const alertTitle = garage.current === 0 ? "Garage Full" : "Garage Nearly Full";
+      const alertMessage = `${garage.name} is ${statusText} with ${garage.current} spots remaining.\n\nConsider checking other nearby garages for better availability.`;
+
+      Alert.alert(
+        alertTitle,
+        alertMessage,
+        [
+          {
+            text: "OK",
+            style: "default",
+          },
+          {
+            text: "View Alternatives", 
+            style: "default",
+            onPress: () => {
+              const nearestAlternative = findNearestAlternative(garage);
+              
+              if (nearestAlternative) {
+                const distance = calculateDistance(
+                  garage.lat!, garage.lng!,
+                  nearestAlternative.lat!, nearestAlternative.lng!
+                );
+                
+                const availabilityPercent = Math.round((nearestAlternative.current / nearestAlternative.total) * 100);
+                
+                Alert.alert(
+                  "Recommended Alternative",
+                  `${nearestAlternative.name}\n\n• ${nearestAlternative.current}/${nearestAlternative.total} spots available (${availabilityPercent}% full)\n• ${distance.toFixed(1)} miles away\n• Accepts: ${nearestAlternative.passes.join(", ")} passes`,
+                  [
+                    {
+                      text: "Cancel",
+                      style: "cancel"
+                    },
+                    {
+                      text: "Get Directions",
+                      style: "default",
+                      onPress: () => handleOpenInMaps(nearestAlternative)
+                    },
+                    {
+                      text: "View Details",
+                      style: "default", 
+                      onPress: () => openDetail(nearestAlternative)
+                    }
+                  ],
+                  { cancelable: true }
+                );
+              } else {
+                Alert.alert(
+                  "No Alternatives Available",
+                  "Unfortunately, all nearby garages are currently full or nearly full. Please try again later or consider alternative transportation.",
+                  [{ text: "OK", style: "default" }],
+                  { cancelable: true }
+                );
+              }
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } else {
+      // For garages with good availability, show success info
+      openDetail(garage);
+    }
+  }, []);
 
 
   const handleOpenInMaps = React.useCallback(
@@ -336,67 +551,10 @@ export default function GarageList({
     let isMounted = true;
 
     const loadAvailability = async () => {
-      try {
-        const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
-        if (!response.ok) {
-          console.error("Failed to fetch parking availability:", response.status);
-          return;
-        }
-
-        const payload: { lots?: ApiLot[] } = await response.json();
-        const lots = Array.isArray(payload?.lots) ? payload.lots : undefined;
-        if (!lots || lots.length === 0 || !isMounted) return;
-
-        // Some sort of odd mapping logic to match lots from API to our local list
-        const updatesById = new Map<string, ApiLot>();
-        const updatesByCode = new Map<string, ApiLot>();
-        const updatesByName = new Map<string, ApiLot>();
-
-        lots.forEach((lot) => {
-          if (lot.id !== undefined) {
-            updatesById.set(String(lot.id), lot);
-          }
-
-          if (lot.code) {
-            updatesByCode.set(lot.code.toUpperCase(), lot);
-          }
-
-          if (lot.name) {
-            updatesByName.set(lot.name.toLowerCase(), lot);
-          }
-        });
-
-        // Update garages with fetched availability data using all three maps for extra matching?
-        setGarages((prev) =>
-          prev.map((garage) => {
-            const update =
-              updatesByCode.get(garage.code.toUpperCase()) ||
-              updatesById.get(garage.id) ||
-              updatesByName.get(garage.name.toLowerCase());
-
-            if (!update) return garage;
-
-            return {
-              ...garage,
-              current:
-                typeof update.available === "number" ? update.available : garage.current,
-              total:
-                typeof update.capacity === "number" ? update.capacity : garage.total,
-            };
-          })
-        );
-
-        setLastUpdated(
-          new Date().toLocaleString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-            timeZoneName: "short",
-          })
-        );
-      } catch (error) {
-        console.error("Failed to load parking availability", error);
-      }
+      // *** TEMPORARILY DISABLED FOR TESTING FULL GARAGE POPUP ***
+      // This prevents API data from overriding our static test values
+      console.log("🧪 [Garagelist] API call disabled for testing - using static test values");
+      return; // Early return to skip API call
     };
 
     loadAvailability();
@@ -437,8 +595,10 @@ export default function GarageList({
   };
   
   // Filtering logic for garages
+  const trimmedQuery = searchQuery.trim();
+
   const visibleGarages = React.useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = trimmedQuery.toLowerCase();
 
     let filtered = garages;
 
@@ -461,7 +621,8 @@ export default function GarageList({
     }
 
     return filtered;
-  }, [garages, searchQuery, selectedPasses, showFavoritesOnly]);
+  }, [garages, trimmedQuery, selectedPasses, showFavoritesOnly]);
+
   const toggleFavoritesFilter = React.useCallback(() => {
     setShowFavoritesOnly((prev) => !prev);
   }, []);
@@ -474,6 +635,14 @@ export default function GarageList({
 
   const clearPassFilters = React.useCallback(() => {
     setSelectedPasses([]);
+  }, []);
+
+  const handleClearFilters = React.useCallback(() => {
+    setSearchQuery("");
+    setSelectedPasses([]);
+    setShowFavoritesOnly(false);
+    setIsFilterVisible(false);
+    AsyncStorage.removeItem(FILTER_STORAGE_KEY).catch(() => {});
   }, []);
 
   const getRatings = async (code: string) => {
@@ -501,17 +670,19 @@ export default function GarageList({
   const renderItem = ({ item }: { item: Garage }) => {
     const total = item.total || 1;
     const pct = Math.min(item.current / total, 1);
-    const colors = getColors(pct);
+    const occupancy = getOccupancyColors(pct, theme);
     const passesLabel = item.passes.join(", ");
     const avg_rating = async () => {
       item.rating = await getRatings(item.code)
     }
-    const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
-    const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
-    
+    const cardBg = theme.surface;
+    const secondaryText = theme.textMuted;
 
     return (
-      <TouchableOpacity activeOpacity={0.9} onPress={() => openDetail(item)}>
+      <TouchableOpacity 
+        activeOpacity={0.9} 
+        onPress={() => handleGaragePress(item)} // ← Changed to use handleGaragePress instead of openDetail
+      >
         <View
           style={{
             marginHorizontal: 16,
@@ -519,45 +690,62 @@ export default function GarageList({
             padding: 16,
             borderRadius: 14,
             backgroundColor: cardBg,
-            borderWidth: 2,
-            borderColor: colors.border,
-            shadowColor: "#000",
-            shadowOpacity: 0.2,
-            shadowRadius: 6,
+            borderWidth: 1,
+            borderColor: theme.border,
+            borderLeftWidth: 4,
+            borderLeftColor: occupancy.fill,
+            shadowColor: theme.shadow,
+            shadowOpacity: theme.mode === "dark" ? 0.35 : 0.12,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 6 },
+            // Add subtle opacity for full garages
+            opacity: isGarageFull(item.current) ? 0.8 : 1,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
-                {item.name}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
+                  {item.name}
+                </Text>
+                {isGarageFull(item.current) && (
+                  <View style={{
+                    backgroundColor: "#ef4444",
+                    borderRadius: 10,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                  }}>
+                    <Text style={{ fontSize: 10, color: "white", fontWeight: "600" }}>
+                      {item.current === 0 ? "FULL" : "LOW"}
+                    </Text>
+                  </View>
+                )}
+              </View>
               {/* Rating Pill */}
               <View
-              onLayout={() => avg_rating()}
+                onLayout={() => avg_rating()}
                 style={{
-                    borderWidth:1,
-                    borderColor:'black',
-                    alignItems:'center',
-                    justifyContent:'center',
-                    width:60,
-                    height:25,
-                    backgroundColor:'#ceb888',
-                    borderRadius:50,
-                    marginTop: 5,
-                  }}
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 64,
+                  height: 28,
+                  backgroundColor: theme.surfaceMuted,
+                  borderRadius: 999,
+                  marginTop: 5,
+                  paddingHorizontal: 8,
+                }}
               >
-                <Text 
-                style = {{
-                  marginTop: 2.5,
-                  color: '#000',
-                  fontWeight: "bold"
-                  //TODO: parse to float
-                }}>{item.rating.toFixed(1) + " "}
-                <Ionicons
-                  name={"star"}
-                  size={15}
-                  color={'#000'}
-                />
+                <Text
+                  style={{
+                    marginTop: 2,
+                    color: theme.text,
+                    fontWeight: "700",
+                  }}
+                >
+                  {item.rating.toFixed(1) + " "}
+                  <Ionicons name={"star"} size={14} color={theme.primary} />
                 </Text>
               </View>
 
@@ -599,7 +787,7 @@ export default function GarageList({
           <View
             style={{
               height: 14,
-              backgroundColor: theme.mode === "dark" ? "#2b2b2b" : "#d9d9d9",
+              backgroundColor: theme.borderMuted,
               borderRadius: 8,
               marginTop: 10,
               overflow: "hidden",
@@ -609,7 +797,7 @@ export default function GarageList({
               style={{
                 width: `${pct * 100}%`,
                 height: "100%",
-                backgroundColor: colors.fill,
+                backgroundColor: occupancy.fill,
               }}
             />
           </View>
@@ -617,6 +805,68 @@ export default function GarageList({
       </TouchableOpacity>
     );
   };
+
+  const filtersReady = filtersLoadedRef.current;
+  const favoritesOnlyActive =
+    showFavoritesOnly && selectedPasses.length === 0 && trimmedQuery.length === 0;
+  const hasActiveFilters =
+    trimmedQuery.length > 0 || selectedPasses.length > 0 || showFavoritesOnly;
+
+  const emptyStateContent = React.useMemo(() => {
+    if (!filtersReady || visibleGarages.length > 0) {
+      return null;
+    }
+
+    if (favoritesOnlyActive) {
+      return (
+        <EmptyState
+          title="No favorites yet"
+          description="Tap the star on any garage to save it, then it will appear in this view."
+          iconName="star-outline"
+          primaryActionLabel="Browse garages"
+          onPrimaryAction={handleClearFilters}
+          testID="garage-favorites-empty"
+        />
+      );
+    }
+
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          title="No garages match your filters"
+          description="Try adjusting your search or clear filters to see every garage again."
+          iconName="funnel-outline"
+          primaryActionLabel="Clear filters"
+          onPrimaryAction={handleClearFilters}
+          testID="garage-filters-empty"
+        />
+      );
+    }
+
+    return (
+      <EmptyState
+        title="No garages available"
+        description="Garages will appear here once data is available."
+        iconName="car-outline"
+        testID="garage-empty"
+      />
+    );
+  }, [
+    filtersReady,
+    visibleGarages.length,
+    hasActiveFilters,
+    favoritesOnlyActive,
+    handleClearFilters,
+  ]);
+
+  const renderEmptyComponent = React.useCallback(() => {
+    if (!emptyStateContent) return null;
+    return (
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 48 }}>
+        {emptyStateContent}
+      </View>
+    );
+  }, [emptyStateContent]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -673,6 +923,11 @@ export default function GarageList({
           />
           <TouchableOpacity
             onPress={toggleFavoritesFilter}
+            testID="favorites-filter-toggle"
+            accessibilityRole="button"
+            accessibilityLabel={
+              showFavoritesOnly ? "Showing favorites only" : "Filter favorites"
+            }
             style={{
               width: 36,
               height: 36,
@@ -826,12 +1081,60 @@ export default function GarageList({
         </TouchableWithoutFeedback>
       </Modal>
 
-      <FlatList
+      <Animated.FlatList
+        ref={listRef}
         data={visibleGarages}
         keyExtractor={(g) => g.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
+        ListEmptyComponent={renderEmptyComponent}
+        onScroll={handleListScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{
+          paddingBottom: 24,
+          paddingTop: 8,
+          flexGrow: visibleGarages.length === 0 ? 1 : 0,
+          justifyContent: visibleGarages.length === 0 ? "center" : undefined,
+        }}
       />
+
+      <Animated.View
+        pointerEvents={showBackToTop ? "auto" : "none"}
+        style={[
+          {
+            position: "absolute",
+            right: 20,
+            bottom: fabBottomOffset,
+            zIndex: 4,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: theme.mode === "dark" ? 0.35 : 0.18,
+            shadowRadius: 12,
+            elevation: 6,
+          },
+          { opacity: fabOpacity, transform: [{ translateY: fabTranslateY }] },
+        ]}
+      >
+        <Pressable
+          onPress={handleBackToTopPress}
+          accessibilityRole="button"
+          accessibilityLabel="Back to top"
+          accessibilityHint="Scrolls the garage list to the beginning"
+          testID="garage-list-back-to-top"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={({ pressed }) => ({
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: pressed ? theme.fabBackgroundPressed : theme.fabBackground,
+            borderWidth: theme.mode === "dark" ? 0 : 1,
+            borderColor: theme.mode === "dark" ? "transparent" : "rgba(0,0,0,0.08)",
+          })}
+        >
+          <Ionicons name="arrow-up" size={22} color={theme.fabIcon} />
+        </Pressable>
+      </Animated.View>
 
       <Text
         style={{
@@ -880,15 +1183,10 @@ export default function GarageList({
   );
 }
 
-function getColors(pct: number) {
-  if (pct >= 0.8) return { border: "#f91e1eff", fill: "#f91e1eff" };
-  if (pct >= 0.65) return { border: "#ff7f1eff", fill: "#ff7f1eff" };
-  if (pct >= 0.25) return { border: "#e0c542", fill: "#cbb538" };
-  return { border: "#41c463", fill: "#41c463" };
+function getOccupancyColors(pct: number, theme: AppTheme) {
+  if (pct >= 0.85) return { fill: theme.danger };
+  if (pct >= 0.65) return { fill: theme.warning };
+  if (pct >= 0.35) return { fill: theme.info };
+  return { fill: theme.success };
 }
 
-function getInitialOccupancy() {
-  const total = 480;
-  const current = Math.floor(Math.random() * (total + 1));
-  return { current, total };
-}

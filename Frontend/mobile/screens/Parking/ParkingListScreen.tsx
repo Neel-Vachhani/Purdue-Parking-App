@@ -22,7 +22,6 @@ type ParkingLot = {
 
 type ApiLot = Pick<ParkingLot, "id" | "name"> &
   Partial<Pick<ParkingLot, "available" | "capacity">>;
-    const theme = React.useContext(ThemeContext);
 
 const INITIAL_PARKING_LOTS: ParkingLot[] = [
   {
@@ -103,6 +102,7 @@ const getApiBaseUrl = (): string => {
 };
 
 export default function ParkingListScreen() {
+  const theme = React.useContext(ThemeContext);
   const [parkingLots, setParkingLots] = useState<ParkingLot[]>(
     INITIAL_PARKING_LOTS
   );
