@@ -349,6 +349,53 @@ export default function GarageList({
     [onToggleFavorite]
   );
 
+  // Helper function to calculate distance between two points using Haversine formula
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 3959; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in miles
+  };
+
+  // Helper function to find the nearest non-full garage
+  const findNearestAlternative = (currentGarage: Garage): Garage | null => {
+    if (!currentGarage.lat || !currentGarage.lng) return null;
+    
+    const availableGarages = garages.filter(g => 
+      g.id !== currentGarage.id && // Exclude current garage
+      !isGarageFull(g.current) && // Only non-full garages
+      g.lat && g.lng // Must have coordinates
+    );
+
+    if (availableGarages.length === 0) return null;
+
+    let nearestGarage = availableGarages[0];
+    let shortestDistance = calculateDistance(
+      currentGarage.lat, currentGarage.lng,
+      nearestGarage.lat!, nearestGarage.lng!
+    );
+
+    for (let i = 1; i < availableGarages.length; i++) {
+      const garage = availableGarages[i];
+      const distance = calculateDistance(
+        currentGarage.lat, currentGarage.lng,
+        garage.lat!, garage.lng!
+      );
+      
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        nearestGarage = garage;
+      }
+    }
+
+    return nearestGarage;
+  };
+
   // Helper function to determine if a garage is full
   const isGarageFull = (available: number): boolean => {
     return available <= 5; // Consider garage full if 5 or fewer spots available
@@ -381,8 +428,45 @@ export default function GarageList({
             text: "View Alternatives", 
             style: "default",
             onPress: () => {
-              // Future enhancement: could scroll to or highlight other garages
-              console.log("View alternatives pressed");
+              const nearestAlternative = findNearestAlternative(garage);
+              
+              if (nearestAlternative) {
+                const distance = calculateDistance(
+                  garage.lat!, garage.lng!,
+                  nearestAlternative.lat!, nearestAlternative.lng!
+                );
+                
+                const availabilityPercent = Math.round((nearestAlternative.current / nearestAlternative.total) * 100);
+                
+                Alert.alert(
+                  "Recommended Alternative",
+                  `${nearestAlternative.name}\n\n• ${nearestAlternative.current}/${nearestAlternative.total} spots available (${availabilityPercent}% full)\n• ${distance.toFixed(1)} miles away\n• Accepts: ${nearestAlternative.passes.join(", ")} passes`,
+                  [
+                    {
+                      text: "Cancel",
+                      style: "cancel"
+                    },
+                    {
+                      text: "Get Directions",
+                      style: "default",
+                      onPress: () => handleOpenInMaps(nearestAlternative)
+                    },
+                    {
+                      text: "View Details",
+                      style: "default", 
+                      onPress: () => openDetail(nearestAlternative)
+                    }
+                  ],
+                  { cancelable: true }
+                );
+              } else {
+                Alert.alert(
+                  "No Alternatives Available",
+                  "Unfortunately, all nearby garages are currently full or nearly full. Please try again later or consider alternative transportation.",
+                  [{ text: "OK", style: "default" }],
+                  { cancelable: true }
+                );
+              }
             },
           },
         ],
