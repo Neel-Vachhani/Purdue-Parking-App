@@ -763,129 +763,112 @@ export default function SettingsScreen({ onLogout }: Props) {
           <View style={{ paddingHorizontal: 16, paddingVertical: 16, backgroundColor: theme.sectionBg }}>
             {children}
           </View>
-        </View>
+        ) : null}
+      </View>
+    );
+  };
 
-        {/* Saving Other Locations */}
-        <View style={{ 
-          marginTop: 20, 
-          backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-          padding: 16,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: theme.mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"
-        }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <Ionicons name="business" size={22} color={theme.primary} />
-          <ThemedText style={{ fontSize: 18, fontWeight: "700" }}>Other Location</ThemedText>
-          </View>
-          
-          <ThemedText style={{ fontSize: 14, opacity: 0.65, marginBottom: 16, lineHeight: 20 }}>
-            Set a location to get directions from
-          </ThemedText>
-          
-          {/* Status Message at Top - Only show if there's a saved location */}
-          {savedLocation ? (
-            <View style={{ 
-              flexDirection: "row", 
-              alignItems: "center", 
-              gap: 8,
-              padding: 12,
-              backgroundColor: theme.mode === "dark" ? "rgba(34, 197, 94, 0.15)" : "rgba(34, 197, 94, 0.1)",
-              borderRadius: 10,
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: "rgba(34, 197, 94, 0.3)"
-            }}>
-              <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
-              <View style={{ flex: 1 }}>
-                <ThemedText style={{ fontSize: 11, opacity: 0.7, fontWeight: "600", marginBottom: 2 }}>
-                  SAVED LOCATION
-                </ThemedText>
-                <ThemedText style={{ fontSize: 13, fontWeight: "500" }}>
-                  {savedLocation}
-                </ThemedText>
-              </View>
-            </View>
-          ) : (
-            <View style={{ 
-              flexDirection: "row", 
-              alignItems: "center", 
-              gap: 8,
-              padding: 12,
-              backgroundColor: theme.mode === "dark" ? "rgba(59, 130, 246, 0.15)" : "rgba(59, 130, 246, 0.1)",
-              borderRadius: 10,
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: "rgba(59, 130, 246, 0.3)"
-            }}>
-              <Ionicons name="location" size={20} color="#3b82f6" />
-              <ThemedText style={{ fontSize: 13, opacity: 0.85, flex: 1, lineHeight: 18 }}>
-                Not set - travel times will not be displayed
-              </ThemedText>
-            </View>
-          )}
-
-          {/* Input with Clear Button */}
-          <View style={{ position: "relative", marginBottom: 12 }}>
-            <AuthInput
-              placeholder="Enter your starting location..."
-              value={location}
-              onChangeText={setLocation}
-              style={{ paddingRight: origin ? 50 : 12, fontSize: 15 }}
-            />
-            {location && (
-              <TouchableOpacity
-                onPress={clearLocation}
-                style={{
-                  position: "absolute",
-                  right: 12,
-                  top: "50%",
-                  transform: [{ translateY: -12 }],
-                  width: 24,
-                  height: 24,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
-                  borderRadius: 12
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                disabled={locationLoading}
-              >
-                <Ionicons 
-                  name="close" 
-                  size={16} 
-                  color={locationLoading ? "#9CA3AF" : (theme.mode === "dark" ? "#D1D5DB" : "#6B7280")} 
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View>
-            <Button 
-              title={locationLoading ? "Saving..." : "Save Starting Location"} 
-              onPress={saveLocation} 
-              disabled={locationLoading || !location.trim()} 
-            />
-          </View>
-        </View>
-
-        {/* Notification Preferences */}
-        <View style={{ marginTop: 12, gap: 10 }}>
-          <ThemedText style={{ fontSize: 18, fontWeight: "700" }}>Notifications</ThemedText>
-
-          <Row label="Garage Full Alerts">
-            <Switch
-              value={prefs.garageFull}
-              onValueChange={(v) => setToggle("garageFull", v)}
-            />
-          </Row>
-
-          <Row label="Permit Expiring Reminders">
-            <Switch
-              value={prefs.permitExpiring}
-              onValueChange={(v) => setToggle("permitExpiring", v)}
-            />
-          </Row>
+  // Old code kept just in case it is needed.
+  // <View style={{
+  //   marginTop: 20,
+  //   backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+  //   padding: 16,
+  //   borderRadius: 12,
+  //   borderWidth: 1,
+  //   borderColor: theme.mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"
+  // }}>
+  //   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+  //     <Ionicons name="business" size={22} color={theme.primary} />
+  //     <ThemedText style={{ fontSize: 18, fontWeight: "700" }}>Other Location</ThemedText>
+  //   </View>
+  //
+  //   <ThemedText style={{ fontSize: 14, opacity: 0.65, marginBottom: 16, lineHeight: 20 }}>
+  //     Set a location to get directions from
+  //   </ThemedText>
+  //
+  //   {savedLocation ? (
+  //     <View style={{
+  //       flexDirection: "row",
+  //       alignItems: "center",
+  //       gap: 8,
+  //       padding: 12,
+  //       backgroundColor: theme.mode === "dark" ? "rgba(34, 197, 94, 0.15)" : "rgba(34, 197, 94, 0.1)",
+  //       borderRadius: 10,
+  //       marginBottom: 16,
+  //       borderWidth: 1,
+  //       borderColor: "rgba(34, 197, 94, 0.3)"
+  //     }}>
+  //       <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
+  //       <View style={{ flex: 1 }}>
+  //         <ThemedText style={{ fontSize: 11, opacity: 0.7, fontWeight: "600", marginBottom: 2 }}>
+  //           SAVED LOCATION
+  //         </ThemedText>
+  //         <ThemedText style={{ fontSize: 13, fontWeight: "500" }}>
+  //           {savedLocation}
+  //         </ThemedText>
+  //       </View>
+  //     </View>
+  //   ) : (
+  //     <View style={{
+  //       flexDirection: "row",
+  //       alignItems: "center",
+  //       gap: 8,
+  //       padding: 12,
+  //       backgroundColor: theme.mode === "dark" ? "rgba(59, 130, 246, 0.15)" : "rgba(59, 130, 246, 0.1)",
+  //       borderRadius: 10,
+  //       marginBottom: 16,
+  //       borderWidth: 1,
+  //       borderColor: "rgba(59, 130, 246, 0.3)"
+  //     }}>
+  //       <Ionicons name="location" size={20} color="#3b82f6" />
+  //       <ThemedText style={{ fontSize: 13, opacity: 0.85, flex: 1, lineHeight: 18 }}>
+  //         Not set - travel times will not be displayed
+  //       </ThemedText>
+  //     </View>
+  //   )}
+  //
+  //   <View style={{ position: "relative", marginBottom: 12 }}>
+  //     <AuthInput
+  //       placeholder="Enter your starting location..."
+  //       value={location}
+  //       onChangeText={setLocation}
+  //       style={{ paddingRight: origin ? 50 : 12, fontSize: 15 }}
+  //     />
+  //     {location && (
+  //       <TouchableOpacity
+  //         onPress={clearLocation}
+  //         style={{
+  //           position: "absolute",
+  //           right: 12,
+  //           top: "50%",
+  //           transform: [{ translateY: -12 }],
+  //           width: 24,
+  //           height: 24,
+  //           justifyContent: "center",
+  //           alignItems: "center",
+  //           backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+  //           borderRadius: 12
+  //         }}
+  //         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  //         disabled={locationLoading}
+  //       >
+  //         <Ionicons
+  //           name="close"
+  //           size={16}
+  //           color={locationLoading ? "#9CA3AF" : (theme.mode === "dark" ? "#D1D5DB" : "#6B7280")}
+  //         />
+  //       </TouchableOpacity>
+  //     )}
+  //   </View>
+  //
+  //   <View>
+  //     <Button
+  //       title={locationLoading ? "Saving..." : "Save Starting Location"}
+  //       onPress={saveLocation}
+  //       disabled={locationLoading || !location.trim()}
+  //     />
+  //   </View>
+  // </View>
 
   return (
     <ThemedView style={{ flex: 1 }}>
