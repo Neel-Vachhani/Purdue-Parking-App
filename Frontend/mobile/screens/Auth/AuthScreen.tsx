@@ -1,5 +1,5 @@
 // screens/Auth/AuthScreen.tsx
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useContext } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Alert } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -9,6 +9,8 @@ import Constants from "expo-constants";
 import AuthInput from "../../components/AuthInput";
 import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
+import { EmailContext } from "../../utils/EmailContext";
+
 
 
 import axios from "axios";
@@ -42,17 +44,27 @@ const GOOGLE_CLIENT_ID_IOS =
 const GOOGLE_CLIENT_ID_ANDROID =
   "YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com";
 
+
 export default function AuthScreen({ pushToken, onAuthed }: Props) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const userEmail = React.useContext(EmailContext);
+  
+  useEffect(() => {
+    userEmail.setUserEmail("This is my email");
+  }, []);
+  
+
+
   const saveSessionAndContinue = async (token: string, user?: any) => {
     await SecureStore.setItemAsync("sessionToken", token);
     if (user) {
       await SecureStore.setItemAsync("user", JSON.stringify(user));
     }
+    //console.log(userEmail.userEmail)
     onAuthed();
   };
 
@@ -75,6 +87,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
         });
         // Expecting { token, user }
         const { token, user } = res.data || {};
+        console.log(email);
         await saveSessionAndContinue(token ?? "ok", user);
         return;
       }
@@ -85,6 +98,9 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
         password,
       });
       const { token, user } = res.data || {};
+      console.log(email);
+      userEmail.setUserEmail(email);
+      //console.log(userEmail.userEmail);
       await saveSessionAndContinue(token ?? "ok", user);
     } catch (e: any) {
       const msg =
@@ -118,7 +134,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
     const { token, user } = res.data || {};
     await SecureStore.setItemAsync("sessionToken", token ?? "apple_ios");
     if (user) await SecureStore.setItemAsync("user", JSON.stringify(user));
-
+    //console.log(userEmail.userEmail)
     onAuthed(); // continue to main app
   } catch (e: any) {
     if (e?.code !== "ERR_CANCELED") {
@@ -187,6 +203,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
           if (!idToken) throw new Error("Missing idToken from Google");
 
           await SecureStore.setItemAsync("sessionToken", idToken);
+          //console.log(userEmail.userEmail)
           onAuthed();
         } catch (e: any) {
           Alert.alert("Google sign-in failed", e?.message ?? "Unknown error");
@@ -277,3 +294,5 @@ const styles = StyleSheet.create({
   googleButton: { width: "100%", borderWidth: 1.5, borderColor: "#DB4437", borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 10 },
   googleText: { color: "#DB4437", fontWeight: "700", fontSize: 16 },
 });
+
+
