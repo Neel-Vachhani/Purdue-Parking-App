@@ -708,21 +708,27 @@ export default function GarageList({
                 <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
                   {item.name}
                 </Text>
+              </View>
+              {/* Rating Pill */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 {isGarageFull(item.current) && (
                   <View style={{
                     backgroundColor: "#ef4444",
-                    borderRadius: 10,
-                    paddingHorizontal: 6,
+                    borderWidth: 1,
+                    borderColor: "white",
+                    borderRadius: 999,
+                    paddingHorizontal: 8,
                     paddingVertical: 2,
+                    width: 50,
+                    height: 28,
+                    marginTop: 5,
                   }}>
-                    <Text style={{ fontSize: 10, color: "white", fontWeight: "600" }}>
+                    <Text style={{ fontSize: 12, color: "white", fontWeight: "bold", marginTop: 3.5, marginHorizontal: 1 }}>
                       {item.current === 0 ? "FULL" : "LOW"}
                     </Text>
                   </View>
                 )}
-              </View>
-              {/* Rating Pill */}
-              <View
+                <View
                 onLayout={() => avg_rating()}
                 style={{
                   borderWidth: 1,
@@ -748,11 +754,12 @@ export default function GarageList({
                   <Ionicons name={"star"} size={14} color={theme.primary} />
                 </Text>
               </View>
-
-              <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
+            </View>
+            <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
                 Passes: {passesLabel}
               </Text>
-            </View>
+              </View>
+              
 
             <View style={{ alignItems: "flex-end" }}>
               
