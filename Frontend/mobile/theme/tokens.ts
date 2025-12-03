@@ -3,6 +3,7 @@
 export const colors = {
   gold: "#CFB991",            // Purdue Gold - main brand accent
   goldDark: "#B5975A",
+  goldSoft: "#F4E7C6",
   ivory: "#F7F3EA",           // Neutral background for light mode
   parchment: "#EFE5D1",       // Muted neutral for cards + chips
   coal: "#0E0F11",            // Almost black
@@ -43,6 +44,17 @@ export const lightTheme = {
   warning: colors.warning,
   danger: colors.danger,
   info: colors.info,
+  sectionBg: colors.white,
+  sectionBgMuted: colors.parchment,
+  sectionBorder: colors.borderLight,
+  sectionHeaderBg: "rgba(207,185,145,0.25)",
+  sectionHeaderText: colors.slate900,
+  sectionHeaderMuted: colors.slate600,
+  sectionIconBg: "rgba(207,185,145,0.3)",
+  chipBg: "rgba(207,185,145,0.24)",
+  chipText: colors.coal,
+  chipBorder: "rgba(207,185,145,0.5)",
+  cardShadowColor: "rgba(15,15,15,0.08)",
 };
 
 // Dark theme - what the app looks like in dark mode
@@ -65,4 +77,15 @@ export const darkTheme = {
   warning: "#FBBF24",
   danger: "#F87171",
   info: "#60A5FA",
+  sectionBg: "#1F2126",
+  sectionBgMuted: colors.graphite,
+  sectionBorder: "rgba(255,255,255,0.12)",
+  sectionHeaderBg: "rgba(207,185,145,0.14)",
+  sectionHeaderText: colors.white,
+  sectionHeaderMuted: "rgba(255,255,255,0.65)",
+  sectionIconBg: "rgba(207,185,145,0.18)",
+  chipBg: "rgba(207,185,145,0.22)",
+  chipText: colors.white,
+  chipBorder: "rgba(255,255,255,0.18)",
+  cardShadowColor: "rgba(0,0,0,0.55)",
 };
