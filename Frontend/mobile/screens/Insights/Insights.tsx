@@ -123,7 +123,6 @@ export default function InsightsScreen() {
           try {
             const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=day`);
             const data = await res.json();
-            
             const initialGarage = INITIAL_GARAGES.find(g => g.name === lotName);
             const total = initialGarage?.total ?? 100;
             
@@ -163,6 +162,7 @@ export default function InsightsScreen() {
       const lotColumn = LOT_COLUMNS[selectedGarage.name];
       const res = await fetch(`${getApiBaseUrl()}/postgres-parking?lot=${lotColumn}&period=${period}`);
       const data = await res.json();
+      console.log(data)
       if (!Array.isArray(data)) {
         console.error("Historical data not an array:", data);
         setHistoricalData([]);

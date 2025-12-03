@@ -338,10 +338,12 @@ def get_postgres_parking_data(request):
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
-
+    print(rows)
     # Format results as list of dicts
     results = [{"id": r[0], "timestamp": r[1], "availability": r[2]}
                for r in rows]
+    print("\nResults")
+    print(results)
     return Response(results)
 
 
@@ -615,7 +617,6 @@ def get_parking_comparison(request):
     
     # Parse lot codes
     lot_codes = [code.strip().upper() for code in lots_param.split(",")]
-    print(lot_codes)
     if len(lot_codes) > 4:
         return Response(
             {"error": "Maximum 4 lots can be compared at once."},
@@ -631,7 +632,6 @@ def get_parking_comparison(request):
             (lot for lot in PARKING_LOTS if lot["code"].upper() == lot_code),
             None
         )
-        print(lot_entry)
         if not lot_entry:
             invalid_lots.append(lot_code)
             continue
@@ -715,7 +715,7 @@ def get_parking_comparison(request):
             comparisons.append({
                 "lot_code": lot_code.lower(),
                 "lot_name": lot_entry["name"],
-                "current_occupancy": current_occupancy,
+                "current_occupancy": total_capacity - current_occupancy,
                 "total_capacity": total_capacity,
                 "occupancy_percentage": occupancy_percentage,
                 "available_spots": current_availability,

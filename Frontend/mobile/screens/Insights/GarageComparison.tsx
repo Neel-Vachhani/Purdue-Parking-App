@@ -114,7 +114,7 @@ const fetchComparisonData = async () => {
           total: typeof c.total_capacity === "number" ? c.total_capacity : garage.total,
           occupancy_percentage:
             typeof c.total_capacity === "number" && typeof c.current_occupancy === "number"
-              ? Number(((c.current_occupancy / c.total_capacity) * 100).toFixed(1))
+              ? Number((((c.toal_capacity - c.current_occupancy) / c.total_capacity) * 100).toFixed(1))
               : garage.occupancy_percentage,
         };
 
