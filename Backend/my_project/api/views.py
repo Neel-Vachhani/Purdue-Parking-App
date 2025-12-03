@@ -3,6 +3,7 @@ import re
 from statistics import mean
 from typing import List, Dict, Any, Optional
 from django.db import connection
+from django.db.models import Count
 
 
 import bcrypt
@@ -174,6 +175,54 @@ def get_postgres_connection():
         password=config('DB_PASSWORD')
     )
 
+
+@api_view(['POST'])
+def user_insights(request):
+    """
+    Returns parking insights for a given user.
+    POST body: {"email": "user@example.com"}
+    """
+    email = request.data.get("email")
+    
+    if not email:
+        return Response({"success": False, "error": "email is required"}, status=400)
+
+    try:
+        # Check user exists
+        user = User.objects.get(email=email)
+
+        # Total parking sessions
+        total_parks = UserPark.objects.filter(user=user).count()
+
+        # Most visited lots
+        lot_counts = (
+            UserPark.objects.filter(user=user)
+            .values('lot__code', 'lot__name')
+            .annotate(visits=Count('id'))
+            .order_by('-visits')
+        )
+
+        # Visits per day of week
+        day_counts = (
+            UserPark.objects.filter(user=user)
+            .values('day_of_week')
+            .annotate(visits=Count('id'))
+            .order_by('day_of_week')
+        )
+
+        insights = {
+            "total_parks": total_parks,
+            "most_visited_lots": list(lot_counts),
+            "visits_per_day": list(day_counts),
+        }
+
+        return Response({"success": True, "insights": insights})
+
+    except User.DoesNotExist:
+        return Response({"success": False, "error": "User not found"}, status=404)
+
+    except Exception as e:
+        return Response({"success": False, "error": str(e)}, status=500)
 
 
 
