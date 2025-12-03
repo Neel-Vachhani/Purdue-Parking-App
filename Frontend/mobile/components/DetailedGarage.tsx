@@ -6,6 +6,7 @@ import * as SecureStore from "expo-secure-store";
 import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../utils/travelTime";
 import { useActionSheet } from '@expo/react-native-action-sheet';
 import StarRating from 'react-native-star-rating-widget';
+import axios from "axios";
 
 
 
@@ -267,6 +268,13 @@ export default function GarageDetail({
   const [loadingEvents, setLoadingEvents] = React.useState(false);
   const [rating, setRating] = React.useState(0);
 
+  //State for origin/location
+  const [origin, setOrigin] = React.useState("");
+  const [location, setLocation] = React.useState("");
+
+  const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+
+
 
   const RatingWidget = () => {
     
@@ -279,13 +287,42 @@ export default function GarageDetail({
     );
   };
 
+  const loadOrigin = React.useCallback(async () => {
+    try {
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+      if (!email) return;
+      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
+      const loadedOrigin = res?.data?.default_origin ?? "";
+      setOrigin(loadedOrigin);
+      console.log("Loaded starting location:", loadedOrigin || "(none)");
+    } catch (err) {
+      console.error("Failed to load starting location:", err);
+    } 
+  }, []);
+
+  const loadLocation = React.useCallback(async () => {
+    try {
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+      if (!email) return;
+      const res = await axios.get(`${API_BASE}/user/location/`, { params: { email } });
+      const loadedLocation = res?.data?.other_location ?? "";
+      setLocation(loadedLocation);
+      console.log("Loaded other location:", loadedLocation || "(none)");
+    } catch (err) {
+      console.error("Failed to load other location:", err);
+    } 
+  }, []);
+
   const ratingChange = async (rating: number) => {
     const userJson = await SecureStore.getItemAsync("user");
     const user = userJson ? JSON.parse(userJson) : null;
     const email = user?.email;
     if (!email) return;
     setRating(rating)
-    const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
     await fetch(`${API_BASE}/api/update_rating`, {
       method: "POST",
       headers: {
@@ -297,7 +334,7 @@ export default function GarageDetail({
         user_rating: rating
       })
     })
-    
+  
     await fetch(`${API_BASE}/api/update_specific_rating`, {
       
       method: "POST",
@@ -313,13 +350,28 @@ export default function GarageDetail({
     })
   }
 
-  const handleOpenInMaps = () => {
+  const handleOpenInMaps = (locationType: string) => {
         const options = ['Apple Maps', 'Google Maps', 'Cancel'];
         const destructiveButtonIndex = 3;
         const cancelButtonIndex = 2;
         const garageName: string = garage.name
         const urlName = garageName.replace(" ", "+")
         let url = ``
+        let starting_location = ``
+        if (locationType == "origin") {
+          loadOrigin();
+          starting_location = origin
+        } else if (locationType == "other") {
+          loadLocation();
+          starting_location = location
+        } else {
+          starting_location = `Purdue+University%2C+West+Lafayette%2C+IN+47906`
+        }
+        console.log(starting_location)
+        const startingLocationName = starting_location.replaceAll(" ", "+"); 
+        console.log(startingLocationName)
+        const startingLocationLink = startingLocationName.replaceAll(",", "%2C"); 
+        console.log(startingLocationLink)
         showActionSheetWithOptions({
             options,
             cancelButtonIndex,
@@ -327,12 +379,13 @@ export default function GarageDetail({
           }, (selectedIndex) => {
             switch (selectedIndex) {
               case 0:
-                url =  `http://maps.apple.com/?saddr=28+Hilltop+Dr+Lafayette+IN&daddr=${urlName}+West+Lafayette+IN`
+                url =  `http://maps.apple.com/?saddr=${startingLocationLink}&daddr=${urlName}+West+Lafayette+IN`
+                console.log(url)
                 Linking.openURL(url)
                 break;
 
               case 1:
-                url = `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`
+                url = `https://www.google.com/maps/dir/?api=1&origin=${startingLocationLink}&destination=${urlName}+West+Lafayette+IN&travelmode=driving`
                 Linking.openURL(url)
                 break;
 
@@ -477,9 +530,14 @@ export default function GarageDetail({
                     <Text style={styles.address} numberOfLines={2}>{garage.address}</Text>
                 </View>
                 <View style={[{justifyContent:'space-evenly', marginVertical:10}]}>
-                         <TouchableOpacity onPress={() => handleOpenInMaps()}>
+              <TouchableOpacity onPress={() => handleOpenInMaps("origin")}>
               <Pill>
-                  <Ionicons name="navigate-outline" size={14}  /> Directions
+                  <Ionicons name="navigate-outline" size={14}  /> Directions from saved Origin
+              </Pill>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleOpenInMaps("other")}>
+              <Pill>
+                  <Ionicons name="navigate-outline" size={14}  /> Directions from saved Location
               </Pill>
               </TouchableOpacity>
                 </View>
