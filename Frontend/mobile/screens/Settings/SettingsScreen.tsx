@@ -54,8 +54,11 @@ export default function SettingsScreen({ onLogout }: Props) {
   const [prefs, setPrefs] = React.useState<NotifPrefs>(DEFAULT_PREFS);
   const [saving, setSaving] = React.useState(false);
   const [origin, setOrigin] = React.useState("");
+  const [location, setLocation] = React.useState("");
   const [savedOrigin, setSavedOrigin] = React.useState(""); // Track what's actually saved
   const [originLoading, setOriginLoading] = React.useState(false);
+  const [locationLoading, setLocationLoading] = React.useState(false);
+  const [savedLocation, setSavedLocation] = React.useState("");
 
   React.useEffect(() => {
     (async () => {
@@ -91,6 +94,29 @@ export default function SettingsScreen({ onLogout }: Props) {
   React.useEffect(() => {
     loadOrigin();
   }, [loadOrigin]);
+
+  const loadLocation = React.useCallback(async () => {
+    try {
+      setLocationLoading(true);
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+      if (!email) return;
+      const res = await axios.get(`${API_BASE}/user/location/`, { params: { email, other_location: "" } });
+      const loadedLocation = res?.data?.other_location ?? "";
+      setLocation(loadedLocation);
+      setSavedLocation(loadedLocation); // Track saved value separately
+      console.log("Loaded location:", loadedLocation || "(none)");
+    } catch (err) {
+      console.error("Failed to load location:", err);
+    } finally {
+      setLocationLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadLocation();
+  }, [loadLocation]);
 
   // Load closure notification preference from backend (User Story #11)
   React.useEffect(() => {
@@ -214,6 +240,75 @@ export default function SettingsScreen({ onLogout }: Props) {
       Alert.alert("Clear Failed", errorMsg + "\n\nMake sure the backend server is running.");
     } finally {
       setOriginLoading(false);
+    }
+  };
+  const saveLocation = async () => {
+    try {
+      setLocationLoading(true);
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+      if (!email) {
+        Alert.alert("Not logged in", "Please log in again.");
+        return;
+      }
+      
+      const trimmedLocation = location.trim();
+      console.log("Saving starting location:", trimmedLocation || "(clearing)");
+      await axios.post(`${API_BASE}/user/location/`, { email, other_location: trimmedLocation });
+      
+      // Update saved origin state
+      setSavedLocation(trimmedLocation);
+      
+      if (trimmedLocation) {
+        Alert.alert(
+          "Saved Successfully",
+          `Location: "${trimmedLocation}"\n\nYou can now choose to start from this location`,
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert(
+          "Cleared Successfully",
+          "Location removed.",
+          [{ text: "OK" }]
+        );
+      }
+    } catch (e: any) {
+      console.error("Save failed:", e);
+      const errorMsg = e?.response?.data?.detail || e?.message || "Network error";
+      Alert.alert("Save Failed", errorMsg + "\n\nMake sure the backend server is running.");
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const clearLocation = async () => {
+    try {
+      setLocationLoading(true);
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+      if (!email) {
+        Alert.alert("Not logged in", "Please log in again.");
+        return;
+      }
+      
+      console.log("Clearing location");
+      await axios.post(`${API_BASE}/user/location/`, { email, other_location: "" });
+      setLocation("");
+      setSavedLocation(""); // Clear saved origin state
+      
+      Alert.alert(
+        "Cleared Successfully",
+        "Location removed. The app will now use your device's current location for travel time calculations.",
+        [{ text: "OK" }]
+      );
+    } catch (e: any) {
+      console.error("Clear failed:", e);
+      const errorMsg = e?.response?.data?.detail || e?.message || "Network error";
+      Alert.alert("Clear Failed", errorMsg + "\n\nMake sure the backend server is running.");
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -621,6 +716,110 @@ export default function SettingsScreen({ onLogout }: Props) {
               title={originLoading ? "Saving..." : "Save Starting Location"} 
               onPress={saveOrigin} 
               disabled={originLoading || !origin.trim()} 
+            />
+          </View>
+        </View>
+
+        {/* Saving Other Locations */}
+        <View style={{ 
+          marginTop: 20, 
+          backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+          padding: 16,
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: theme.mode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"
+        }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Ionicons name="business" size={22} color={theme.primary} />
+          <ThemedText style={{ fontSize: 18, fontWeight: "700" }}>Other Location</ThemedText>
+          </View>
+          
+          <ThemedText style={{ fontSize: 14, opacity: 0.65, marginBottom: 16, lineHeight: 20 }}>
+            Set a location to get directions from
+          </ThemedText>
+          
+          {/* Status Message at Top - Only show if there's a saved location */}
+          {savedLocation ? (
+            <View style={{ 
+              flexDirection: "row", 
+              alignItems: "center", 
+              gap: 8,
+              padding: 12,
+              backgroundColor: theme.mode === "dark" ? "rgba(34, 197, 94, 0.15)" : "rgba(34, 197, 94, 0.1)",
+              borderRadius: 10,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: "rgba(34, 197, 94, 0.3)"
+            }}>
+              <Ionicons name="checkmark-circle" size={20} color="#22c55e" />
+              <View style={{ flex: 1 }}>
+                <ThemedText style={{ fontSize: 11, opacity: 0.7, fontWeight: "600", marginBottom: 2 }}>
+                  SAVED LOCATION
+                </ThemedText>
+                <ThemedText style={{ fontSize: 13, fontWeight: "500" }}>
+                  {savedLocation}
+                </ThemedText>
+              </View>
+            </View>
+          ) : (
+            <View style={{ 
+              flexDirection: "row", 
+              alignItems: "center", 
+              gap: 8,
+              padding: 12,
+              backgroundColor: theme.mode === "dark" ? "rgba(59, 130, 246, 0.15)" : "rgba(59, 130, 246, 0.1)",
+              borderRadius: 10,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: "rgba(59, 130, 246, 0.3)"
+            }}>
+              <Ionicons name="location" size={20} color="#3b82f6" />
+              <ThemedText style={{ fontSize: 13, opacity: 0.85, flex: 1, lineHeight: 18 }}>
+                Not set - travel times will not be displayed
+              </ThemedText>
+            </View>
+          )}
+
+          {/* Input with Clear Button */}
+          <View style={{ position: "relative", marginBottom: 12 }}>
+            <AuthInput
+              placeholder="Enter your starting location..."
+              value={location}
+              onChangeText={setLocation}
+              style={{ paddingRight: origin ? 50 : 12, fontSize: 15 }}
+            />
+            {location && (
+              <TouchableOpacity
+                onPress={clearLocation}
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  top: "50%",
+                  transform: [{ translateY: -12 }],
+                  width: 24,
+                  height: 24,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+                  borderRadius: 12
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                disabled={locationLoading}
+              >
+                <Ionicons 
+                  name="close" 
+                  size={16} 
+                  color={locationLoading ? "#9CA3AF" : (theme.mode === "dark" ? "#D1D5DB" : "#6B7280")} 
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View>
+            <Button 
+              title={locationLoading ? "Saving..." : "Save Starting Location"} 
+              onPress={saveLocation} 
+              disabled={locationLoading || !location.trim()} 
             />
           </View>
         </View>

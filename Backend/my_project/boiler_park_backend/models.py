@@ -61,6 +61,8 @@ class User(models.Model):
         max_length=255, blank=True, null=True)
     default_origin = models.CharField(
         max_length=255, blank=True, null=True)
+    other_location = models.CharField(
+        max_length=255, blank=True, null=True)
     closure_notifications_enabled = models.BooleanField(default=True)
     favorite_lots = ArrayField(models.CharField(
         max_length=20), blank=True, null=True)
@@ -102,18 +104,6 @@ class CalendarEvent(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.user.email})"
-
-
-'''
-class CampusEvent(models.Model):
-    id = models.AutoField(primary_key=True)
-    title = models.CharField(max_length=50)
-    description = models.CharField(max_length=150)
-
-
-class Camera(models.Model):
-    id = models.AutoField(primary_key=True)
-'''
 
 
 class Item(models.Model):

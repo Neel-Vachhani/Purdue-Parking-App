@@ -57,6 +57,7 @@ export interface Garage {
   evPorts?: number;
   accessibleSpots?: number;
   rating: number;
+  individual_rating: number;
 }
 
 export interface GarageDetailProps {
@@ -271,7 +272,7 @@ export default function GarageDetail({
     
     return (
         <StarRating
-          rating={rating}
+          rating={garage.individual_rating}
           color="#ceb888"
           onChange={ratingChange}
         />
@@ -402,6 +403,7 @@ export default function GarageDetail({
     
     async function loadEvents() {
       const lotCode = garage.code;
+      console.log(garage.individual_rating)
       
       if (!lotCode) {
         if (isMounted) setEvents([]);

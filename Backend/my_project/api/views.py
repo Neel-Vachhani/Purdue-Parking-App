@@ -541,10 +541,16 @@ def apple_sign_in(request):
 
 @api_view(['GET'])
 def get_data(request):
-    items = Item.objects.all()
-    serializer = ItemSerializer(items, many=True)
+    users = User.objects.all()
+    serializer = UserSerializer(users, many=True)
     return Response(serializer.data)
 
+
+@api_view(['POST'])
+def get_user(request):
+    email = request.data.get('email')
+    user = User.objects.filter(email=email).first()
+    return (Response(UserSerializer(user).data))
 
 
 @api_view(['POST'])
@@ -645,6 +651,33 @@ def user_origin(request):
     user.default_origin = default_origin
     user.save(update_fields=["default_origin"])
     return Response({"status": "ok", "default_origin": user.default_origin})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def get_location(request):
+    """Get or set the user's other location address.
+
+    GET:  /user/origin/?email=<email>
+    POST: { email, location }
+    """
+    email = request.data.get(
+        "email") if request.method == 'POST' else request.query_params.get("email")
+    if not email:
+        return Response({"detail": "email required"}, status=400)
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        print("here")
+        return Response({"detail": "user not found"}, status=404)
+
+    if request.method == 'GET':
+        return Response({"other_location": getattr(user, "other_location", None)})
+
+    other_location = request.data.get("other_location", "")
+    user.other_location = other_location
+    user.save(update_fields=["other_location"])
+    return Response({"status": "ok", "other_location": user.other_location})
 
 
 @api_view(['POST'])

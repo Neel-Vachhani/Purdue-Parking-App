@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ThemeContext } from "../theme/ThemeProvider";
 import { useEffect } from "react";
 import GarageDetail from "./DetailedGarage";
+import { EmailContext } from "../utils/EmailContext";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
 
 type Garage = {
@@ -34,6 +35,8 @@ type Garage = {
   lng?: number;
   passes: ParkingPass[];
   rating: number;
+  individual_rating: number;
+  address: string;
 };
 export type Amenity =
   | "covered"
@@ -75,6 +78,7 @@ export interface GarageDetailType {
   rating: number;
   evPorts?: number;
   accessibleSpots?: number;
+  individual_rating: number;
 }
 type GarageDefinition = {
   code: string;
@@ -85,38 +89,39 @@ type GarageDefinition = {
   lng?: number;
   passes: ParkingPass[];
   rating: number;
+  address: string;
+  individual_rating: number;
 };
 const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall", "Paid"];
 
 const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"], rating: 3.5 },
-  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"], rating: 4 },
-  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"], rating: 3 },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"], rating: 5 },
-  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"], rating: 2 },
-  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"], rating: 2 },
-  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, lat: 40.43095, lng: -86.91625, passes: ["Grad House", "Paid"], rating: 2 },
-  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"], rating: 2  },
-  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"], rating: 2  },
-  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"], rating: 2  },
-  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"], rating: 2  },
-  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"], rating: 2 },
-  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"], rating: 2  },
-  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"], rating: 2 },
-  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"], rating: 2  },
-  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"], rating: 2  },
-  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"], rating: 2  },
-  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"], rating: 2  },
-  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"], rating: 2.0 },
-  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"], rating: 2  },
-  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"], rating: 2  },
-  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"], rating: 2  },
-  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"], rating: 2 },
-  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"], rating: 2  },
-  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"], rating: 2  },
-  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"], rating: 2  },
-  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"], rating: 2  },
-  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"], rating: 2  },
+  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"], rating: 3.5, address: "719 Clinic Dr, West Lafayette, IN", individual_rating: 2.5 },
+  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"], rating: 4, address: "120 Grant St, West Lafayette, IN", individual_rating: 0 },
+  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"], rating: 3, address: "201 N University St, West Lafayette, IN", individual_rating: 0 },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"], rating: 5, address: "504 Northwestern Ave, West Lafayette, IN", individual_rating: 0 },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"], rating: 2, address: "250 McCutcheon Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"], rating: 2, address: "120 S. Grant St., West Lafayette, IN", individual_rating: 0 },
+  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"], rating: 2, address: "112 Marsteller St, West Lafayette, IN", individual_rating: 0 },
+  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"], rating: 2, address: "850 Steven Beering Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"], rating: 2, address: "Address coming from API", individual_rating: 0  },
+  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"], rating: 2, address: "Address coming from API", individual_rating: 0  },
+  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"], rating: 2, address: "1228 John R Wooden Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"], rating: 2, address: "A Lot, West Lafayette, IN", individual_rating: 0  },
+  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"], rating: 2, address: "355 N Martin Jischke Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"], rating: 2, address: "1205 W Stadium Ave, West Lafayette, IN", individual_rating: 0  },
+  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"], rating: 2, address: "500 N Martin Jischke Dr, West Lafayette, IN", individual_rating: 0  },
+  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"], rating: 2, address: "520 North Russell Street West Lafayette, IN", individual_rating: 0  },
+  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"], rating: 2, address: "Address coming from API", individual_rating: 0  },
+  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"], rating: 2.0, address: "205 N Russell St, West Lafayette, IN", individual_rating: 0 },
+  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"], rating: 2, address: "1275 3rd Street, West Lafayette, IN", individual_rating: 0  },
+  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"], rating: 2, address: "400 McCutcheon Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"], rating: 2, address: "209 N Russell St, West Lafayette, IN", individual_rating: 0  },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"], rating: 2, address: "134 Pierce St., West Lafayette, IN", individual_rating: 0 },
+  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"], rating: 2, address: " 175 S University St, West Lafayette, IN", individual_rating: 0  },
+  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"], rating: 2, address: "625 Harrison St, West Lafayette, IN", individual_rating: 0 },
+  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"], rating: 2, address: "625 Harrison St, West Lafayette, IN", individual_rating: 0  },
+  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"], rating: 2, address: "625 Harrison St, West Lafayette, IN", individual_rating: 0  },
+  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"], rating: 2, address: "501 Aviation Dr, West Lafayette, IN", individual_rating: 0  },
 ];
 
 const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
@@ -133,6 +138,8 @@ const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => 
     lng: definition.lng,
     rating: definition.rating,
     passes: definition.passes,
+    address: definition.address,
+    individual_rating: definition.individual_rating
   };
 });
 
@@ -145,6 +152,7 @@ type ApiLot = {
 };
 
 const AVAILABILITY_ENDPOINT = "/parking/availability/";
+
 
 const getApiBaseUrl = (): string => {
   const configExtra = Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined;
@@ -167,13 +175,33 @@ const getApiBaseUrl = (): string => {
 };
 
 // Changes the traditional garage data to the detailed format
-function mapListGarageToDetail(g:   Garage): GarageDetailType {
+function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
   const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
+  let lot_ratings: {[name: string]: number} = {}
+  
+  async function getUserRatings(){
+      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+      await fetch(`${API_BASE}/user/get_user`, {
+            method: "POST",
+            headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              email: email
+            })
+          }).then((res) => res.json())
+          .then((response) => {
+            lot_ratings = response['lot_ratings']['codes']
+          });
+    }
+    getUserRatings();
+
   return {
     id: g.id,
     code: g.code,
     name: g.name,
-    address: "Address coming from API", // replace with real field if you have it
+    address: g.address, // replace with real field if you have it
     totalSpots: g.total,
     occupiedSpots: occupied,
     covered: true,
@@ -183,6 +211,7 @@ function mapListGarageToDetail(g:   Garage): GarageDetailType {
     price: g.paid ? "Paid Lot" : "Free",
     hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
     lastUpdatedIso: new Date().toISOString(),
+    individual_rating: 0
   };
 }
 
@@ -215,13 +244,18 @@ export default function GarageList({
   const [selectedPasses, setSelectedPasses] = React.useState<ParkingPass[]>([]);
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
+  const [lotRatings, setLotRatings] = React.useState();
   const filtersLoadedRef = React.useRef(false);
+  const userEmail = React.useContext(EmailContext);
 
   // detail panel state
   const [selected, setSelected] = React.useState<Garage | null>(null);
   const translateX = React.useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
+
   React.useEffect(() => setGarages(data), [data]);
+
+
 
   React.useEffect(() => {
     const loadFilters = async () => {
@@ -278,6 +312,26 @@ export default function GarageList({
     [onOpenInMaps]
   );
 
+  useEffect(() => {
+    async function getUserRatings() {
+      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+          //TODO: API Call to backend to update the rating in the backend
+          await fetch(`${API_BASE}/user/get_user`, {
+            method: "POST",
+            headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              email: userEmail.userEmail
+            })
+          }).then((res) => res.json())
+          .then((response) => {
+            setLotRatings(response['lot_ratings']['codes'])
+          });
+    }
+    getUserRatings();
+  }, [])
   useEffect(() => {
     let isMounted = true;
 
@@ -382,7 +436,6 @@ export default function GarageList({
     
   };
   
-
   // Filtering logic for garages
   const visibleGarages = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -440,8 +493,8 @@ export default function GarageList({
       .then((res) => {
         avg_rating = res['avg_rating']
   });
+      //getUserRatings();
       return avg_rating
-      
     }
 
   // Function to render every garage item in non-detailed view
@@ -455,6 +508,7 @@ export default function GarageList({
     }
     const cardBg = theme.mode === "dark" ? "#202225" : "#FFFFFF";
     const secondaryText = theme.mode === "dark" ? "#cfd2d6" : "#6b7280";
+    
 
     return (
       <TouchableOpacity activeOpacity={0.9} onPress={() => openDetail(item)}>
@@ -804,7 +858,7 @@ export default function GarageList({
           }}
         >
           <GarageDetail
-            garage={mapListGarageToDetail(selected)}
+            garage={mapListGarageToDetail(selected, userEmail.userEmail )}
             isFavorite={!!selected.favorite}
             onBack={
               () => {
