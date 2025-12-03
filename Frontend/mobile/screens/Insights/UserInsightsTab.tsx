@@ -184,10 +184,15 @@ export default function UserInsightsTab() {
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>MOST VISITED LOCATIONS</Text>
             {renderBarChart(
-              insights.most_visited_lots.map(lot => lot.lot__code.toUpperCase()),
-              insights.most_visited_lots.map(lot => lot.visits),
+              insights.most_visited_lots
+                .slice(0, 5) // take top 5
+                .map(lot => lot.lot__code.toUpperCase()),
+              insights.most_visited_lots
+                .slice(0, 5) // take top 5
+                .map(lot => lot.visits),
               "Top Parking Locations"
             )}
+
           </View>
         )}
 
@@ -195,11 +200,25 @@ export default function UserInsightsTab() {
         {insights && insights.visits_per_day.length > 0 && !loading && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>WEEKLY PATTERN</Text>
-            {renderBarChart(
-              insights.visits_per_day.map(day => day.day_of_week),
-              insights.visits_per_day.map(day => day.visits),
-              "Parking by Day of Week"
-            )}
+             {(() => {
+              const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+              const visitsMap: Record<string, number> = {};
+              weekDays.forEach(day => visitsMap[day] = 0);
+
+              insights.visits_per_day.forEach(d => {
+                if (weekDays.includes(d.day_of_week)) {
+                  visitsMap[d.day_of_week] += d.visits;
+                }
+              });
+
+              return renderBarChart(
+                weekDays.map(d => d.slice(0, 3)),  // Mon, Tue, Wed, ...
+                weekDays.map(d => visitsMap[d]),
+                "Parking by Day of Week"
+              );
+            })()}
+
+
           </View>
         )}
 
