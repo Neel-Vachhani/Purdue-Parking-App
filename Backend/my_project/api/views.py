@@ -15,8 +15,8 @@ from redis.exceptions import RedisError
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, ParkingLot
-from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer
+from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, ParkingLot, UserPark
+from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer, UserParkSerializer
 from .services import verify_apple_identity, issue_session_token
 from django.utils.timezone import make_aware
 
@@ -173,6 +173,8 @@ def get_postgres_connection():
         user=config('DB_USERNAME'),
         password=config('DB_PASSWORD')
     )
+
+
 
 
 @api_view(['POST'])
@@ -562,6 +564,32 @@ LOT_CAPACITY_MAP = {
     "duhm": 60, "pierce_st": 100, "smth_bchm": 120, "disc_a": 100, "disc_ab": 100,
     "disc_abc": 100, "airport": 80,
 }
+
+@api_view(['POST'])
+def create_parking_log(request):
+    email = request.data.get("email")
+    lot_code = request.data.get("code")
+    timestamp_str = request.data.get('timestamp')  # Get the timestamp from request    
+    # Parse the ISO timestamp string to a datetime object
+    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+    print(timestamp)
+    print(email)
+    print(lot_code)
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    print(user)
+    try:
+        lot = ParkingLot.objects.get(code=lot_code)
+    except ParkingLot.DoesNotExist:
+        return Response({"error": "Lot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    log = UserPark.objects.create(user=user, lot=lot, timestamp=timestamp)
+    log.save()
+
+    return Response({"success": True, "message": "Parking log saved."})
+
 
 
 @api_view(["GET"])

@@ -14,6 +14,7 @@ urlpatterns = [
     path('user/location/', views.get_location),
     path('user/get_user', views.get_user),
     path('geocode/', views.geocode_address),
+    path('api/confirm_parking/', views.create_parking_log),
 
     # Lot events (User Story #10)
     path('lots/<str:lot_code>/events/', views.list_lot_events),
