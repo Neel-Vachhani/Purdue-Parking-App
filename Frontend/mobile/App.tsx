@@ -13,6 +13,8 @@ import BottomBar from "./components/BottomBar";
 import AuthScreen from "./screens/Auth/AuthScreen";
 import ParkingWS from "./components/ParkingWS";
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
+import { EmailProvider } from './utils/EmailContext'
+
 import { TAB_CONFIG, TAB_KEYS, TabKey, getTabByKey } from "./components/navigation/tabConfig";
 
 const LAST_TAB_STORAGE_KEY = "last-used-tab";
@@ -22,6 +24,7 @@ export default function App() {
   const [expoPushToken, setExpoPushToken] = React.useState<string | null>(null);
   const [booting, setBooting] = React.useState(true);
   const [isAuthed, setIsAuthed] = React.useState(false);
+  
 
   React.useEffect(() => {
     (async () => {
@@ -92,6 +95,7 @@ export default function App() {
   }
 
   return (
+    <EmailProvider>
     <ThemeProvider>
       <SafeAreaProvider>
         {booting ? (
@@ -108,5 +112,6 @@ export default function App() {
         )}
       </SafeAreaProvider>
     </ThemeProvider>
+    </EmailProvider>
   );
 }

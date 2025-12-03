@@ -15,12 +15,14 @@ import {
   Easing,
   Linking,
   Pressable,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { useEffect } from "react";
 import GarageDetail from "./DetailedGarage";
+import { EmailContext } from "../utils/EmailContext";
 import EmptyState from "./EmptyState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
@@ -37,6 +39,8 @@ type Garage = {
   lng?: number;
   passes: ParkingPass[];
   rating: number;
+  individual_rating: number;
+  address: string;
 };
 export type Amenity =
   | "covered"
@@ -78,6 +82,7 @@ export interface GarageDetailType {
   rating: number;
   evPorts?: number;
   accessibleSpots?: number;
+  individual_rating: number;
 }
 type GarageDefinition = {
   code: string;
@@ -88,54 +93,75 @@ type GarageDefinition = {
   lng?: number;
   passes: ParkingPass[];
   rating: number;
+  address: string;
+  individual_rating: number;
 };
 const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall", "Paid"];
 
 const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"], rating: 3.5 },
-  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"], rating: 4 },
-  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"], rating: 3 },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"], rating: 5 },
-  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"], rating: 2 },
-  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"], rating: 2 },
-  { code: "PGGH", name: "Graduate House Parking Garage", paid: true, lat: 40.43095, lng: -86.91625, passes: ["Grad House", "Paid"], rating: 2 },
-  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"], rating: 2  },
-  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"], rating: 2  },
-  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"], rating: 2  },
-  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"], rating: 2  },
-  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"], rating: 2 },
-  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"], rating: 2  },
-  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"], rating: 2 },
-  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"], rating: 2  },
-  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"], rating: 2  },
-  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"], rating: 2  },
-  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"], rating: 2  },
-  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"], rating: 2.0 },
-  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"], rating: 2  },
-  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"], rating: 2  },
-  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"], rating: 2  },
-  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"], rating: 2 },
-  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"], rating: 2  },
-  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"], rating: 2  },
-  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"], rating: 2  },
-  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"], rating: 2  },
-  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"], rating: 2  },
+  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"], rating: 3.5, address: "719 Clinic Dr, West Lafayette, IN", individual_rating: 2.5 },
+  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"], rating: 4, address: "120 Grant St, West Lafayette, IN", individual_rating: 0 },
+  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"], rating: 3, address: "201 N University St, West Lafayette, IN", individual_rating: 0 },
+  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"], rating: 5, address: "504 Northwestern Ave, West Lafayette, IN", individual_rating: 0 },
+  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"], rating: 2, address: "250 McCutcheon Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"], rating: 2, address: "120 S. Grant St., West Lafayette, IN", individual_rating: 0 },
+  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"], rating: 2, address: "112 Marsteller St, West Lafayette, IN", individual_rating: 0 },
+  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"], rating: 2, address: "850 Steven Beering Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"], rating: 2, address: "Address coming from API", individual_rating: 0  },
+  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"], rating: 2, address: "Address coming from API", individual_rating: 0  },
+  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"], rating: 2, address: "1228 John R Wooden Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"], rating: 2, address: "A Lot, West Lafayette, IN", individual_rating: 0  },
+  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"], rating: 2, address: "355 N Martin Jischke Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"], rating: 2, address: "1205 W Stadium Ave, West Lafayette, IN", individual_rating: 0  },
+  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"], rating: 2, address: "500 N Martin Jischke Dr, West Lafayette, IN", individual_rating: 0  },
+  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"], rating: 2, address: "520 North Russell Street West Lafayette, IN", individual_rating: 0  },
+  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"], rating: 2, address: "Address coming from API", individual_rating: 0  },
+  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"], rating: 2.0, address: "205 N Russell St, West Lafayette, IN", individual_rating: 0 },
+  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"], rating: 2, address: "1275 3rd Street, West Lafayette, IN", individual_rating: 0  },
+  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"], rating: 2, address: "400 McCutcheon Dr, West Lafayette, IN", individual_rating: 0 },
+  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"], rating: 2, address: "209 N Russell St, West Lafayette, IN", individual_rating: 0  },
+  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"], rating: 2, address: "134 Pierce St., West Lafayette, IN", individual_rating: 0 },
+  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"], rating: 2, address: " 175 S University St, West Lafayette, IN", individual_rating: 0  },
+  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"], rating: 2, address: "625 Harrison St, West Lafayette, IN", individual_rating: 0 },
+  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"], rating: 2, address: "625 Harrison St, West Lafayette, IN", individual_rating: 0  },
+  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"], rating: 2, address: "625 Harrison St, West Lafayette, IN", individual_rating: 0  },
+  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"], rating: 2, address: "501 Aviation Dr, West Lafayette, IN", individual_rating: 0  },
 ];
 
 const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
-  const initialCounts = getInitialOccupancy();
+  // *** CUSTOM TEST VALUES FOR FULL GARAGE ALERTS ***
+  let testCurrent: number;
+  let testTotal: number;
+  
+  if (definition.code === "PGH") { // Harrison Street Parking Garage
+    testCurrent = 0; // Completely full
+    testTotal = 480;
+  } else if (definition.code === "PGG") { // Grant Street Parking Garage  
+    testCurrent = 3; // Nearly full
+    testTotal = 650;
+  } else if (definition.code === "PGU") { // University Street Parking Garage
+    testCurrent = 1; // Nearly full
+    testTotal = 820;
+  } else {
+    // All other garages have good availability
+    testCurrent = 150;
+    testTotal = 400;
+  }
+
   return {
     id: String(index + 1),
     code: definition.code,
     name: definition.name,
     paid: definition.paid ?? false,
     favorite: definition.favorite ?? false,
-    current: initialCounts.current,
-    total: initialCounts.total,
+    current: testCurrent,
+    total: testTotal,
     lat: definition.lat,
     lng: definition.lng,
     rating: definition.rating,
     passes: definition.passes,
+    address: definition.address,
+    individual_rating: definition.individual_rating
   };
 });
 
@@ -148,6 +174,7 @@ type ApiLot = {
 };
 
 const AVAILABILITY_ENDPOINT = "/parking/availability/";
+
 
 const getApiBaseUrl = (): string => {
   const configExtra = Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined;
@@ -170,13 +197,33 @@ const getApiBaseUrl = (): string => {
 };
 
 // Changes the traditional garage data to the detailed format
-function mapListGarageToDetail(g:   Garage): GarageDetailType {
+function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
   const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
+  let lot_ratings: {[name: string]: number} = {}
+  
+  async function getUserRatings(){
+      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+      await fetch(`${API_BASE}/user/get_user`, {
+            method: "POST",
+            headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              email: email
+            })
+          }).then((res) => res.json())
+          .then((response) => {
+            lot_ratings = response['lot_ratings']['codes']
+          });
+    }
+    getUserRatings();
+
   return {
     id: g.id,
     code: g.code,
     name: g.name,
-    address: "Address coming from API", // replace with real field if you have it
+    address: g.address, // replace with real field if you have it
     totalSpots: g.total,
     occupiedSpots: occupied,
     covered: true,
@@ -186,6 +233,7 @@ function mapListGarageToDetail(g:   Garage): GarageDetailType {
     price: g.paid ? "Paid Lot" : "Free",
     hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
     lastUpdatedIso: new Date().toISOString(),
+    individual_rating: 0
   };
 }
 
@@ -224,7 +272,9 @@ export default function GarageList({
   const [selectedPasses, setSelectedPasses] = React.useState<ParkingPass[]>([]);
   const [isFilterVisible, setIsFilterVisible] = React.useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
+  const [lotRatings, setLotRatings] = React.useState();
   const filtersLoadedRef = React.useRef(false);
+  const userEmail = React.useContext(EmailContext);
 
   // detail panel state
   const [selected, setSelected] = React.useState<Garage | null>(null);
@@ -251,7 +301,7 @@ export default function GarageList({
     () =>
       Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
         useNativeDriver: true,
-        listener: ({ nativeEvent }) => {
+        listener: ({ nativeEvent }: { nativeEvent: { contentOffset: { y: number } } }) => {
           const offsetY = nativeEvent.contentOffset.y;
           setShowBackToTop((prev) => {
             if (prev && offsetY < BACK_TO_TOP_THRESHOLD * 0.4) return false;
@@ -266,7 +316,10 @@ export default function GarageList({
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, []);
 
+
   React.useEffect(() => setGarages(data), [data]);
+
+
 
   React.useEffect(() => {
     const loadFilters = async () => {
@@ -330,6 +383,135 @@ export default function GarageList({
     [onToggleFavorite]
   );
 
+  // Helper function to calculate distance between two points using Haversine formula
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 3959; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in miles
+  };
+
+  // Helper function to find the nearest non-full garage
+  const findNearestAlternative = (currentGarage: Garage): Garage | null => {
+    if (!currentGarage.lat || !currentGarage.lng) return null;
+    
+    const availableGarages = garages.filter(g => 
+      g.id !== currentGarage.id && // Exclude current garage
+      !isGarageFull(g.current) && // Only non-full garages
+      g.lat && g.lng // Must have coordinates
+    );
+
+    if (availableGarages.length === 0) return null;
+
+    let nearestGarage = availableGarages[0];
+    let shortestDistance = calculateDistance(
+      currentGarage.lat, currentGarage.lng,
+      nearestGarage.lat!, nearestGarage.lng!
+    );
+
+    for (let i = 1; i < availableGarages.length; i++) {
+      const garage = availableGarages[i];
+      const distance = calculateDistance(
+        currentGarage.lat, currentGarage.lng,
+        garage.lat!, garage.lng!
+      );
+      
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        nearestGarage = garage;
+      }
+    }
+
+    return nearestGarage;
+  };
+
+  // Helper function to determine if a garage is full
+  const isGarageFull = (available: number): boolean => {
+    return available <= 5; // Consider garage full if 5 or fewer spots available
+  };
+
+  // Helper function to get garage status text
+  const getGarageStatus = (available: number, total: number): string => {
+    if (available === 0) return "completely full";
+    if (available <= 5) return "nearly full";
+    const percentage = Math.round((available / total) * 100);
+    return `${percentage}% available`;
+  };
+
+  // Handle garage press interaction for full garage popup
+  const handleGaragePress = React.useCallback((garage: Garage) => {
+    if (isGarageFull(garage.current)) {
+      const statusText = getGarageStatus(garage.current, garage.total);
+      const alertTitle = garage.current === 0 ? "Garage Full" : "Garage Nearly Full";
+      const alertMessage = `${garage.name} is ${statusText} with ${garage.current} spots remaining.\n\nConsider checking other nearby garages for better availability.`;
+
+      Alert.alert(
+        alertTitle,
+        alertMessage,
+        [
+          {
+            text: "OK",
+            style: "default",
+          },
+          {
+            text: "View Alternatives", 
+            style: "default",
+            onPress: () => {
+              const nearestAlternative = findNearestAlternative(garage);
+              
+              if (nearestAlternative) {
+                const distance = calculateDistance(
+                  garage.lat!, garage.lng!,
+                  nearestAlternative.lat!, nearestAlternative.lng!
+                );
+                
+                const availabilityPercent = Math.round((nearestAlternative.current / nearestAlternative.total) * 100);
+                
+                Alert.alert(
+                  "Recommended Alternative",
+                  `${nearestAlternative.name}\n\n• ${nearestAlternative.current}/${nearestAlternative.total} spots available (${availabilityPercent}% full)\n• ${distance.toFixed(1)} miles away\n• Accepts: ${nearestAlternative.passes.join(", ")} passes`,
+                  [
+                    {
+                      text: "Cancel",
+                      style: "cancel"
+                    },
+                    {
+                      text: "Get Directions",
+                      style: "default",
+                      onPress: () => handleOpenInMaps(nearestAlternative)
+                    },
+                    {
+                      text: "View Details",
+                      style: "default", 
+                      onPress: () => openDetail(nearestAlternative)
+                    }
+                  ],
+                  { cancelable: true }
+                );
+              } else {
+                Alert.alert(
+                  "No Alternatives Available",
+                  "Unfortunately, all nearby garages are currently full or nearly full. Please try again later or consider alternative transportation.",
+                  [{ text: "OK", style: "default" }],
+                  { cancelable: true }
+                );
+              }
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } else {
+      // For garages with good availability, show success info
+      openDetail(garage);
+    }
+  }, []);
+
 
   const handleOpenInMaps = React.useCallback(
     (garage: Garage) => {
@@ -346,70 +528,33 @@ export default function GarageList({
   );
 
   useEffect(() => {
+    async function getUserRatings() {
+      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+          //TODO: API Call to backend to update the rating in the backend
+          await fetch(`${API_BASE}/user/get_user`, {
+            method: "POST",
+            headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              email: userEmail.userEmail
+            })
+          }).then((res) => res.json())
+          .then((response) => {
+            setLotRatings(response['lot_ratings']['codes'])
+          });
+    }
+    getUserRatings();
+  }, [])
+  useEffect(() => {
     let isMounted = true;
 
     const loadAvailability = async () => {
-      try {
-        const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
-        if (!response.ok) {
-          console.error("Failed to fetch parking availability:", response.status);
-          return;
-        }
-
-        const payload: { lots?: ApiLot[] } = await response.json();
-        const lots = Array.isArray(payload?.lots) ? payload.lots : undefined;
-        if (!lots || lots.length === 0 || !isMounted) return;
-
-        // Some sort of odd mapping logic to match lots from API to our local list
-        const updatesById = new Map<string, ApiLot>();
-        const updatesByCode = new Map<string, ApiLot>();
-        const updatesByName = new Map<string, ApiLot>();
-
-        lots.forEach((lot) => {
-          if (lot.id !== undefined) {
-            updatesById.set(String(lot.id), lot);
-          }
-
-          if (lot.code) {
-            updatesByCode.set(lot.code.toUpperCase(), lot);
-          }
-
-          if (lot.name) {
-            updatesByName.set(lot.name.toLowerCase(), lot);
-          }
-        });
-
-        // Update garages with fetched availability data using all three maps for extra matching?
-        setGarages((prev) =>
-          prev.map((garage) => {
-            const update =
-              updatesByCode.get(garage.code.toUpperCase()) ||
-              updatesById.get(garage.id) ||
-              updatesByName.get(garage.name.toLowerCase());
-
-            if (!update) return garage;
-
-            return {
-              ...garage,
-              current:
-                typeof update.available === "number" ? update.available : garage.current,
-              total:
-                typeof update.capacity === "number" ? update.capacity : garage.total,
-            };
-          })
-        );
-
-        setLastUpdated(
-          new Date().toLocaleString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-            timeZoneName: "short",
-          })
-        );
-      } catch (error) {
-        console.error("Failed to load parking availability", error);
-      }
+      // *** TEMPORARILY DISABLED FOR TESTING FULL GARAGE POPUP ***
+      // This prevents API data from overriding our static test values
+      console.log("🧪 [Garagelist] API call disabled for testing - using static test values");
+      return; // Early return to skip API call
     };
 
     loadAvailability();
@@ -449,7 +594,6 @@ export default function GarageList({
     
   };
   
-
   // Filtering logic for garages
   const trimmedQuery = searchQuery.trim();
 
@@ -518,8 +662,8 @@ export default function GarageList({
       .then((res) => {
         avg_rating = res['avg_rating']
   });
+      //getUserRatings();
       return avg_rating
-      
     }
 
   // Function to render every garage item in non-detailed view
@@ -535,7 +679,10 @@ export default function GarageList({
     const secondaryText = theme.textMuted;
 
     return (
-      <TouchableOpacity activeOpacity={0.9} onPress={() => openDetail(item)}>
+      <TouchableOpacity 
+        activeOpacity={0.9} 
+        onPress={() => handleGaragePress(item)} // ← Changed to use handleGaragePress instead of openDetail
+      >
         <View
           style={{
             marginHorizontal: 16,
@@ -551,13 +698,29 @@ export default function GarageList({
             shadowOpacity: theme.mode === "dark" ? 0.35 : 0.12,
             shadowRadius: 10,
             shadowOffset: { width: 0, height: 6 },
+            // Add subtle opacity for full garages
+            opacity: isGarageFull(item.current) ? 0.8 : 1,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
-                {item.name}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
+                  {item.name}
+                </Text>
+                {isGarageFull(item.current) && (
+                  <View style={{
+                    backgroundColor: "#ef4444",
+                    borderRadius: 10,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                  }}>
+                    <Text style={{ fontSize: 10, color: "white", fontWeight: "600" }}>
+                      {item.current === 0 ? "FULL" : "LOW"}
+                    </Text>
+                  </View>
+                )}
+              </View>
               {/* Rating Pill */}
               <View
                 onLayout={() => avg_rating()}
@@ -998,7 +1161,7 @@ export default function GarageList({
           }}
         >
           <GarageDetail
-            garage={mapListGarageToDetail(selected)}
+            garage={mapListGarageToDetail(selected, userEmail.userEmail )}
             isFavorite={!!selected.favorite}
             onBack={
               () => {
@@ -1027,8 +1190,3 @@ function getOccupancyColors(pct: number, theme: AppTheme) {
   return { fill: theme.success };
 }
 
-function getInitialOccupancy() {
-  const total = 480;
-  const current = Math.floor(Math.random() * (total + 1));
-  return { current, total };
-}
