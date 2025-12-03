@@ -28,7 +28,7 @@ urlpatterns = [
     path("parking/hourly-average/", views.get_hourly_average_parking),
     path('api/calendar/upload-ics/', views.upload_ics_events),
     path('api/calendar/events/', views.list_calendar_events),
-    path('parking/comparison', views.get_parking_comparison, name='parking_comparison')
+    path('parking/comparison', views.get_parking_comparison, name='parking_comparison'),
     path('api/update_rating', views.send_user_rating),
     path('api/get_rating', views.get_garage_rating)
 ]
