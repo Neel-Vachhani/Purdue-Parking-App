@@ -468,6 +468,9 @@ export default function GarageList({
           {
             text: "OK",
             style: "default",
+            onPress: () => {
+              openDetail(garage);
+            }
           },
           {
             text: "View Alternatives", 
