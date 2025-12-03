@@ -281,7 +281,7 @@ export default function GarageDetail({
     
     return (
         <StarRating
-          rating={garage.individual_rating}
+          rating={rating}
           color={theme.primary}
           onChange={ratingChange}
         />
