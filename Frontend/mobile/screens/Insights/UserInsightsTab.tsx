@@ -1,7 +1,12 @@
 import * as React from "react";
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Dimensions } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Dimensions, StyleSheet } from "react-native";
 import { BarChart } from "react-native-chart-kit";
 import { ThemeContext } from "../../theme/ThemeProvider";
+import { Platform } from "react-native";
+import axios from "axios";
+import * as SecureStore from "expo-secure-store";
+
+const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
 
 const { width } = Dimensions.get("window");
 
@@ -40,16 +45,29 @@ export default function UserInsightsTab() {
   const fetchInsights = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://YOUR_API_DOMAIN/user/insights/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "user@example.com" }), // replace with actual user email
-      });
-      const data = await response.json();
-      if (data.success) setInsights(data.insights);
-      else console.error("Error fetching insights:", data.error);
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+
+      if (!email) {
+        console.error("No user email found in SecureStore");
+        setInsights(null);
+        setLoading(false);
+        return;
+      }
+
+      const res = await axios.post(`${API_BASE}/user/insights/`, { email });
+      const data = res.data;
+
+      if (data.success) {
+        setInsights(data.insights);
+      } else {
+        console.error("Error fetching insights:", data.error);
+        setInsights(null);
+      }
     } catch (err) {
       console.error("Network error fetching insights:", err);
+      setInsights(null);
     } finally {
       setLoading(false);
     }
@@ -60,105 +78,258 @@ export default function UserInsightsTab() {
   }, []);
 
   const renderBarChart = (labels: string[], data: number[], title: string) => (
-    <View style={{ marginVertical: 16 }}>
-      <Text style={{ color: theme.text, fontWeight: "700", marginBottom: 12 }}>{title}</Text>
+    <View style={[styles.chartCard, { backgroundColor: cardBg, shadowOpacity: isDark ? 0.4 : 0.1 }]}>
+      <Text style={[styles.chartTitle, { color: theme.text }]}>{title}</Text>
       <BarChart
         data={{ labels, datasets: [{ data }] }}
-        width={width - 40}
-        height={220}
+        width={width - 80}
+        height={240}
         fromZero
         showValuesOnTopOfBars
+        yAxisInterval={1}
+        segments={4}
         chartConfig={{
+          backgroundColor: cardBg,
           backgroundGradientFrom: cardBg,
           backgroundGradientTo: cardBg,
           decimalPlaces: 0,
           color: (opacity = 1) => `rgba(99, 102, 241, ${opacity})`,
           labelColor: () => secondaryText,
+          propsForBackgroundLines: { 
+            strokeDasharray: "", 
+            stroke: borderColor,
+            strokeWidth: 1,
+          },
+          propsForLabels: {
+            fontSize: 11,
+          },
         }}
-        style={{ borderRadius: 16 }}
+        style={styles.chart}
       />
     </View>
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <Text style={{ color: theme.text, fontSize: 22, fontWeight: "700", marginBottom: 20 }}>
-          Parking Insights
-        </Text>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>
+            Your Parking Insights
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: secondaryText }]}>
+            Track your parking patterns and habits
+          </Text>
+        </View>
 
         {/* Time Period Pills */}
-        <View style={{ flexDirection: "row", marginBottom: 24, gap: 10 }}>
-          {TIME_PERIODS.map((period) => (
-            <TouchableOpacity
-              key={period}
-              onPress={() => setTimePeriod(period)}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                borderRadius: 12,
-                backgroundColor: timePeriod === period ? accentColor : secondaryBg,
-                alignItems: "center",
-                shadowColor: timePeriod === period ? accentColor : "transparent",
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-              }}
-            >
-              <Text style={{
-                color: timePeriod === period ? "#fff" : theme.text,
-                fontWeight: "600",
-              }}>
-                {period.toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>TIME PERIOD</Text>
+          <View style={styles.periodButtons}>
+            {TIME_PERIODS.map((period) => (
+              <TouchableOpacity
+                key={period}
+                onPress={() => setTimePeriod(period)}
+                style={[
+                  styles.periodButton,
+                  { backgroundColor: timePeriod === period ? accentColor : secondaryBg },
+                  timePeriod === period && styles.periodButtonActive
+                ]}
+              >
+                <Text style={[
+                  styles.periodButtonText,
+                  { color: timePeriod === period ? "#ffffff" : theme.text },
+                  timePeriod === period && styles.periodButtonTextActive
+                ]}>
+                  {period === "day" ? "24 Hours" : period === "week" ? "7 Days" : "30 Days"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Loading */}
-        {loading && <ActivityIndicator size="large" color={accentColor} style={{ marginVertical: 20 }} />}
-
-        {/* Total Parks */}
-        {insights && (
-          <View style={{
-            backgroundColor: cardBg,
-            borderRadius: 20,
-            padding: 24,
-            marginBottom: 24,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: isDark ? 0.4 : 0.1,
-            shadowRadius: 12,
-          }}>
-            <Text style={{ color: theme.text, fontSize: 18, fontWeight: "700", marginBottom: 8 }}>
-              Total Parking Sessions
-            </Text>
-            <Text style={{ color: accentColor, fontSize: 32, fontWeight: "800" }}>
-              {insights.total_parks}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={accentColor} />
+            <Text style={[styles.loadingText, { color: secondaryText }]}>
+              Loading your insights...
             </Text>
           </View>
         )}
 
+        {/* Total Parks Card */}
+        {insights && !loading && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>OVERVIEW</Text>
+            <View style={[
+              styles.totalParksCard,
+              { backgroundColor: cardBg, borderColor, shadowOpacity: isDark ? 0.4 : 0.1 }
+            ]}>
+              <Text style={[styles.totalParksLabel, { color: secondaryText }]}>
+                Total Parking Sessions
+              </Text>
+              <Text style={[styles.totalParksValue, { color: accentColor }]}>
+                {insights.total_parks}
+              </Text>
+              <Text style={[styles.totalParksSubtext, { color: secondaryText }]}>
+                All time
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Most Visited Lots */}
-        {insights && insights.most_visited_lots.length > 0 &&
-          renderBarChart(
-            insights.most_visited_lots.map(lot => lot.lot__code),
-            insights.most_visited_lots.map(lot => lot.visits),
-            "Most Visited Lots"
-          )
-        }
+        {insights && insights.most_visited_lots.length > 0 && !loading && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>MOST VISITED LOCATIONS</Text>
+            {renderBarChart(
+              insights.most_visited_lots.map(lot => lot.lot__code.toUpperCase()),
+              insights.most_visited_lots.map(lot => lot.visits),
+              "Top Parking Locations"
+            )}
+          </View>
+        )}
 
         {/* Visits Per Day */}
-        {insights && insights.visits_per_day.length > 0 &&
-          renderBarChart(
-            insights.visits_per_day.map(day => day.day_of_week),
-            insights.visits_per_day.map(day => day.visits),
-            "Visits Per Day"
-          )
-        }
+        {insights && insights.visits_per_day.length > 0 && !loading && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>WEEKLY PATTERN</Text>
+            {renderBarChart(
+              insights.visits_per_day.map(day => day.day_of_week),
+              insights.visits_per_day.map(day => day.visits),
+              "Parking by Day of Week"
+            )}
+          </View>
+        )}
 
+        {/* Empty State */}
+        {!loading && (!insights || insights.total_parks === 0) && (
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyStateText, { color: secondaryText }]}>
+              No parking data available yet.
+            </Text>
+            <Text style={[styles.emptyStateSubtext, { color: secondaryText }]}>
+              Start parking to see your insights!
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#6b7280",
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  periodButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  periodButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  periodButtonActive: {
+    shadowColor: "#6366f1",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  periodButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  periodButtonTextActive: {
+    color: "#fff",
+  },
+  loadingContainer: {
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 15,
+  },
+  totalParksCard: {
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  totalParksLabel: {
+    fontSize: 13,
+    marginBottom: 12,
+    fontWeight: "500",
+  },
+  totalParksValue: {
+    fontSize: 48,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
+  totalParksSubtext: {
+    fontSize: 13,
+  },
+  chartCard: {
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
+  },
+  chart: {
+    borderRadius: 16,
+    marginVertical: 8,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 15,
+  },
+});
