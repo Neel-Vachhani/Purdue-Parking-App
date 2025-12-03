@@ -17,17 +17,90 @@ class User(models.Model):
         "Res": "Resident"
     }
 
+    def empty_rating_json():
+        return {
+            "codes": {
+                "PGH": 0,
+                "PGG": 0,
+                "PGU": 0,
+                "PGNW": 0,
+                "PGMD": 0,
+                "PGW": 0,
+                "PGGH": 0,
+                "PGM": 0,
+                "LOT_R": 0,
+                "LOT_H": 0,
+                "LOT_FB": 0,
+                "KFPC": 0,
+                "LOT_A": 0,
+                "CREC": 0,
+                "LOT_O": 0,
+                "TARK_WILY": 0,
+                "LOT_AA": 0,
+                "LOT_BB": 0,
+                "WND_KRACH": 0,
+                "SHRV_ERHT_MRDH": 0,
+                "MCUT_HARR_HILL": 0,
+                "DUHM": 0,
+                "PIERCE_ST": 0,
+                "SMTH_BCHM": 0,
+                "DISC_A": 0,
+                "DISC_AB": 0,
+                "DISC_ABC": 0,
+                "AIRPORT": 0
+            }
+        }
+
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=45)
     email = models.EmailField()
     password = models.CharField(max_length=100)
+
     parking_pass = models.CharField(
-        max_length=5, choices=parking_passes, blank=True, null=True)
+        max_length=5,
+        choices=parking_passes,
+        blank=True,
+        null=True
+    )
+
     notification_token = models.CharField(
-        max_length=255, blank=True, null=True)
+        max_length=255,
+        blank=True,
+        null=True
+    )
+
     default_origin = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True
+    )
+    other_location = models.CharField(
         max_length=255, blank=True, null=True)
+
     closure_notifications_enabled = models.BooleanField(default=True)
+
+    # stays JSON → matches db jsonb
+    lot_ratings = models.JSONField(
+        default=dict,
+        null=True,
+        blank=True
+    )
+
+    # FIX: must be ArrayField because DB column is VARCHAR[]
+    favorite_lots = ArrayField(
+        models.CharField(max_length=255),
+        default=list,
+        null=True,
+        blank=True
+    )
+
+    # stays varchar
+    events = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+
     # events = models.CharField()
 
 
@@ -64,18 +137,6 @@ class CalendarEvent(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.user.email})"
-
-
-'''
-class CampusEvent(models.Model):
-    id = models.AutoField(primary_key=True)
-    title = models.CharField(max_length=50)
-    description = models.CharField(max_length=150)
-
-
-class Camera(models.Model):
-    id = models.AutoField(primary_key=True)
-'''
 
 
 class Item(models.Model):

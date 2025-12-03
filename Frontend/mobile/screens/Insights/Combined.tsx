@@ -3,10 +3,11 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import InsightsScreen from "./Insights"; // Your historical/current data component
 import PredictiveInsights from "../Predictions/PredictiveInsights"; // Your predictive component
+import GarageComparison from "./GarageComparison"; // NEW comparison component
 
 export default function Combined() {
   const theme = useContext(ThemeContext);
-  const [activeTab, setActiveTab] = useState<"current" | "predictive">("current");
+  const [activeTab, setActiveTab] = useState<"current" | "predictive" | "compare">("current");
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -24,9 +25,10 @@ export default function Combined() {
             style={[styles.tab, activeTab === "current" && styles.tabActive]}
           >
             <Text style={[styles.tabText, activeTab === "current" && styles.tabTextActive]}>
-              Current Status
+              Current
             </Text>
           </TouchableOpacity>
+          
           <TouchableOpacity
             onPress={() => setActiveTab("predictive")}
             style={[styles.tab, activeTab === "predictive" && styles.tabActive]}
@@ -35,11 +37,22 @@ export default function Combined() {
               Predictive
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setActiveTab("compare")}
+            style={[styles.tab, activeTab === "compare" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, activeTab === "compare" && styles.tabTextActive]}>
+              Compare
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* Render Active Component */}
-      {activeTab === "current" ? <InsightsScreen /> : <PredictiveInsights />}
+      {activeTab === "current" && <InsightsScreen />}
+      {activeTab === "predictive" && <PredictiveInsights />}
+      {activeTab === "compare" && <GarageComparison />}
     </View>
   );
 }
@@ -71,7 +84,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
     borderRadius: 16,
     padding: 4,
-    gap: 8,
+    gap: 6,
   },
   tab: {
     flex: 1,

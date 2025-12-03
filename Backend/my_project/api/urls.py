@@ -3,7 +3,6 @@ from . import views
 
 urlpatterns = [
     path('', views.get_data),
-    path('add/', views.add_item),
     path('signup/', views.sign_up),
     path('parking/availability/', views.get_parking_availability),
     path('login/', views.log_in),
@@ -12,6 +11,8 @@ urlpatterns = [
     path('notification_disable/', views.notification_disable),
     path('notification_test/', views.notification_test),
     path('user/origin/', views.user_origin),
+    path('user/location/', views.get_location),
+    path('user/get_user', views.get_user),
     path('geocode/', views.geocode_address),
 
     # Lot events (User Story #10)
@@ -28,7 +29,9 @@ urlpatterns = [
     path("parking/hourly-average/", views.get_hourly_average_parking),
     path('api/calendar/upload-ics/', views.upload_ics_events),
     path('api/calendar/events/', views.list_calendar_events),
+    path('parking/comparison', views.get_parking_comparison, name='parking_comparison'),
     path('api/update_rating', views.send_user_rating),
     path('api/get_rating', views.get_garage_rating),
     path('reports/', views.garage_reports),
+    path('api/update_specific_rating', views.update_specific_rating)
 ]
