@@ -368,11 +368,8 @@ export default function GarageDetail({
         } else {
           starting_location = `Purdue+University%2C+West+Lafayette%2C+IN+47906`
         }
-        console.log(starting_location)
         const startingLocationName = starting_location.replaceAll(" ", "+"); 
-        console.log(startingLocationName)
         const startingLocationLink = startingLocationName.replaceAll(",", "%2C"); 
-        console.log(startingLocationLink)
         showActionSheetWithOptions({
             options,
             cancelButtonIndex,
@@ -381,7 +378,6 @@ export default function GarageDetail({
             switch (selectedIndex) {
               case 0:
                 url =  `http://maps.apple.com/?saddr=${startingLocationLink}&daddr=${urlName}+West+Lafayette+IN`
-                console.log(url)
                 Linking.openURL(url)
                 break;
 
