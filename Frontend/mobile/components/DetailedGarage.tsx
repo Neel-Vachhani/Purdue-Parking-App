@@ -318,6 +318,29 @@ export default function GarageDetail({
     } 
   }, []);
 
+const handleConfirmParking = async () => {
+  try {
+    const userJson = await SecureStore.getItemAsync("user");
+    const user = userJson ? JSON.parse(userJson) : null;
+    const email = user?.email;
+    if (!email) return;
+
+    await axios.post(`${API_BASE}/api/confirm_parking/`, {
+      code: garage.code,
+      email,
+      timestamp: new Date().toISOString()
+    });
+
+
+    // Optional: feedback to user
+    alert("Thanks! Your parking has been recorded.");
+  } catch (err) {
+    console.error("Failed to confirm parking:", err);
+    alert("Oops! Could not record parking. Try again.");
+  }
+};
+
+  
   const ratingChange = async (rating: number) => {
     const userJson = await SecureStore.getItemAsync("user");
     const user = userJson ? JSON.parse(userJson) : null;
@@ -541,6 +564,28 @@ export default function GarageDetail({
                   <Ionicons name="navigate-outline" size={14}  /> Directions from saved Location
               </Pill>
               </TouchableOpacity>
+              <View style={{ justifyContent: 'space-evenly', marginVertical: 10 }}>
+              <TouchableOpacity onPress={() => handleOpenInMaps("origin")}>
+                <Pill>
+                  <Ionicons name="navigate-outline" size={14} /> Directions from saved Origin
+                </Pill>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => handleOpenInMaps("other")}>
+                <Pill>
+                  <Ionicons name="navigate-outline" size={14} /> Directions from saved Location
+                </Pill>
+              </TouchableOpacity>
+
+              {/* Step 1: New button */}
+              <TouchableOpacity onPress={handleConfirmParking}>
+                <Pill>
+                  <Ionicons name="car" size={14} /> Mark as Parked 
+                </Pill>
+              </TouchableOpacity>
+
+            </View>
+
                 </View>
             </View>
             

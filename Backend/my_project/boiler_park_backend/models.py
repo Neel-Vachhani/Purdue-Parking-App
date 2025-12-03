@@ -144,6 +144,47 @@ class Item(models.Model):
     password = models.CharField(max_length=100)
     created = models.DateTimeField(auto_now_add=True)
 
+class UserPark(models.Model):
+    """
+    Logs every time a user parks in a garage.
+    Used by User Story #9 - User parking insights & history.
+    """
+
+    id = models.AutoField(primary_key=True)
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='parking_logs'
+    )
+
+    lot = models.ForeignKey(
+        ParkingLot,
+        on_delete=models.CASCADE,
+        related_name='user_logs'
+    )
+
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    day_of_week = models.CharField(max_length=9, blank=True, null=True)
+    # Example: "Monday", "Tuesday"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', 'timestamp']),
+            models.Index(fields=['lot', 'timestamp']),
+            models.Index(fields=['user', 'day_of_week']),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.day_of_week:
+            self.day_of_week = self.timestamp.strftime("%A")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.user.email} parked at {self.lot.code} on {self.timestamp}"
+
+
 
 class LotEvent(models.Model):
     """
