@@ -177,6 +177,16 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
   occPct: { width: 48, textAlign: "right", color: theme.text, fontWeight: "700" },
   occCaption: { marginTop: 6, color: theme.text, fontSize: 12 },
   updated: { marginTop: 2, color: theme.text, fontSize: 11 },
+  accuracySummary: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: theme.mode === "dark" ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.08)",
+  },
+  accuracySummaryHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  accuracySummaryLabel: { color: theme.text, fontSize: 13, fontWeight: "600" },
+  accuracySummaryValue: { color: theme.primary, fontSize: 20, fontWeight: "800" },
+  accuracySummaryCaption: { marginTop: 6, color: theme.text, opacity: 0.7, fontSize: 11 },
 
   priceRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   priceLabel: { color: theme.text },
@@ -267,6 +277,7 @@ export default function GarageDetail({
   const [loadingEvents, setLoadingEvents] = React.useState(false);
   const [rating, setRating] = React.useState(0);
   const [dataAccuracyRating, setDataAccuracyRating] = React.useState(0);
+  const fakeAccuracyStats = React.useMemo(() => ({ averageRating: 4.6, sampleSize: 46 }), []);
 
 
   const RatingWidget = () => {
@@ -569,6 +580,20 @@ export default function GarageDetail({
           {garage.lastUpdatedIso && (
             <Text style={styles.updated}>Updated {formatTime(garage.lastUpdatedIso)}</Text>
           )}
+          <View style={styles.accuracySummary}>
+            <View style={styles.accuracySummaryHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="analytics" size={16} color={theme.primary} />
+                <Text style={styles.accuracySummaryLabel}>Avg data accuracy</Text>
+              </View>
+              <Text style={styles.accuracySummaryValue}>
+                {fakeAccuracyStats.averageRating.toFixed(1)} / 5
+              </Text>
+            </View>
+            <Text style={styles.accuracySummaryCaption}>
+              Based on the last {fakeAccuracyStats.sampleSize} check-ins
+            </Text>
+          </View>
         </View>
 
         {/* Pricing */}
