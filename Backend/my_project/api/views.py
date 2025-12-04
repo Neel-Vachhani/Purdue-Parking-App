@@ -26,6 +26,8 @@ from datetime import datetime, timedelta, time, date
 import icalendar
 from io import BytesIO
 from django.utils.dateparse import parse_datetime
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 logger = logging.getLogger(__name__)
 
@@ -586,6 +588,67 @@ def apple_sign_in(request):
                 "email": getattr(user, "email", None),
                 "first_name": getattr(user, "first_name", ""),
                 "last_name": getattr(user, "last_name", ""),
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_sign_in(request):
+    id_token_value = request.data.get("id_token")
+    if not id_token_value:
+        return Response({"detail": "id_token is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        payload = google_id_token.verify_oauth2_token(
+            id_token_value,
+            google_requests.Request(),
+        )
+    except ValueError as exc:
+        return Response({"detail": f"Invalid Google token: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    email = payload.get("email")
+    if not email:
+        return Response({"detail": "Google token missing email"}, status=status.HTTP_400_BAD_REQUEST)
+
+    full_name = payload.get("name", "")
+    first_name = payload.get("given_name", "")
+    last_name = payload.get("family_name", "")
+
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        user = User(
+            email=email,
+            name=full_name or email,
+            password="abc",
+            parking_pass="a",
+        )
+        user.save()
+    else:
+        updated_fields = []
+        if not getattr(user, "name", None) and full_name:
+            user.name = full_name
+            updated_fields.append("name")
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+
+    push_token = request.data.get("push_token")
+    if push_token:
+        user.notification_token = push_token
+        user.save(update_fields=["notification_token"])
+
+    token = issue_session_token(user)
+
+    return Response(
+        {
+            "token": token if isinstance(token, str) else token.get("access", token),
+            "user": {
+                "id": user.id,
+                "email": getattr(user, "email", None),
+                "first_name": first_name or getattr(user, "first_name", ""),
+                "last_name": last_name or getattr(user, "last_name", ""),
             },
         },
         status=status.HTTP_200_OK,
