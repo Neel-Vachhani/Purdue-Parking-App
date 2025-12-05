@@ -35,5 +35,6 @@ urlpatterns = [
     path('api/parking/comparison', views.get_parking_comparison, name='parking_comparison'),
     path('api/update_rating', views.send_user_rating),
     path('api/get_rating', views.get_garage_rating),
+    path('reports/', views.garage_reports),
     path('api/update_specific_rating', views.update_specific_rating)
 ]

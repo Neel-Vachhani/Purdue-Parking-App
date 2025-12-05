@@ -1,5 +1,6 @@
 import React, { useContext } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking, Modal, TextInput, Alert } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
 import EmptyState from "./EmptyState";
@@ -65,11 +66,11 @@ export interface Garage {
 
 export interface GarageDetailProps {
   garage: Garage;
-  isFavorite?: boolean;
   loading?: boolean;
+  isFavorite?: boolean;
   onBack?: () => void;
   onRefresh?: () => void;
-  onToggleFavorite?: (id: string, next: boolean) => void;
+  onToggleFavorite?: (garageId: string, nextValue: boolean) => void;
   onStartNavigation?: (garage: Garage) => void;
   onStartParking?: (garage: Garage) => void;
   onShare?: (garage: Garage) => void;
@@ -216,6 +217,38 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
   loadingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "flex-end" },
   loadingPill: { marginBottom: 24, backgroundColor: theme.bg, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 },
   loadingText: { color: theme.text, fontWeight: "700" },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 20,
+  },
+  reportInput: {
+    minHeight: 120,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.mode === "dark" ? "rgba(148,163,184,0.35)" : "rgba(107,114,128,0.35)",
+    color: theme.text,
+    backgroundColor: theme.mode === "dark" ? "rgba(17,24,39,0.8)" : "rgba(255,255,255,0.95)",
+    textAlignVertical: "top",
+  },
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  submitBtn: {
+    paddingHorizontal: 20,
+    backgroundColor: "#fbbf24",
+    borderRadius: 12,
+  },
 });
 
 const Pill = ({ children }: { children: React.ReactNode }) => {
@@ -259,6 +292,8 @@ export default function GarageDetail({
 }: GarageDetailProps) {
   const theme = useContext(ThemeContext);
   const styles = makeStyles(theme);
+  const insets = useSafeAreaInsets();
+  const headerInset = Math.max(insets.top, Platform.OS === "android" ? 24 : 16);
   const miles = toMiles(garage.distanceMeters);
   const p = percent(garage.occupiedSpots, garage.totalSpots);
   const pctStr = `${Math.round(p * 100)}%`;
@@ -281,6 +316,9 @@ export default function GarageDetail({
   const [events, setEvents] = React.useState<LotEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = React.useState(false);
   const [rating, setRating] = React.useState(0);
+  const [reportModalVisible, setReportModalVisible] = React.useState(false);
+  const [reportDescription, setReportDescription] = React.useState("");
+  const [reportSubmitting, setReportSubmitting] = React.useState(false);
   const [dataAccuracyRating, setDataAccuracyRating] = React.useState(0);
   const fakeAccuracyStats = React.useMemo(() => ({ averageRating: 4.6, sampleSize: 46 }), []);
 
@@ -465,6 +503,50 @@ const handleConfirmParking = async () => {
             }});
     };
 
+  const openReportModal = () => {
+    setReportDescription("");
+    setReportModalVisible(true);
+  };
+
+  const closeReportModal = () => setReportModalVisible(false);
+
+  const submitReport = async () => {
+    if (!reportDescription.trim()) {
+      Alert.alert("Describe the issue", "Please add a brief description before submitting.");
+      return;
+    }
+
+    try {
+      setReportSubmitting(true);
+      const response = await fetch(`${API_BASE}/reports/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          lot_code: garage.code ?? "",
+          lot_name: garage.name,
+          description: reportDescription.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        const message = errorBody?.detail || "Unable to submit report right now.";
+        throw new Error(message);
+      }
+
+      setReportDescription("");
+      setReportModalVisible(false);
+      Alert.alert("Report submitted", "Thanks for flagging the issue. We'll review it shortly.");
+    } catch (err: any) {
+      const message = err?.message || "Unexpected error while submitting report.";
+      Alert.alert("Submit failed", message);
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
 
   // Load travel time when garage changes (User Story #9 - AC3)
   React.useEffect(() => {
@@ -567,7 +649,10 @@ const handleConfirmParking = async () => {
   }, [garage.id, garage.code]);
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView
+      style={[styles.root, { paddingTop: headerInset }]}
+      edges={['top', 'left', 'right']}
+    >
       <View style={styles.header}>
         <Pressable onPress={onBack} hitSlop={12} style={styles.headerLeft}>
           <Ionicons name="chevron-back" size={24} />
@@ -880,6 +965,19 @@ const handleConfirmParking = async () => {
           )}
         </View>
 
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Need to flag something?</Text>
+          <Text style={{ color: theme.text, opacity: 0.7, fontSize: 13, marginBottom: 12 }}>
+            Let us know if anything looks incorrect for this garage.
+          </Text>
+          <Pressable style={[styles.actionBtn, styles.primary]} onPress={openReportModal}>
+            <Ionicons name="alert" size={18} color={theme.mode === "dark" ? "#0f172a" : "#0b0b0c"} />
+            <Text style={[styles.actionText, { color: theme.mode === "dark" ? "#0f172a" : "#0b0b0c" }]}>Report an Issue</Text>
+          </Pressable>
+        </View>
+
+        <View style={{ height: 32 }} />
+
         {/* Actions */}
         {/* <View style={[styles.card, styles.actionsCard]}>
           <Pressable style={[styles.actionBtn, styles.primary]} onPress={() => onStartParking?.(garage)}>
@@ -936,7 +1034,51 @@ const handleConfirmParking = async () => {
           </View>
         </View>
       )}
-    </View>
+
+      <Modal
+        visible={reportModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeReportModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.card, styles.modalContent]}>
+            <Text style={[styles.sectionTitle, { marginBottom: 4 }]}>Report an Issue</Text>
+            <Text style={{ color: theme.text, opacity: 0.7, marginBottom: 12 }}>
+              Garage: {garage.name}
+            </Text>
+
+            <TextInput
+              value={reportDescription}
+              onChangeText={setReportDescription}
+              placeholder="Describe what's incorrect (availability, signage, etc.)"
+              placeholderTextColor={theme.mode === "dark" ? "#9CA3AF" : "#6B7280"}
+              style={styles.reportInput}
+              multiline
+            />
+
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 16, gap: 12 }}>
+              <Pressable style={styles.cancelBtn} onPress={closeReportModal}>
+                <Text style={{ color: theme.text, fontWeight: "600" }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.actionBtn,
+                  styles.submitBtn,
+                  { opacity: reportDescription.trim() && !reportSubmitting ? 1 : 0.6 },
+                ]}
+                onPress={submitReport}
+                disabled={reportSubmitting || !reportDescription.trim()}
+              >
+                <Text style={[styles.actionText, { color: "#000" }]}> 
+                  {reportSubmitting ? "Submitting..." : "Submit"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 

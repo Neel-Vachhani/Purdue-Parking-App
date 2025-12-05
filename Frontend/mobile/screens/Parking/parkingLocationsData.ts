@@ -52,7 +52,7 @@ const parseCount = (value: unknown): number | undefined => {
 
 // Match the same endpoint the ParkingList screen calls so both views share one
 // source of truth for live availability numbers.
-const AVAILABILITY_ENDPOINT = "/parking/availability/";
+const AVAILABILITY_ENDPOINT = "/api/parking/availability/";
 
 const getApiBaseUrl = (): string => {
   const configExtra = Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined;
@@ -95,9 +95,9 @@ export async function loadParkingLocations(): Promise<ParkingLocation[]> {
     const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
     if (!response.ok) {
       console.error("Failed to fetch parking availability for map:", response.status);
-      cache.locations = BASE_COORDINATES;
-      cache.timestamp = now;
-      return cache.locations;
+      cache.locations = null;
+      cache.timestamp = null;
+      return BASE_COORDINATES.map((loc) => ({ ...loc }));
     }
 
     const payload: { lots?: ApiLot[] } = await response.json();
@@ -158,9 +158,9 @@ export async function loadParkingLocations(): Promise<ParkingLocation[]> {
     return locations;
   } catch (error) {
     console.error("Failed to load parking availability for map", error);
-    cache.locations = BASE_COORDINATES;
-    cache.timestamp = now;
-    return cache.locations;
+    cache.locations = null;
+    cache.timestamp = null;
+    return BASE_COORDINATES.map((loc) => ({ ...loc }));
   }
 }
 

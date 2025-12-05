@@ -517,6 +517,7 @@ const getChartData = () => {
               data={getChartData()}
               width={width - 80}
               height={240}
+              yAxisLabel=""
               yAxisSuffix="%"
               yAxisInterval={1}
               segments={4}

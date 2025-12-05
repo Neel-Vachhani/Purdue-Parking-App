@@ -30,6 +30,7 @@ import { useActionSheet } from "@expo/react-native-action-sheet";
 import axios from "axios";
 import { ParkingPass, PARKING_PASS_OPTIONS } from "../constants/passes";
 import { INITIAL_GARAGES, InitialGarage } from "../data/initialGarageAvailability";
+import { subscribeToParkingUpdates } from "../utils/parkingEvents";
 import { API_BASE_URL } from "../config/env";
 
 type Garage = InitialGarage;
@@ -86,7 +87,15 @@ type ApiLot = {
   capacity?: number;
 };
 
-const AVAILABILITY_ENDPOINT = "/parking/availability/";
+const AVAILABILITY_ENDPOINT = "/api/parking/availability/";
+
+const formatLastUpdatedTimestamp = () =>
+  new Date().toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  });
 
 
 const getApiBaseUrl = (): string => {
@@ -106,7 +115,7 @@ const getApiBaseUrl = (): string => {
     if (dbg) host = dbg.split(":")[0];
   }
 
-  return "http://localhost:7500";
+  return `http://${host}:7500`;
 };
 
 // Changes the traditional garage data to the detailed format
@@ -176,12 +185,7 @@ export default function GarageList({
   const scrollY = React.useRef(new Animated.Value(0)).current;
   const [showBackToTop, setShowBackToTop] = React.useState(false);
   const [lastUpdated, setLastUpdated] = React.useState<string>(() =>
-    new Date().toLocaleString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-      timeZoneName: "short",
-    })
+    formatLastUpdatedTimestamp()
   );
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedPasses, setSelectedPasses] = React.useState<ParkingPass[]>([]);
@@ -526,15 +530,95 @@ export default function GarageList({
     let isMounted = true;
 
     const loadAvailability = async () => {
-      // *** TEMPORARILY DISABLED FOR TESTING FULL GARAGE POPUP ***
-      // This prevents API data from overriding our static test values
-      console.log("🧪 [Garagelist] API call disabled for testing - using static test values");
-      return; // Early return to skip API call
+      try {
+        const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
+
+        if (!response.ok) {
+          console.error("Failed to fetch parking availability", response.status);
+          return;
+        }
+
+        const payload: { lots?: ApiLot[] } = await response.json();
+        const lots = Array.isArray(payload?.lots) ? payload.lots : [];
+        if (!lots.length || !isMounted) {
+          return;
+        }
+
+        const updatesByCode = new Map<string, ApiLot>();
+        lots.forEach((lot) => {
+          if (lot.code) {
+            updatesByCode.set(lot.code.toUpperCase(), lot);
+          }
+        });
+
+        if (!updatesByCode.size) {
+          return;
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        setGarages((prev) =>
+          prev.map((garage) => {
+            const update = updatesByCode.get(garage.code.toUpperCase());
+            if (!update || typeof update.available !== "number") {
+              return garage;
+            }
+
+            const capacityOverride =
+              typeof update.capacity === "number" ? update.capacity : undefined;
+            const nextTotal = capacityOverride ?? garage.total;
+            const nextAvailable = Math.max(update.available, 0);
+            const cappedAvailable = nextTotal > 0 ? Math.min(nextAvailable, nextTotal) : nextAvailable;
+
+            return {
+              ...garage,
+              total: nextTotal,
+              current: cappedAvailable,
+            };
+          })
+        );
+
+        setLastUpdated(formatLastUpdatedTimestamp());
+      } catch (error) {
+        console.error("Failed to load parking availability", error);
+      }
     };
 
     loadAvailability();
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const unsubscribe = subscribeToParkingUpdates(({ lot, count }) => {
+      const normalizedLot = typeof lot === "string" ? lot.toUpperCase() : lot;
+      if (!normalizedLot) return;
+
+      setGarages((prev) =>
+        prev.map((garage) => {
+          if (!garage.code || garage.code.toUpperCase() !== normalizedLot) {
+            return garage;
+          }
+
+          const nextTotal = typeof garage.total === "number" ? garage.total : garage.current;
+          const safeCount = Math.max(0, count);
+          const capped = nextTotal && nextTotal > 0 ? Math.min(safeCount, nextTotal) : safeCount;
+
+          return {
+            ...garage,
+            current: capped,
+          };
+        })
+      );
+
+      setLastUpdated(formatLastUpdatedTimestamp());
+    });
+
+    return () => {
+      unsubscribe();
     };
   }, []);
 

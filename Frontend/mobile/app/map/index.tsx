@@ -1,7 +1,7 @@
 import React from "react";
 import { View } from "react-native";
-import ParkingMap from "../components/map/ParkingMap";
-import { INITIAL_REGION } from "../constants/map";
+import ParkingMap from "../../components/map/ParkingMap";
+import { INITIAL_REGION } from "../../constants/map";
 
 export default function MapScreen() {
   return (
