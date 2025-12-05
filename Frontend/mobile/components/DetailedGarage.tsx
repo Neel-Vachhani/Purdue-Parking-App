@@ -306,7 +306,7 @@ export default function GarageDetail({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/api/user/origin/`, { params: { email } });
       const loadedOrigin = res?.data?.default_origin ?? "";
       setOrigin(loadedOrigin);
       console.log("Loaded starting location:", loadedOrigin || "(none)");
@@ -604,17 +604,7 @@ const handleConfirmParking = async () => {
               </Pill>
               </TouchableOpacity>
               <View style={{ justifyContent: 'space-evenly', marginVertical: 10 }}>
-              <TouchableOpacity onPress={() => handleOpenInMaps("origin")}>
-                <Pill>
-                  <Ionicons name="navigate-outline" size={14} /> Directions from saved Origin
-                </Pill>
-              </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => handleOpenInMaps("other")}>
-                <Pill>
-                  <Ionicons name="navigate-outline" size={14} /> Directions from saved Location
-                </Pill>
-              </TouchableOpacity>
 
               {/* Step 1: New button */}
               <TouchableOpacity onPress={handleConfirmParking}>

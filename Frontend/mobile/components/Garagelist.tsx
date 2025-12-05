@@ -532,7 +532,7 @@ export default function GarageList({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/api/user/origin/`, { params: { email } });
       const loadedOrigin = res?.data?.default_origin ?? "";
       setOrigin(loadedOrigin);
       console.log("Loaded starting location:", loadedOrigin || "(none)");

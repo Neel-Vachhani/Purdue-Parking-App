@@ -90,7 +90,7 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
     const encodedAddress = encodeURIComponent(address.trim());
     
     console.log(`Geocoding via backend: "${address}"`);
-    const response = await fetch(`${API_BASE}/geocode/?address=${encodedAddress}`);
+    const response = await fetch(`${API_BASE}/api/geocode/?address=${encodedAddress}`);
     
     if (!response.ok) {
       console.error(`Backend geocoding failed: ${response.status}`);
@@ -217,7 +217,7 @@ export async function getTravelTimeFromDefaultOrigin(
     
     // Try to fetch user's saved starting location
     try {
-      const response = await fetch(`${API_BASE}/user/origin/?email=${encodeURIComponent(userEmail)}`);
+      const response = await fetch(`${API_BASE}/api/user/origin/?email=${encodeURIComponent(userEmail)}`);
       
       if (response.ok) {
         const data = await response.json();
