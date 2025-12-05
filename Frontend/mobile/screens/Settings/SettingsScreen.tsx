@@ -147,7 +147,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/user/location/`, { params: { email, other_location: "" } });
+      const res = await axios.get(`${API_BASE}/api/user/location/`, { params: { email, other_location: "" } });
       const loadedLocation = res?.data?.other_location ?? "";
       setLocation(loadedLocation);
       setSavedLocation(loadedLocation); // Track saved value separately
@@ -173,7 +173,7 @@ export default function SettingsScreen({ onLogout }: Props) {
         
         if (!email) return;
         
-        const res = await axios.get(`${API_BASE}/closure-notifications/`, {
+        const res = await axios.get(`${API_BASE}/api/closure-notifications/`, {
           params: { email }
         });
         
@@ -201,7 +201,7 @@ export default function SettingsScreen({ onLogout }: Props) {
         if (!email) return;
         
         // Fetch user's notification token status from backend
-        const res = await axios.get(`${API_BASE}/notifications/check/`, {
+        const res = await axios.get(`${API_BASE}/api/notifications/check/`, {
           params: { email }
         });
         
@@ -300,7 +300,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       
       const trimmedLocation = location.trim();
       console.log("Saving starting location:", trimmedLocation || "(clearing)");
-      await axios.post(`${API_BASE}/user/location/`, { email, other_location: trimmedLocation });
+      await axios.post(`${API_BASE}/api/user/location/`, { email, other_location: trimmedLocation });
       
       // Update saved origin state
       setSavedLocation(trimmedLocation);
@@ -339,7 +339,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       }
       
       console.log("Clearing location");
-      await axios.post(`${API_BASE}/user/location/`, { email, other_location: "" });
+      await axios.post(`${API_BASE}/api/user/location/`, { email, other_location: "" });
       setLocation("");
       setSavedLocation(""); // Clear saved origin state
       
@@ -469,7 +469,7 @@ export default function SettingsScreen({ onLogout }: Props) {
 
     try {
       // Update backend preference
-      await axios.post(`${API_BASE}/closure-notifications/`, {
+      await axios.post(`${API_BASE}/api/closure-notifications/`, {
         email,
         enabled
       });

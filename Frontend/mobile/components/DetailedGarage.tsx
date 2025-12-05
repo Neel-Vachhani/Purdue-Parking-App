@@ -321,7 +321,7 @@ export default function GarageDetail({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/user/location/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/api/user/location/`, { params: { email } });
       const loadedLocation = res?.data?.other_location ?? "";
       setLocation(loadedLocation);
       console.log("Loaded other location:", loadedLocation || "(none)");
