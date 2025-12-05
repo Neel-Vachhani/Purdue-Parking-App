@@ -209,7 +209,7 @@ function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
   
   async function getUserRatings(){
       const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
-      await fetch(`${API_BASE}/user/get_user`, {
+      await fetch(`${API_BASE}/api/user/get_user`, {
             method: "POST",
             headers: {
             'Accept': 'application/json',
@@ -547,7 +547,7 @@ export default function GarageList({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/user/location/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/api/user/location/`, { params: { email } });
       const loadedLocation = res?.data?.other_location ?? "";
       setLocation(loadedLocation);
       console.log("Loaded other location:", loadedLocation || "(none)");
@@ -595,7 +595,7 @@ export default function GarageList({
     async function getUserRatings() {
       const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
           //TODO: API Call to backend to update the rating in the backend
-          await fetch(`${API_BASE}/user/get_user`, {
+          await fetch(`${API_BASE}/api/user/get_user`, {
             method: "POST",
             headers: {
             'Accept': 'application/json',

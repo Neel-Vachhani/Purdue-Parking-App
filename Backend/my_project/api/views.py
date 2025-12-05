@@ -1406,7 +1406,7 @@ def closure_notifications_toggle(request):
     Get or set user's closure notification preference.
     Used by User Story #11 - Opt-in/opt-out for closure alerts.
 
-    GET:  /closure-notifications/?email=<email>
+    GET:  /api/closure-notifications/?email=<email>
     POST: { email, enabled: true/false }
 
     Returns:
