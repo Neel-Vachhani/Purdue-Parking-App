@@ -641,132 +641,7 @@ export default function SettingsScreen({ onLogout }: Props) {
     }
   };
 
-  // -------- Little UI helpers --------
-  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 }}>
-      <ThemedText style={{ fontSize: 16 }}>{label}</ThemedText>
-      {children}
-    </View>
-  );
-
-  const Pill = ({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      style={{
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 999,
-        borderWidth: 1.5,
-        borderColor: active ? theme.primary : "#6B7280",
-        marginRight: 8,
-        backgroundColor: active ? theme.primary + "22" : "transparent",
-      }}
-    >
-      <ThemedText style={{ fontWeight: "600", opacity: active ? 1 : 0.85 }}>{label}</ThemedText>
-    </TouchableOpacity>
-  );
-
-  type SummaryChipProps = {
-    label: string;
-    value: string;
-    tone?: SummaryTone;
-  };
-
-  const SummaryChip = ({ label, value, tone = "neutral" }: SummaryChipProps) => {
-    const theme = React.useContext(ThemeContext);
-    const paletteMap: Record<SummaryTone, { bg: string; border?: string; text: string }> = {
-      neutral: { bg: theme.chipBg, border: theme.chipBorder, text: theme.chipText },
-      success: { bg: theme.success + "22", border: theme.success + "33", text: theme.text },
-      warning: { bg: theme.warning + "1a", border: theme.warning + "33", text: theme.text },
-    };
-
-    const palette = paletteMap[tone];
-
-    return (
-      <View
-        style={{
-          backgroundColor: palette.bg,
-          borderRadius: 10,
-          paddingVertical: 8,
-          paddingHorizontal: 12,
-          borderWidth: palette.border ? 1 : 0,
-          borderColor: palette.border,
-        }}
-      >
-        <ThemedText style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, opacity: 0.7 }}>
-          {label}
-        </ThemedText>
-        <ThemedText numberOfLines={1} style={{ fontSize: 14, fontWeight: "600", color: palette.text, marginTop: 2 }}>
-          {value}
-        </ThemedText>
-      </View>
-    );
-  };
-
-  type SectionCardProps = {
-    id: SectionId;
-    title: string;
-    icon: keyof typeof Ionicons.glyphMap;
-    expanded: boolean;
-    onToggle: (id: SectionId) => void;
-    children: React.ReactNode;
-  };
-
-  const SettingsSectionCard = ({ id, title, icon, expanded, onToggle, children }: SectionCardProps) => {
-    const theme = React.useContext(ThemeContext);
-    return (
-      <View
-        style={{
-          borderRadius: 16,
-          backgroundColor: theme.sectionBg,
-          borderWidth: 1,
-          borderColor: theme.sectionBorder,
-          shadowColor: theme.cardShadowColor,
-          shadowOpacity: theme.mode === "dark" ? 0.3 : 0.1,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 3,
-        }}
-      >
-        <Pressable
-          onPress={() => onToggle(id)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded }}
-          accessibilityLabel={`${title} section`}
-          style={{
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-            backgroundColor: theme.sectionHeaderBg,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <View
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              backgroundColor: theme.sectionIconBg,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <Ionicons name={icon} size={20} color={theme.primaryText} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <ThemedText style={{ fontSize: 17, fontWeight: "700", color: theme.sectionHeaderText }}>{title}</ThemedText>
-          </View>
-          <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color={theme.sectionHeaderText} />
-        </Pressable>
-        {expanded ? (
-          <View style={{ paddingHorizontal: 16, paddingVertical: 16, backgroundColor: theme.sectionBg }}>
-            {children}
-          </View> 
-        ) : null}
-            </View>
-          );
-        };
+  // -------- Little UI helpers (defined below component) --------
 
         {/* Saving Other Locations */}
         <View style={{ 
@@ -1241,5 +1116,136 @@ export default function SettingsScreen({ onLogout }: Props) {
         </SettingsSectionCard>
       </ScrollView>
     </ThemedView>
+  );
+}
+
+type SummaryChipProps = {
+  label: string;
+  value: string;
+  tone?: SummaryTone;
+};
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 }}>
+      <ThemedText style={{ fontSize: 16 }}>{label}</ThemedText>
+      {children}
+    </View>
+  );
+}
+
+function Pill({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const theme = React.useContext(ThemeContext);
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        borderWidth: 1.5,
+        borderColor: active ? theme.primary : "#6B7280",
+        marginRight: 8,
+        backgroundColor: active ? theme.primary + "22" : "transparent",
+      }}
+    >
+      <ThemedText style={{ fontWeight: "600", opacity: active ? 1 : 0.85 }}>{label}</ThemedText>
+    </TouchableOpacity>
+  );
+}
+
+function SummaryChip({ label, value, tone = "neutral" }: SummaryChipProps) {
+  const theme = React.useContext(ThemeContext);
+  const paletteMap: Record<SummaryTone, { bg: string; border?: string; text: string }> = {
+    neutral: { bg: theme.chipBg, border: theme.chipBorder, text: theme.chipText },
+    success: { bg: theme.success + "22", border: theme.success + "33", text: theme.text },
+    warning: { bg: theme.warning + "1a", border: theme.warning + "33", text: theme.text },
+  };
+
+  const palette = paletteMap[tone];
+
+  return (
+    <View
+      style={{
+        backgroundColor: palette.bg,
+        borderRadius: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderWidth: palette.border ? 1 : 0,
+        borderColor: palette.border,
+      }}
+    >
+      <ThemedText style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, opacity: 0.7 }}>
+        {label}
+      </ThemedText>
+      <ThemedText numberOfLines={1} style={{ fontSize: 14, fontWeight: "600", color: palette.text, marginTop: 2 }}>
+        {value}
+      </ThemedText>
+    </View>
+  );
+}
+
+type SectionCardProps = {
+  id: SectionId;
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  expanded: boolean;
+  onToggle: (id: SectionId) => void;
+  children: React.ReactNode;
+};
+
+function SettingsSectionCard({ id, title, icon, expanded, onToggle, children }: SectionCardProps) {
+  const theme = React.useContext(ThemeContext);
+  return (
+    <View
+      style={{
+        borderRadius: 16,
+        backgroundColor: theme.sectionBg,
+        borderWidth: 1,
+        borderColor: theme.sectionBorder,
+        shadowColor: theme.cardShadowColor,
+        shadowOpacity: theme.mode === "dark" ? 0.3 : 0.1,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+      }}
+    >
+      <Pressable
+        onPress={() => onToggle(id)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`${title} section`}
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          backgroundColor: theme.sectionHeaderBg,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            backgroundColor: theme.sectionIconBg,
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Ionicons name={icon} size={20} color={theme.primaryText} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <ThemedText style={{ fontSize: 17, fontWeight: "700", color: theme.sectionHeaderText }}>{title}</ThemedText>
+        </View>
+        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color={theme.sectionHeaderText} />
+      </Pressable>
+      {expanded ? (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 16, backgroundColor: theme.sectionBg }}>
+          {children}
+        </View>
+      ) : null}
+    </View>
   );
 }
