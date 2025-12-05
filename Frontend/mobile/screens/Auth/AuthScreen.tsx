@@ -79,7 +79,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
       setSubmitting(true);
 
       if (mode === "signup") {
-        const res = await axios.post(`${API_BASE}/api/signup/`, {
+        const res = await axios.post(`${API_BASE}signup/`, {
           email,
           password,
           name: email,
@@ -123,7 +123,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
     });
 
     // Send token + user info to backend for verification and session creation
-    const res = await axios.post(`${API_BASE}/api/apple/`, {
+    const res = await axios.post(`${API_BASE}apple/`, {
       identity_token: cred.identityToken,  // JWT from Apple
       user: cred.user,                     // Apple user ID
       full_name: cred.fullName ?? null,    // optional
