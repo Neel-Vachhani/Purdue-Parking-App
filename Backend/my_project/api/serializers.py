@@ -1,6 +1,14 @@
 from rest_framework import serializers
 from django.db import models
-from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, UserPark
+from boiler_park_backend.models import (
+    Item,
+    User,
+    LotEvent,
+    NotificationLog,
+    CalendarEvent,
+    UserPark,
+    GarageIssueReport,
+)
 
 class UserParkSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,6 +1,6 @@
 import React from "react";
-import ThemedView from "../../../components/ThemedView";
-import ThemedText from "../../../components/ThemedText";
+import ThemedView from "../../components/ThemedView";
+import ThemedText from "../../components/ThemedText";
 import { ThemeContext } from "../../theme/ThemeProvider";
 
 // This is a simple starter screen to show that our theming system works

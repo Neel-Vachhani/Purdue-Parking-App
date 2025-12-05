@@ -84,6 +84,8 @@ export default function UserInsightsTab() {
         data={{ labels, datasets: [{ data }] }}
         width={width - 80}
         height={240}
+        yAxisLabel=""
+        yAxisSuffix="%"
         fromZero
         showValuesOnTopOfBars
         yAxisInterval={1}

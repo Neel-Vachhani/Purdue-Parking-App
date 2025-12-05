@@ -11,8 +11,8 @@
 //   );
 // }
 
-import { useContext, useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, Linking } from "react-native";
 import { Marker, Callout } from "react-native-maps";
 import * as SecureStore from "expo-secure-store";
 import ThemedView from "../../components/ThemedView";
@@ -24,11 +24,15 @@ import { ThemeContext } from "../../theme/ThemeProvider";
 import { Ionicons } from "../../components/ThemedIcons";        
 import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../../utils/travelTime";
 import { PARKING_PASS_OPTIONS, ParkingPass } from "../../constants/passes";
+import GarageDetail, { Garage as GarageDetailModel } from "../../components/DetailedGarage";
+import { subscribeToParkingUpdates } from "../../utils/parkingEvents";
         
         // Extend ParkingLocation to include travel time
 interface ParkingLocationWithTravel extends ParkingLocation {
   travelTime?: TravelTimeResult | null;
 }
+
+const DOUBLE_TAP_DELAY_MS = 1200;
 
 const withInitialAvailability = (
   locations: ParkingLocation[]
@@ -39,10 +43,15 @@ const withInitialAvailability = (
       return location;
     }
 
+    const hasLiveAvailability =
+      typeof location.available === "number" && Number.isFinite(location.available);
+    const hasLiveCapacity =
+      typeof location.capacity === "number" && Number.isFinite(location.capacity);
+
     return {
       ...location,
-      available: baseline.current,
-      capacity: baseline.total,
+      available: hasLiveAvailability ? location.available : baseline.current,
+      capacity: hasLiveCapacity ? location.capacity : baseline.total,
     };
   });
 };
@@ -55,9 +64,118 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
   const [selectedPass, setSelectedPass] = useState<ParkingPass | null>(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [filtersVisible, setFiltersVisible] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<ParkingLocationWithTravel | null>(null);
 
   const theme = useContext(ThemeContext);
+  const lastMarkerPressRef = useRef<{ code: string; timestamp: number } | null>(null);
 
+  const mapLocationToDetail = useCallback(
+    (location: ParkingLocationWithTravel): GarageDetailModel => {
+      const baseline = INITIAL_GARAGE_LOOKUP.get(location.code.toUpperCase());
+      const total = location.capacity ?? baseline?.total ?? 0;
+      const available = location.available ?? baseline?.current ?? 0;
+      const occupied = Math.max(total - available, 0);
+
+      return {
+        id: location.id,
+        code: location.code,
+        name: location.title,
+        address: baseline?.address ?? "Address unavailable",
+        latitude: location.coordinate.latitude,
+        longitude: location.coordinate.longitude,
+        totalSpots: total,
+        occupiedSpots: occupied,
+        covered: true,
+        shaded: true,
+        amenities: ["covered", "lighting"],
+        price: baseline?.paid ? "Paid Lot" : "Free",
+        hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
+        lastUpdatedIso: new Date().toISOString(),
+        rating: baseline?.rating ?? 0,
+        individual_rating: baseline?.individual_rating ?? 0,
+        heroImageUrl: undefined,
+        heightClearanceMeters: undefined,
+        evPorts: undefined,
+        accessibleSpots: undefined,
+        distanceMeters: location.travelTime
+          ? Math.round(location.travelTime.distance * 1609.344)
+          : undefined,
+        isOpen: true,
+      };
+    },
+    []
+  );
+
+  const detailGarage = useMemo(
+    () => (selectedLocation ? mapLocationToDetail(selectedLocation) : null),
+    [mapLocationToDetail, selectedLocation]
+  );
+
+  const openLocationDetail = useCallback((location: ParkingLocationWithTravel) => {
+    setSelectedLocation(location);
+  }, []);
+
+  const handleMarkerPress = useCallback(
+    (location: ParkingLocationWithTravel) => {
+      const now = Date.now();
+      const previous = lastMarkerPressRef.current;
+
+      if (
+        previous &&
+        previous.code === location.code &&
+        now - previous.timestamp < DOUBLE_TAP_DELAY_MS
+      ) {
+        lastMarkerPressRef.current = null;
+        openLocationDetail(location);
+        return;
+      }
+
+      lastMarkerPressRef.current = { code: location.code, timestamp: now };
+    },
+    [openLocationDetail]
+  );
+
+  const handleCalloutPress = useCallback(
+    (location: ParkingLocationWithTravel) => {
+      openLocationDetail(location);
+    },
+    [openLocationDetail]
+  );
+
+  const handleCloseDetail = useCallback(() => {
+    setSelectedLocation(null);
+  }, []);
+
+  const handleToggleFavorite = useCallback((id: string, next: boolean) => {
+    setLocations((prev) =>
+      prev.map((location) =>
+        location.id === id ? { ...location, favorite: next } : location
+      )
+    );
+
+    setSelectedLocation((prev) =>
+      prev && prev.id === id ? { ...prev, favorite: next } : prev
+    );
+  }, []);
+
+  const handleStartNavigation = useCallback((garage: GarageDetailModel) => {
+    if (!garage.latitude || !garage.longitude) {
+      return;
+    }
+
+    const lat = garage.latitude;
+    const lng = garage.longitude;
+    const label = encodeURIComponent(garage.name);
+    const url = Platform.select({
+      ios: `http://maps.apple.com/?daddr=${lat},${lng}&q=${label}`,
+      android: `geo:${lat},${lng}?q=${lat},${lng}(${label})`,
+      default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`,
+    });
+
+    if (url) {
+      Linking.openURL(url).catch(() => null);
+    }
+  }, []);
   useEffect(() => {
     let isMounted = true;
 
@@ -79,13 +197,58 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
     };
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = subscribeToParkingUpdates(({ lot, count }) => {
+      const normalizedLot = typeof lot === "string" ? lot.toUpperCase() : lot;
+      if (!normalizedLot) return;
+      const safeCount = Math.max(0, count);
+
+      setLocations((prev) =>
+        prev.map((location) => {
+          if (location.code.toUpperCase() !== normalizedLot) {
+            return location;
+          }
+
+          const capped =
+            typeof location.capacity === "number" && location.capacity > 0
+              ? Math.min(safeCount, location.capacity)
+              : safeCount;
+
+          return {
+            ...location,
+            available: capped,
+          };
+        })
+      );
+
+      setSelectedLocation((prev) => {
+        if (!prev || prev.code.toUpperCase() !== normalizedLot) {
+          return prev;
+        }
+
+        const capped =
+          typeof prev.capacity === "number" && prev.capacity > 0
+            ? Math.min(safeCount, prev.capacity)
+            : safeCount;
+
+        return {
+          ...prev,
+          available: capped,
+        };
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   // Load travel times from default origin
   useEffect(() => {
     let isMounted = true;
 
     const loadTravelTimes = async () => {
       try {
-        // Get user email from secure storage
         const userJson = await SecureStore.getItemAsync("user");
         const user = userJson ? JSON.parse(userJson) : null;
         const email = user?.email;
@@ -94,20 +257,36 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
           return;
         }
 
-        // Calculate travel times for each location
-        const travelTimePromises = locations.map(async (location) => {
+        const travelTimePromises = PARKING_LOCATIONS.map(async (location) => {
           const travelTime = await getTravelTimeFromDefaultOrigin(
             location.coordinate,
             email
           );
 
-          return { ...location, travelTime };
+          return { code: location.code.toUpperCase(), travelTime };
         });
 
-        const locationsWithTravelTimes = await Promise.all(travelTimePromises);
+        const travelTimes = await Promise.all(travelTimePromises);
+        const travelTimeByCode = new Map(
+          travelTimes
+            .filter((entry) => entry.travelTime)
+            .map((entry) => [entry.code, entry.travelTime])
+        );
 
         if (isMounted) {
-          setLocations(locationsWithTravelTimes);
+          setLocations((prev) =>
+            prev.map((location) => {
+              const match = travelTimeByCode.get(location.code.toUpperCase());
+              if (!match) {
+                return location;
+              }
+
+              return {
+                ...location,
+                travelTime: match,
+              };
+            })
+          );
         }
       } catch (error) {
         console.error("Failed to load travel times", error);
@@ -146,8 +325,12 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
       <View style={styles.mapWrapper}>
         <ParkingMap initialRegion={INITIAL_REGION}>
           {filteredLocations.map((location) => (
-            <Marker key={location.id} coordinate={location.coordinate}>
-              <Callout tooltip={false}>
+            <Marker
+              key={location.id}
+              coordinate={location.coordinate}
+              onPress={() => handleMarkerPress(location)}
+            >
+              <Callout tooltip={false} onPress={() => handleCalloutPress(location)}>
                 <View style={{ padding: 6, maxWidth: 220 }}>
                   <Text style={{ fontWeight: "600" }}>{location.title}</Text>
                   <Text style={{ marginTop: 4 }}>
@@ -327,6 +510,25 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
           )}
         </View>
       </View>
+
+      {detailGarage && selectedLocation && (
+        <Modal
+          visible
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={handleCloseDetail}
+        >
+          <GarageDetail
+            garage={detailGarage}
+            isFavorite={!!selectedLocation.favorite}
+            onBack={handleCloseDetail}
+            onToggleFavorite={handleToggleFavorite}
+            onStartNavigation={handleStartNavigation}
+            onStartParking={() => {}}
+            onShare={() => {}}
+          />
+        </Modal>
+      )}
     </ThemedView>
   );
 }

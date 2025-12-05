@@ -95,9 +95,9 @@ export async function loadParkingLocations(): Promise<ParkingLocation[]> {
     const response = await fetch(`${getApiBaseUrl()}${AVAILABILITY_ENDPOINT}`);
     if (!response.ok) {
       console.error("Failed to fetch parking availability for map:", response.status);
-      cache.locations = BASE_COORDINATES;
-      cache.timestamp = now;
-      return cache.locations;
+      cache.locations = null;
+      cache.timestamp = null;
+      return BASE_COORDINATES.map((loc) => ({ ...loc }));
     }
 
     const payload: { lots?: ApiLot[] } = await response.json();
@@ -158,9 +158,9 @@ export async function loadParkingLocations(): Promise<ParkingLocation[]> {
     return locations;
   } catch (error) {
     console.error("Failed to load parking availability for map", error);
-    cache.locations = BASE_COORDINATES;
-    cache.timestamp = now;
-    return cache.locations;
+    cache.locations = null;
+    cache.timestamp = null;
+    return BASE_COORDINATES.map((loc) => ({ ...loc }));
   }
 }
 

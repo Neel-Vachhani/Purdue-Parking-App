@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { emitParkingUpdate } from '../utils/parkingEvents';
 
 const ParkingWS: React.FC = () => {
   const [counters, setCounters] = useState<Record<string, number>>({});
   const [status, setStatus] = useState<string>('Connecting...');
+  const [lastUpdate, setLastUpdate] = useState<string>('');
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectDelayRef = useRef<number>(1000);
@@ -44,16 +46,15 @@ const ParkingWS: React.FC = () => {
 
         if (message?.type === 'parking_update' && message.data?.lot) {
           const { lot, count } = message.data;
-          
+          const normalizedLot = typeof lot === 'string' ? lot.toUpperCase() : lot;
+
           setCounters((prev) => ({
             ...prev,
-            [lot]: count,
+            [normalizedLot]: count,
           }));
 
-          Alert.alert(
-            'Parking Update',
-            `${lot}: ${count} spots available`
-          );
+          emitParkingUpdate({ lot: normalizedLot, count });
+          setLastUpdate(new Date().toLocaleTimeString());
         }
       } catch (error) {
         console.error('[WebSocket] Parse error:', error);
@@ -93,6 +94,9 @@ const ParkingWS: React.FC = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.status}>WebSocket: {status}</Text>
+      {!!lastUpdate && (
+        <Text style={styles.status}>Last update: {lastUpdate}</Text>
+      )}
       {Object.entries(counters).map(([lot, count]) => (
         <Text key={lot} style={styles.counter}>
           {lot}: {count}
