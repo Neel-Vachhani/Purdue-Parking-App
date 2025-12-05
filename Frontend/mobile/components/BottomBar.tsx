@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Pressable, Animated, StyleSheet } from "react-native";
+import { View, Pressable, Animated, StyleSheet, Easing } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ThemeContext } from "../theme/ThemeProvider";
@@ -16,6 +16,8 @@ export default function BottomBar({ tabs, active, onChange }: Props) {
   const insets = useSafeAreaInsets();
   const [trackWidth, setTrackWidth] = React.useState(0);
   const indicatorX = React.useRef(new Animated.Value(0)).current;
+  const hasMeasured = React.useRef(false);
+  const lastSegmentWidth = React.useRef(0);
 
   const activeIndex = Math.max(
     0,
@@ -28,15 +30,28 @@ export default function BottomBar({ tabs, active, onChange }: Props) {
 
   React.useEffect(() => {
     if (segmentWidth === 0) {
-      indicatorX.setValue(activeIndex * segmentWidth);
+      indicatorX.setValue(0);
+      hasMeasured.current = false;
+      lastSegmentWidth.current = 0;
       return;
     }
-    Animated.spring(indicatorX, {
-      toValue: activeIndex * segmentWidth,
+
+    const target = activeIndex * segmentWidth;
+
+    if (!hasMeasured.current || lastSegmentWidth.current !== segmentWidth) {
+      hasMeasured.current = true;
+      lastSegmentWidth.current = segmentWidth;
+      indicatorX.setValue(target);
+      return;
+    }
+
+    lastSegmentWidth.current = segmentWidth;
+    indicatorX.stopAnimation();
+    Animated.timing(indicatorX, {
+      toValue: target,
+      duration: 230,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-      mass: 0.6,
-      stiffness: 200,
-      damping: 18,
     }).start();
   }, [activeIndex, indicatorX, segmentWidth]);
 
