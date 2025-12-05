@@ -124,7 +124,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/api/user/origin/`, { params: { email } });
       const loadedOrigin = res?.data?.default_origin ?? "";
       setOrigin(loadedOrigin);
       setSavedOrigin(loadedOrigin); // Track saved value separately
@@ -231,7 +231,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       
       const trimmedOrigin = origin.trim();
       console.log("Saving starting location:", trimmedOrigin || "(clearing)");
-      await axios.post(`${API_BASE}/user/origin/`, { email, default_origin: trimmedOrigin });
+      await axios.post(`${API_BASE}/api/user/origin/`, { email, default_origin: trimmedOrigin });
       
       // Update saved origin state
       setSavedOrigin(trimmedOrigin);
@@ -270,7 +270,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       }
       
       console.log("Clearing starting location");
-      await axios.post(`${API_BASE}/user/origin/`, { email, default_origin: "" });
+      await axios.post(`${API_BASE}/api/user/origin/`, { email, default_origin: "" });
       setOrigin("");
       setSavedOrigin(""); // Clear saved origin state
       
