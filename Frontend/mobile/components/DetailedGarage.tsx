@@ -698,9 +698,6 @@ const handleConfirmParking = async () => {
                 {fakeAccuracyStats.averageRating.toFixed(1)} / 5
               </Text>
             </View>
-            <Text style={styles.accuracySummaryCaption}>
-              Based on the last {fakeAccuracyStats.sampleSize} check-ins
-            </Text>
           </View>
         </View>
 

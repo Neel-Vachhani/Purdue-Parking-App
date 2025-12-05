@@ -19,6 +19,7 @@ import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
 import { INITIAL_REGION } from "../../constants/map";
 import { PARKING_LOCATIONS, loadParkingLocations, ParkingLocation } from "./parkingLocationsData";
+import { INITIAL_GARAGE_LOOKUP } from "../../data/initialGarageAvailability";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import { Ionicons } from "../../components/ThemedIcons";        
 import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../../utils/travelTime";
@@ -29,9 +30,28 @@ interface ParkingLocationWithTravel extends ParkingLocation {
   travelTime?: TravelTimeResult | null;
 }
 
+const withInitialAvailability = (
+  locations: ParkingLocation[]
+): ParkingLocationWithTravel[] => {
+  return locations.map((location) => {
+    const baseline = INITIAL_GARAGE_LOOKUP.get(location.code.toUpperCase());
+    if (!baseline) {
+      return location;
+    }
+
+    return {
+      ...location,
+      available: baseline.current,
+      capacity: baseline.total,
+    };
+  });
+};
+
 export default function ParkingMapScreen({view, setView} : {view: string, setView: React.Dispatch<React.SetStateAction<"garage" | "map">>}) {
   
-  const [locations, setLocations] = useState<ParkingLocationWithTravel[]>(PARKING_LOCATIONS);
+  const [locations, setLocations] = useState<ParkingLocationWithTravel[]>(
+    withInitialAvailability(PARKING_LOCATIONS)
+  );
   const [selectedPass, setSelectedPass] = useState<ParkingPass | null>(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [filtersVisible, setFiltersVisible] = useState(false);
@@ -45,7 +65,7 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
       try {
         const updated = await loadParkingLocations();
         if (isMounted) {
-          setLocations(updated);
+          setLocations(withInitialAvailability(updated));
         }
       } catch (error) {
         console.error("Failed to refresh parking locations", error);
@@ -131,7 +151,30 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
                 <View style={{ padding: 6, maxWidth: 220 }}>
                   <Text style={{ fontWeight: "600" }}>{location.title}</Text>
                   <Text style={{ marginTop: 4 }}>
-                    {location.description || "Availability unavailable"}
+                    {(() => {
+                      const available =
+                        typeof location.available === "number"
+                          ? location.available
+                          : undefined;
+                      const capacity =
+                        typeof location.capacity === "number"
+                          ? location.capacity
+                          : undefined;
+
+                      if (available !== undefined && capacity !== undefined) {
+                        return `Available: ${available} / ${capacity}`;
+                      }
+
+                      if (available !== undefined) {
+                        return `Available: ${available}`;
+                      }
+
+                      if (capacity !== undefined) {
+                        return `Capacity: ${capacity}`;
+                      }
+
+                      return "Occupancy data unavailable";
+                    })()}
                   </Text>
                   {location.travelTime && (
                     <Text style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>

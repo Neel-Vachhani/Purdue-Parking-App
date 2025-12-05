@@ -14,6 +14,8 @@ export interface ParkingLocation {
   description?: string;
   passes?: ParkingPass[];
   favorite?: boolean;
+  available?: number;
+  capacity?: number;
 }
 
 const BASE_COORDINATES: ParkingLocation[] = GARAGE_DEFINITIONS.map((definition, index) => ({
@@ -33,10 +35,23 @@ type ApiLot = {
   id?: number;
   name?: string;
   code?: string;
-  available?: number;
-  capacity?: number;
+  available?: number | string;
+  capacity?: number | string;
 };
 
+const parseCount = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+};
+
+// Match the same endpoint the ParkingList screen calls so both views share one
+// source of truth for live availability numbers.
 const AVAILABILITY_ENDPOINT = "/parking/availability/";
 
 const getApiBaseUrl = (): string => {
@@ -120,10 +135,8 @@ export async function loadParkingLocations(): Promise<ParkingLocation[]> {
         };
       }
 
-      const available =
-        typeof match.available === "number" ? match.available : undefined;
-      const capacity =
-        typeof match.capacity === "number" ? match.capacity : undefined;
+      const available = parseCount(match.available);
+      const capacity = parseCount(match.capacity);
 
       const description =
         available !== undefined
@@ -135,6 +148,8 @@ export async function loadParkingLocations(): Promise<ParkingLocation[]> {
       return {
         ...location,
         description,
+        available: available ?? location.available,
+        capacity: capacity ?? location.capacity,
       };
     });
 
