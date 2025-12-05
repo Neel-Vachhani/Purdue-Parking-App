@@ -306,7 +306,7 @@ export default function GarageDetail({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/api/user/origin/`, { params: { email } });
       const loadedOrigin = res?.data?.default_origin ?? "";
       setOrigin(loadedOrigin);
       console.log("Loaded starting location:", loadedOrigin || "(none)");
@@ -434,11 +434,8 @@ const handleConfirmParking = async () => {
         } else {
           starting_location = `Purdue+University%2C+West+Lafayette%2C+IN+47906`
         }
-        console.log(starting_location)
         const startingLocationName = starting_location.replaceAll(" ", "+"); 
-        console.log(startingLocationName)
         const startingLocationLink = startingLocationName.replaceAll(",", "%2C"); 
-        console.log(startingLocationLink)
         showActionSheetWithOptions({
             options,
             cancelButtonIndex,
@@ -447,7 +444,6 @@ const handleConfirmParking = async () => {
             switch (selectedIndex) {
               case 0:
                 url =  `http://maps.apple.com/?saddr=${startingLocationLink}&daddr=${urlName}+West+Lafayette+IN`
-                console.log(url)
                 Linking.openURL(url)
                 break;
 
@@ -608,17 +604,7 @@ const handleConfirmParking = async () => {
               </Pill>
               </TouchableOpacity>
               <View style={{ justifyContent: 'space-evenly', marginVertical: 10 }}>
-              <TouchableOpacity onPress={() => handleOpenInMaps("origin")}>
-                <Pill>
-                  <Ionicons name="navigate-outline" size={14} /> Directions from saved Origin
-                </Pill>
-              </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => handleOpenInMaps("other")}>
-                <Pill>
-                  <Ionicons name="navigate-outline" size={14} /> Directions from saved Location
-                </Pill>
-              </TouchableOpacity>
 
               {/* Step 1: New button */}
               <TouchableOpacity onPress={handleConfirmParking}>
