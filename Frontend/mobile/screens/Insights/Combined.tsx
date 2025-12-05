@@ -4,10 +4,12 @@ import { ThemeContext } from "../../theme/ThemeProvider";
 import InsightsScreen from "./Insights"; // Your historical/current data component
 import PredictiveInsights from "../Predictions/PredictiveInsights"; // Your predictive component
 import GarageComparison from "./GarageComparison"; // NEW comparison component
+import UserInsightsTab from "./UserInsightsTab"; // NEW 
+
 
 export default function Combined() {
   const theme = useContext(ThemeContext);
-  const [activeTab, setActiveTab] = useState<"current" | "predictive" | "compare">("current");
+  const [activeTab, setActiveTab] = useState<"current" | "predictive" | "compare" | "user">("current");
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -46,6 +48,14 @@ export default function Combined() {
               Compare
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("user")}
+            style={[styles.tab, activeTab === "user" && styles.tabActive]}
+          >
+            <Text style={[styles.tabText, activeTab === "user" && styles.tabTextActive]}>
+              User
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -53,6 +63,7 @@ export default function Combined() {
       {activeTab === "current" && <InsightsScreen />}
       {activeTab === "predictive" && <PredictiveInsights />}
       {activeTab === "compare" && <GarageComparison />}
+      {activeTab === "user" && <UserInsightsTab />}
     </View>
   );
 }

@@ -124,9 +124,6 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
             <Callout tooltip={false}>
               <View style={{ padding: 6, maxWidth: 220 }}>
                 <Text style={{ fontWeight: "600" }}>{location.title}</Text>
-                <Text style={{ marginTop: 4 }}>
-                  {location.description || "Availability unavailable"}
-                </Text>
                 {location.travelTime && (
                   <Text style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
                     {location.travelTime.formattedDuration} ({location.travelTime.formattedDistance})

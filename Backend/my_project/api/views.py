@@ -3,6 +3,7 @@ import re
 from statistics import mean
 from typing import List, Dict, Any, Optional
 from django.db import connection
+from django.db.models import Count
 
 
 import bcrypt
@@ -15,8 +16,8 @@ from redis.exceptions import RedisError
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, ParkingLot
-from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer
+from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, ParkingLot, UserPark
+from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer, UserParkSerializer
 from .services import verify_apple_identity, issue_session_token
 from django.utils.timezone import make_aware
 
@@ -25,6 +26,8 @@ from datetime import datetime, timedelta, time, date
 import icalendar
 from io import BytesIO
 from django.utils.dateparse import parse_datetime
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +176,56 @@ def get_postgres_connection():
         user=config('DB_USERNAME'),
         password=config('DB_PASSWORD')
     )
+
+
+@api_view(['POST'])
+def user_insights(request):
+    """
+    Returns parking insights for a given user.
+    POST body: {"email": "user@example.com"}
+    """
+    email = request.data.get("email")
+    
+    if not email:
+        return Response({"success": False, "error": "email is required"}, status=400)
+
+    try:
+        # Check user exists
+        user = User.objects.get(email=email)
+
+        # Total parking sessions
+        total_parks = UserPark.objects.filter(user=user).count()
+
+        # Most visited lots
+        lot_counts = (
+            UserPark.objects.filter(user=user)
+            .values('lot__code', 'lot__name')
+            .annotate(visits=Count('id'))
+            .order_by('-visits')
+        )
+
+        # Visits per day of week
+        day_counts = (
+            UserPark.objects.filter(user=user)
+            .values('day_of_week')
+            .annotate(visits=Count('id'))
+            .order_by('day_of_week')
+        )
+
+        insights = {
+            "total_parks": total_parks,
+            "most_visited_lots": list(lot_counts),
+            "visits_per_day": list(day_counts),
+        }
+
+        return Response({"success": True, "insights": insights})
+
+    except User.DoesNotExist:
+        return Response({"success": False, "error": "User not found"}, status=404)
+
+    except Exception as e:
+        return Response({"success": False, "error": str(e)}, status=500)
+
 
 
 @api_view(['POST'])
@@ -338,10 +391,12 @@ def get_postgres_parking_data(request):
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
-
+    print(rows)
     # Format results as list of dicts
     results = [{"id": r[0], "timestamp": r[1], "availability": r[2]}
                for r in rows]
+    print("\nResults")
+    print(results)
     return Response(results)
 
 
@@ -539,6 +594,67 @@ def apple_sign_in(request):
     )
 
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_sign_in(request):
+    id_token_value = request.data.get("id_token")
+    if not id_token_value:
+        return Response({"detail": "id_token is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        payload = google_id_token.verify_oauth2_token(
+            id_token_value,
+            google_requests.Request(),
+        )
+    except ValueError as exc:
+        return Response({"detail": f"Invalid Google token: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    email = payload.get("email")
+    if not email:
+        return Response({"detail": "Google token missing email"}, status=status.HTTP_400_BAD_REQUEST)
+
+    full_name = payload.get("name", "")
+    first_name = payload.get("given_name", "")
+    last_name = payload.get("family_name", "")
+
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        user = User(
+            email=email,
+            name=full_name or email,
+            password="abc",
+            parking_pass="a",
+        )
+        user.save()
+    else:
+        updated_fields = []
+        if not getattr(user, "name", None) and full_name:
+            user.name = full_name
+            updated_fields.append("name")
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+
+    push_token = request.data.get("push_token")
+    if push_token:
+        user.notification_token = push_token
+        user.save(update_fields=["notification_token"])
+
+    token = issue_session_token(user)
+
+    return Response(
+        {
+            "token": token if isinstance(token, str) else token.get("access", token),
+            "user": {
+                "id": user.id,
+                "email": getattr(user, "email", None),
+                "first_name": first_name or getattr(user, "first_name", ""),
+                "last_name": last_name or getattr(user, "last_name", ""),
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
 @api_view(['GET'])
 def get_data(request):
     users = User.objects.all()
@@ -551,6 +667,42 @@ def get_user(request):
     email = request.data.get('email')
     user = User.objects.filter(email=email).first()
     return (Response(UserSerializer(user).data))
+
+LOT_CAPACITY_MAP = {
+    "pgh": 240, "pgg": 240, "pgu": 240, "pgnw": 240, "pgmd": 240, "pgw": 240,
+    "pggh": 240, "pgm": 240, "lot_r": 120, "lot_h": 80, "lot_fb": 100, "kfpc": 100,
+    "lot_a": 120, "crec": 150, "lot_o": 100, "tark_wily": 100, "lot_aa": 100,
+    "lot_bb": 80, "wnd_krach": 100, "shrv_erht_mrdh": 120, "mcut_harr_hill": 100,
+    "duhm": 60, "pierce_st": 100, "smth_bchm": 120, "disc_a": 100, "disc_ab": 100,
+    "disc_abc": 100, "airport": 80,
+}
+
+@api_view(['POST'])
+def create_parking_log(request):
+    email = request.data.get("email")
+    lot_code = request.data.get("code")
+    timestamp_str = request.data.get('timestamp')  # Get the timestamp from request    
+    # Parse the ISO timestamp string to a datetime object
+    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+    print(timestamp)
+    print(email)
+    print(lot_code)
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    print(user)
+    try:
+        lot = ParkingLot.objects.get(code=lot_code)
+    except ParkingLot.DoesNotExist:
+        return Response({"error": "Lot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    log = UserPark.objects.create(user=user, lot=lot, timestamp=timestamp)
+    log.save()
+
+    return Response({"success": True, "message": "Parking log saved."})
+
+
 
 @api_view(["GET"])
 def get_parking_comparison(request):
@@ -590,7 +742,6 @@ def get_parking_comparison(request):
     # Parse query parameters
     lots_param = request.GET.get("lots", "")
     period = request.GET.get("period", "day").lower()
-    
     if not lots_param:
         return Response(
             {"error": "Missing 'lots' query parameter. Use comma-separated lot codes (e.g., 'pgh,pgg,pgu')"},
@@ -605,7 +756,6 @@ def get_parking_comparison(request):
     
     # Parse lot codes
     lot_codes = [code.strip().upper() for code in lots_param.split(",")]
-    
     if len(lot_codes) > 4:
         return Response(
             {"error": "Maximum 4 lots can be compared at once."},
@@ -621,7 +771,6 @@ def get_parking_comparison(request):
             (lot for lot in PARKING_LOTS if lot["code"].upper() == lot_code),
             None
         )
-        
         if not lot_entry:
             invalid_lots.append(lot_code)
             continue
@@ -654,7 +803,7 @@ def get_parking_comparison(request):
             
             # Get total capacity (you may need to add this to PARKING_LOTS or fetch from DB)
             # Using default 240 for garages, adjust based on your actual data
-            total_capacity = 240  # You should map this properly for each lot
+            total_capacity = LOT_CAPACITY_MAP.get(lot_code.lower(), 240)
             
             # Get current availability from Redis
             try:
@@ -705,7 +854,7 @@ def get_parking_comparison(request):
             comparisons.append({
                 "lot_code": lot_code.lower(),
                 "lot_name": lot_entry["name"],
-                "current_occupancy": current_occupancy,
+                "current_occupancy": total_capacity - current_occupancy,
                 "total_capacity": total_capacity,
                 "occupancy_percentage": occupancy_percentage,
                 "available_spots": current_availability,
