@@ -52,7 +52,7 @@ const parseCount = (value: unknown): number | undefined => {
 
 // Match the same endpoint the ParkingList screen calls so both views share one
 // source of truth for live availability numbers.
-const AVAILABILITY_ENDPOINT = "/parking/availability/";
+const AVAILABILITY_ENDPOINT = "/api/parking/availability/";
 
 const getApiBaseUrl = (): string => {
   const configExtra = Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined;
