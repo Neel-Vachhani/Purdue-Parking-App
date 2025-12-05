@@ -1,6 +1,8 @@
 import * as React from "react";
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Modal, StyleSheet, Animated } from "react-native";
 import { ThemeContext } from "../../theme/ThemeProvider";
+import { getApiBaseUrl } from "../../config/env";
+const API_BASE = getApiBaseUrl();
 
 type Lot = {
   id: number;
@@ -88,7 +90,7 @@ export default function PredictiveInsights() {
         params.append("weekday", selectedWeekday.toLowerCase());
       }
 
-      const res = await fetch(`http://localhost:7500/parking/hourly-average?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/api/parking/hourly-average?${params.toString()}`);
       console.log(res)
       if (!res.ok) throw new Error("Failed to fetch data");
       

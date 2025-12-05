@@ -179,6 +179,16 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
   occPct: { width: 48, textAlign: "right", color: theme.text, fontWeight: "700" },
   occCaption: { marginTop: 6, color: theme.text, fontSize: 12 },
   updated: { marginTop: 2, color: theme.text, fontSize: 11 },
+  accuracySummary: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: theme.mode === "dark" ? "rgba(59,130,246,0.12)" : "rgba(59,130,246,0.08)",
+  },
+  accuracySummaryHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  accuracySummaryLabel: { color: theme.text, fontSize: 13, fontWeight: "600" },
+  accuracySummaryValue: { color: theme.primary, fontSize: 20, fontWeight: "800" },
+  accuracySummaryCaption: { marginTop: 6, color: theme.text, opacity: 0.7, fontSize: 11 },
 
   priceRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
   priceLabel: { color: theme.text },
@@ -291,6 +301,8 @@ export default function GarageDetail({
     setReliability(Math.floor(Math.random() * 101));
   }, [garage.id]);
 
+  
+
 
   // State for travel time (User Story #9)
   const [travelTime, setTravelTime] = React.useState<TravelTimeResult | null>(null);
@@ -303,6 +315,8 @@ export default function GarageDetail({
   const [reportModalVisible, setReportModalVisible] = React.useState(false);
   const [reportDescription, setReportDescription] = React.useState("");
   const [reportSubmitting, setReportSubmitting] = React.useState(false);
+  const [dataAccuracyRating, setDataAccuracyRating] = React.useState(0);
+  const fakeAccuracyStats = React.useMemo(() => ({ averageRating: 4.6, sampleSize: 46 }), []);
 
   //State for origin/location
   const [origin, setOrigin] = React.useState("");
@@ -316,7 +330,7 @@ export default function GarageDetail({
     
     return (
         <StarRating
-          rating={garage.individual_rating}
+          rating={rating}
           color={theme.primary}
           onChange={ratingChange}
         />
@@ -329,7 +343,7 @@ export default function GarageDetail({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/api/user/origin/`, { params: { email } });
       const loadedOrigin = res?.data?.default_origin ?? "";
       setOrigin(loadedOrigin);
       console.log("Loaded starting location:", loadedOrigin || "(none)");
@@ -344,7 +358,7 @@ export default function GarageDetail({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/user/location/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/api/user/location/`, { params: { email } });
       const loadedLocation = res?.data?.other_location ?? "";
       setLocation(loadedLocation);
       console.log("Loaded other location:", loadedLocation || "(none)");
@@ -352,6 +366,44 @@ export default function GarageDetail({
       console.error("Failed to load other location:", err);
     } 
   }, []);
+
+  React.useEffect(() => {
+    loadLocation();
+    loadOrigin();
+  }, []);
+
+const handleConfirmParking = async () => {
+  try {
+    const userJson = await SecureStore.getItemAsync("user");
+    const user = userJson ? JSON.parse(userJson) : null;
+    const email = user?.email;
+    if (!email) return;
+
+    await axios.post(`${API_BASE}/api/confirm_parking/`, {
+      code: garage.code,
+      email,
+      timestamp: new Date().toISOString()
+    });
+
+
+    // Optional: feedback to user
+    alert("Thanks! Your parking has been recorded.");
+  } catch (err) {
+    console.error("Failed to confirm parking:", err);
+    alert("Oops! Could not record parking. Try again.");
+  }
+};
+
+  
+  const DataAccuracyRatingWidget = () => {
+    return (
+      <StarRating
+        rating={dataAccuracyRating}
+        color="#f59e0b" // Orange color to differentiate from quality rating
+        onChange={dataAccuracyRatingChange}
+      />
+    );
+  };
 
   const ratingChange = async (rating: number) => {
     const userJson = await SecureStore.getItemAsync("user");
@@ -386,6 +438,27 @@ export default function GarageDetail({
     })
   }
 
+  const dataAccuracyRatingChange = async (rating: number) => {
+    setDataAccuracyRating(rating);
+    const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+    // API call to update data accuracy rating
+    try {
+      await fetch(`${API_BASE}/api/update_data_accuracy`, {
+        method: "POST",
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          code: garage.code,
+          accuracy_rating: rating
+        })
+      });
+    } catch (error) {
+      console.error('Error submitting data accuracy rating:', error);
+    }
+  };
+
   const handleOpenInMaps = (locationType: string) => {
         const options = ['Apple Maps', 'Google Maps', 'Cancel'];
         const destructiveButtonIndex = 3;
@@ -397,17 +470,14 @@ export default function GarageDetail({
         if (locationType == "origin") {
           loadOrigin();
           starting_location = origin
-        } else if (locationType == "other") {
+        } else {
           loadLocation();
           starting_location = location
-        } else {
-          starting_location = `Purdue+University%2C+West+Lafayette%2C+IN+47906`
         }
+        console.log("here")
         console.log(starting_location)
         const startingLocationName = starting_location.replaceAll(" ", "+"); 
-        console.log(startingLocationName)
         const startingLocationLink = startingLocationName.replaceAll(",", "%2C"); 
-        console.log(startingLocationLink)
         showActionSheetWithOptions({
             options,
             cancelButtonIndex,
@@ -416,7 +486,6 @@ export default function GarageDetail({
             switch (selectedIndex) {
               case 0:
                 url =  `http://maps.apple.com/?saddr=${startingLocationLink}&daddr=${urlName}+West+Lafayette+IN`
-                console.log(url)
                 Linking.openURL(url)
                 break;
 
@@ -621,6 +690,18 @@ export default function GarageDetail({
                   <Ionicons name="navigate-outline" size={14}  /> Directions from saved Location
               </Pill>
               </TouchableOpacity>
+              <View style={{ justifyContent: 'space-evenly', marginVertical: 10 }}>
+
+
+              {/* Step 1: New button */}
+              <TouchableOpacity onPress={handleConfirmParking}>
+                <Pill>
+                  <Ionicons name="car" size={14} /> Mark as Parked 
+                </Pill>
+              </TouchableOpacity>
+
+            </View>
+
                 </View>
             </View>
             
@@ -694,6 +775,17 @@ export default function GarageDetail({
           {garage.lastUpdatedIso && (
             <Text style={styles.updated}>Updated {formatTime(garage.lastUpdatedIso)}</Text>
           )}
+          <View style={styles.accuracySummary}>
+            <View style={styles.accuracySummaryHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="analytics" size={16} color={theme.primary} />
+                <Text style={styles.accuracySummaryLabel}>Avg data accuracy</Text>
+              </View>
+              <Text style={styles.accuracySummaryValue}>
+                {fakeAccuracyStats.averageRating.toFixed(1)} / 5
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Pricing */}
@@ -717,13 +809,23 @@ export default function GarageDetail({
           </View>
         )}
 
-        {/* Rating Block */}
+        {/* Ratings */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Rating</Text>
+          <Text style={styles.sectionTitle}>Rate this Garage</Text>
           <RatingWidget />
+          {rating > 0 && (
+            <Text style={{
+              color: theme.primary,
+              fontSize: 11,
+              fontWeight: "600",
+              marginTop: 6,
+              textAlign: "center"
+            }}>
+              Thanks for sharing your experience.
+            </Text>
+          )}
         </View>
 
-        {/* Amenities */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Amenities</Text>
           <View style={styles.amenitiesWrap}>
@@ -741,6 +843,57 @@ export default function GarageDetail({
               <React.Fragment key={`${a}-${i}`}><AmenityItem a={a} /></React.Fragment>
             ))}
           </View>
+        </View>
+
+        {/* Data Accuracy (placed near the end so it doesn’t crowd the top of the sheet) */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Ionicons name="analytics" size={18} color="#f59e0b" />
+            <Text style={styles.sectionTitle}>Data Accuracy</Text>
+          </View>
+          <Text
+            style={{
+              color: theme.text,
+              fontSize: 13,
+              marginBottom: 10,
+              lineHeight: 18,
+            }}
+          >
+            Tell us how close our availability estimate was to what you saw on arrival.
+          </Text>
+          <View
+            style={{
+              backgroundColor: theme.mode === "dark" ? "rgba(245,158,11,0.08)" : "rgba(245,158,11,0.06)",
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 8,
+            }}
+          >
+            <DataAccuracyRatingWidget />
+            {dataAccuracyRating > 0 && (
+              <Text
+                style={{
+                  color: "#b45309",
+                  fontSize: 11,
+                  fontWeight: "600",
+                  marginTop: 6,
+                  textAlign: "center",
+                }}
+              >
+                Thanks! Your feedback improves future predictions.
+              </Text>
+            )}
+          </View>
+          <Text
+            style={{
+              color: theme.text,
+              opacity: 0.65,
+              fontSize: 11,
+              fontStyle: "italic",
+            }}
+          >
+            We aggregate these ratings to calibrate our occupancy model.
+          </Text>
         </View>
 
         {/* Upcoming Events (User Story #10) */}
@@ -796,7 +949,7 @@ export default function GarageDetail({
           ) : (
             <EmptyState
               title="No upcoming closures"
-              description="We'll post events and closures here as soon as they’re scheduled for this garage."
+              description="We'll post events and closures here as soon as they're scheduled for this garage."
               iconName="calendar-outline"
               style={{ backgroundColor: "transparent", borderColor: theme.border }}
             />
@@ -815,6 +968,54 @@ export default function GarageDetail({
         </View>
 
         <View style={{ height: 32 }} />
+
+        {/* Actions */}
+        {/* <View style={[styles.card, styles.actionsCard]}>
+          <Pressable style={[styles.actionBtn, styles.primary]} onPress={() => onStartParking?.(garage)}>
+            <Ionicons name="car" size={18} />
+            <Text style={styles.actionText}>Start Parking</Text>
+          </Pressable>
+          <Line />
+          <View style={styles.actionsRow}>
+            <Pressable style={styles.iconBtn} onPress={() => onStartNavigation?.(garage)}>
+              <Ionicons name="navigate" size={18} />
+              <Text style={styles.iconBtnLabel}>Navigate</Text>
+            </Pressable>
+            <Pressable style={styles.iconBtn} onPress={() => onShare?.(garage)}>
+              <Ionicons name="share-social" size={18} />
+              <Text style={styles.iconBtnLabel}>Share</Text>
+            </Pressable>
+            <Pressable style={styles.iconBtn} onPress={onRefresh}>
+              <Ionicons name="refresh" size={18} />
+              <Text style={styles.iconBtnLabel}>Refresh</Text>
+            </Pressable>
+          </View>
+        </View> */}
+
+        <View style={{ height: 32 }} />
+
+        {/* Actions */}
+        {/* <View style={[styles.card, styles.actionsCard]}>
+          <Pressable style={[styles.actionBtn, styles.primary]} onPress={() => onStartParking?.(garage)}>
+            <Ionicons name="car" size={18} />
+            <Text style={styles.actionText}>Start Parking</Text>
+          </Pressable>
+          <Line />
+          <View style={styles.actionsRow}>
+            <Pressable style={styles.iconBtn} onPress={() => onStartNavigation?.(garage)}>
+              <Ionicons name="navigate" size={18} />
+              <Text style={styles.iconBtnLabel}>Navigate</Text>
+            </Pressable>
+            <Pressable style={styles.iconBtn} onPress={() => onShare?.(garage)}>
+              <Ionicons name="share-social" size={18} />
+              <Text style={styles.iconBtnLabel}>Share</Text>
+            </Pressable>
+            <Pressable style={styles.iconBtn} onPress={onRefresh}>
+              <Ionicons name="refresh" size={18} />
+              <Text style={styles.iconBtnLabel}>Refresh</Text>
+            </Pressable>
+          </View>
+        </View> */}
       </ScrollView>
 
       {loading && (

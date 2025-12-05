@@ -25,23 +25,13 @@ import GarageDetail from "./DetailedGarage";
 import { EmailContext } from "../utils/EmailContext";
 import EmptyState from "./EmptyState";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-type ParkingPass = "A" | "B" | "C" | "SG" | "Grad House" | "Residence Hall" | "Paid";
+import * as SecureStore from "expo-secure-store";
+import { useActionSheet } from "@expo/react-native-action-sheet";
+import axios from "axios";
+import { ParkingPass, PARKING_PASS_OPTIONS } from "../constants/passes";
+import { INITIAL_GARAGES, InitialGarage } from "../data/initialGarageAvailability";
 
-type Garage = {
-  id: string;
-  code: string;
-  name: string;
-  current: number;
-  total: number;
-  paid: boolean;
-  favorite?: boolean;
-  lat?: number;
-  lng?: number;
-  passes: ParkingPass[];
-  rating: number;
-  individual_rating: number;
-  address: string;
-};
+type Garage = InitialGarage;
 export type Amenity =
   | "covered"
   | "ev"
@@ -84,86 +74,8 @@ export interface GarageDetailType {
   accessibleSpots?: number;
   individual_rating: number;
 }
-type GarageDefinition = {
-  code: string;
-  name: string;
-  paid?: boolean;
-  favorite?: boolean;
-  lat?: number;
-  lng?: number;
-  passes: ParkingPass[];
-  rating: number;
-  address: string;
-  individual_rating: number;
-};
-const PASS_OPTIONS: ParkingPass[] = ["A", "B", "C", "SG", "Grad House", "Residence Hall", "Paid"];
+const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
 
-const GARAGE_DEFINITIONS: GarageDefinition[] = [
-  { code: "PGH", name: "Harrison Street Parking Garage", paid: true, favorite: true, lat: 40.420928743577996, lng: -86.91759020145541, passes: ["A", "B", "Paid"], rating: 3.5, address: "719 Clinic Dr, West Lafayette, IN", individual_rating: 2.5 },
-  { code: "PGG", name: "Grant Street Parking Garage", paid: true, favorite: true, lat: 40.42519706999441, lng: -86.90972814560583, passes: ["A", "B", "Paid"], rating: 4, address: "120 Grant St, West Lafayette, IN", individual_rating: 0 },
-  { code: "PGU", name: "University Street Parking Garage", paid: true, lat: 40.4266903911869, lng: -86.91728093292815, passes: ["A", "SG", "Paid"], rating: 3, address: "201 N University St, West Lafayette, IN", individual_rating: 0 },
-  { code: "PGNW", name: "Northwestern Avenue Parking Garage", paid: true, lat: 40.42964447741563, lng: -86.91111021483658, passes: ["A", "SG", "Paid"], rating: 5, address: "504 Northwestern Ave, West Lafayette, IN", individual_rating: 0 },
-  { code: "PGMD", name: "McCutcheon Drive Parking Garage", paid: true, lat: 40.43185, lng: -86.91445, passes: ["Residence Hall", "Paid"], rating: 2, address: "250 McCutcheon Dr, West Lafayette, IN", individual_rating: 0 },
-  { code: "PGW", name: "Wood Street Parking Garage", paid: true, lat: 40.42785, lng: -86.91885, passes: ["A", "SG", "Paid"], rating: 2, address: "120 S. Grant St., West Lafayette, IN", individual_rating: 0 },
-  { code: "PGM", name: "Marsteller Street Parking Garage", paid: true, lat: 40.42545, lng: -86.91325, passes: ["A", "Paid"], rating: 2, address: "112 Marsteller St, West Lafayette, IN", individual_rating: 0 },
-  { code: "LOT_R", name: "Lot R (North of Ross-Ade)", lat: 40.41445, lng: -86.91245, passes: ["A", "B", "C"], rating: 2, address: "850 Steven Beering Dr, West Lafayette, IN", individual_rating: 0 },
-  { code: "LOT_H", name: "Lot H (West of Football Practice Field)", lat: 40.41625, lng: -86.91485, passes: ["A", "B", "C"], rating: 2, address: "Address coming from API", individual_rating: 0  },
-  { code: "LOT_FB", name: "Lot FB (East of Football Practice Field)", lat: 40.41585, lng: -86.91135, passes: ["A", "B"], rating: 2, address: "Address coming from API", individual_rating: 0  },
-  { code: "KFPC", name: "Kozuch Football Performance Complex Lot", lat: 40.41525, lng: -86.91055, passes: ["A", "B"], rating: 2, address: "1228 John R Wooden Dr, West Lafayette, IN", individual_rating: 0 },
-  { code: "LOT_A", name: "Lot A (North of Cary Quad)", lat: 40.42845, lng: -86.92045, passes: ["A", "B"], rating: 2, address: "A Lot, West Lafayette, IN", individual_rating: 0  },
-  { code: "CREC", name: "Co-Rec Parking Lots", lat: 40.42185, lng: -86.91965, passes: ["A", "B", "C"], rating: 2, address: "355 N Martin Jischke Dr, West Lafayette, IN", individual_rating: 0 },
-  { code: "LOT_O", name: "Lot O (East of Rankin Track)", lat: 40.41925, lng: -86.91845, passes: ["A", "B", "C"], rating: 2, address: "1205 W Stadium Ave, West Lafayette, IN", individual_rating: 0  },
-  { code: "TARK_WILY", name: "Tarkington & Wiley Lots", lat: 40.43045, lng: -86.92125, passes: ["A", "B"], rating: 2, address: "500 N Martin Jischke Dr, West Lafayette, IN", individual_rating: 0  },
-  { code: "LOT_AA", name: "Lot AA (6th & Russell)", lat: 40.42655, lng: -86.90585, passes: ["A", "B"], rating: 2, address: "520 North Russell Street West Lafayette, IN", individual_rating: 0  },
-  { code: "LOT_BB", name: "Lot BB (6th & Waldron)", lat: 40.42545, lng: -86.90485, passes: ["A", "B"], rating: 2, address: "Address coming from API", individual_rating: 0  },
-  { code: "WND_KRACH", name: "Windsor & Krach Shared Lot", lat: 40.43165, lng: -86.91845, passes: ["A", "B"], rating: 2.0, address: "205 N Russell St, West Lafayette, IN", individual_rating: 0 },
-  { code: "SHRV_ERHT_MRDH", name: "Shreve, Earhart & Meredith Shared Lot", lat: 40.43265, lng: -86.92265, passes: ["A", "B"], rating: 2, address: "1275 3rd Street, West Lafayette, IN", individual_rating: 0  },
-  { code: "MCUT_HARR_HILL", name: "McCutcheon, Harrison & Hillenbrand Lot", lat: 40.43225, lng: -86.91565, passes: ["A", "B"], rating: 2, address: "400 McCutcheon Dr, West Lafayette, IN", individual_rating: 0 },
-  { code: "DUHM", name: "Duhme Hall Parking Lot", lat: 40.43385, lng: -86.91925, passes: ["A", "B"], rating: 2, address: "209 N Russell St, West Lafayette, IN", individual_rating: 0  },
-  { code: "PIERCE_ST", name: "Pierce Street Parking Lot", paid: true, lat: 40.42385, lng: -86.91445, passes: ["A", "B", "Paid"], rating: 2, address: "134 Pierce St., West Lafayette, IN", individual_rating: 0 },
-  { code: "SMTH_BCHM", name: "Smith & Biochemistry Lot", lat: 40.42745, lng: -86.91665, passes: ["A"], rating: 2, address: " 175 S University St, West Lafayette, IN", individual_rating: 0  },
-  { code: "DISC_A", name: "Discovery Lot (A Permit)", lat: 40.428997605924756, lng: -86.91608038169943, passes: ["A"], rating: 2, address: "625 Harrison St, West Lafayette, IN", individual_rating: 0 },
-  { code: "DISC_AB", name: "Discovery Lot (AB Permit)", lat: 40.42865, lng: -86.91545, passes: ["A", "B"], rating: 2, address: "625 Harrison St, West Lafayette, IN", individual_rating: 0  },
-  { code: "DISC_ABC", name: "Discovery Lot (ABC Permit)", lat: 40.42825, lng: -86.91485, passes: ["A", "B", "C"], rating: 2, address: "625 Harrison St, West Lafayette, IN", individual_rating: 0  },
-  { code: "AIRPORT", name: "Airport Parking Lots", lat: 40.41225, lng: -86.93685, passes: ["A", "B", "C"], rating: 2, address: "501 Aviation Dr, West Lafayette, IN", individual_rating: 0  },
-];
-
-const INITIAL_GARAGES: Garage[] = GARAGE_DEFINITIONS.map((definition, index) => {
-  // *** CUSTOM TEST VALUES FOR FULL GARAGE ALERTS ***
-  let testCurrent: number;
-  let testTotal: number;
-  
-  if (definition.code === "PGH") { // Harrison Street Parking Garage
-    testCurrent = 0; // Completely full
-    testTotal = 480;
-  } else if (definition.code === "PGG") { // Grant Street Parking Garage  
-    testCurrent = 3; // Nearly full
-    testTotal = 650;
-  } else if (definition.code === "PGU") { // University Street Parking Garage
-    testCurrent = 1; // Nearly full
-    testTotal = 820;
-  } else {
-    // All other garages have good availability
-    testCurrent = 150;
-    testTotal = 400;
-  }
-
-  return {
-    id: String(index + 1),
-    code: definition.code,
-    name: definition.name,
-    paid: definition.paid ?? false,
-    favorite: definition.favorite ?? false,
-    current: testCurrent,
-    total: testTotal,
-    lat: definition.lat,
-    lng: definition.lng,
-    rating: definition.rating,
-    passes: definition.passes,
-    address: definition.address,
-    individual_rating: definition.individual_rating
-  };
-});
 
 type ApiLot = {
   id?: number;
@@ -203,7 +115,7 @@ function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
   
   async function getUserRatings(){
       const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
-      await fetch(`${API_BASE}/user/get_user`, {
+      await fetch(`${API_BASE}/api/user/get_user`, {
             method: "POST",
             headers: {
             'Accept': 'application/json',
@@ -275,6 +187,10 @@ export default function GarageList({
   const [lotRatings, setLotRatings] = React.useState();
   const filtersLoadedRef = React.useRef(false);
   const userEmail = React.useContext(EmailContext);
+  const { showActionSheetWithOptions } = useActionSheet();
+  const [origin, setOrigin] = React.useState("");
+  const [location, setLocation] = React.useState("");
+  
 
   // detail panel state
   const [selected, setSelected] = React.useState<Garage | null>(null);
@@ -321,6 +237,7 @@ export default function GarageList({
 
 
 
+
   React.useEffect(() => {
     const loadFilters = async () => {
       try {
@@ -334,7 +251,9 @@ export default function GarageList({
           favoritesOnly?: boolean;
         };
         if (Array.isArray(parsed?.passes)) {
-          setSelectedPasses(parsed.passes.filter((p): p is ParkingPass => PASS_OPTIONS.includes(p)));
+          setSelectedPasses(
+            parsed.passes.filter((p): p is ParkingPass => PARKING_PASS_OPTIONS.includes(p))
+          );
         }
         if (typeof parsed?.favoritesOnly === "boolean") {
           setShowFavoritesOnly(parsed.favoritesOnly);
@@ -457,6 +376,9 @@ export default function GarageList({
           {
             text: "OK",
             style: "default",
+            onPress: () => {
+              openDetail(garage);
+            }
           },
           {
             text: "View Alternatives", 
@@ -512,26 +434,76 @@ export default function GarageList({
     }
   }, []);
 
+    const loadOrigin = React.useCallback(async () => {
+    try {
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+      if (!email) return;
+      const res = await axios.get(`${API_BASE}/api/user/origin/`, { params: { email } });
+      const loadedOrigin = res?.data?.default_origin ?? "";
+      setOrigin(loadedOrigin);
+      console.log("Loaded starting location:", loadedOrigin || "(none)");
+    } catch (err) {
+      console.error("Failed to load starting location:", err);
+    } 
+  }, []);
+
+  const loadLocation = React.useCallback(async () => {
+    try {
+      const userJson = await SecureStore.getItemAsync("user");
+      const user = userJson ? JSON.parse(userJson) : null;
+      const email = user?.email;
+      if (!email) return;
+      const res = await axios.get(`${API_BASE}/api/user/location/`, { params: { email } });
+      const loadedLocation = res?.data?.other_location ?? "";
+      setLocation(loadedLocation);
+      console.log("Loaded other location:", loadedLocation || "(none)");
+    } catch (err) {
+      console.error("Failed to load other location:", err);
+    } 
+  }, []);
+
 
   const handleOpenInMaps = React.useCallback(
     (garage: Garage) => {
+      const options = ['Apple Maps', 'Google Maps', 'Cancel'];
+      const destructiveButtonIndex = 3;
+      const cancelButtonIndex = 2;
       const garageName: string = garage.name
-      const urlName = garageName.replace(" ", "+")
-      const url = Platform.select({
-      //ios: `http://maps.apple.com/?saddr=40.428604085531404+-86.91934994154656&daddr=${garage.lat},${garage.lng}`,
-      ios: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
-      android: `https://www.google.com/maps/dir/?api=1&origin=28+Hilltop+Dr+IN&destination=${urlName}+West+Lafayette+IN&travelmode=driving`,
-    })
-    Linking.openURL(url!)
-    },
-    [onOpenInMaps]
+      const urlName = garageName.replaceAll(" ", "+")
+      let url = ``
+      loadOrigin();
+      const startingLocationName = origin.replaceAll(" ", "+"); 
+      const startingLocationLink = startingLocationName.replaceAll(",", "%2C"); 
+      showActionSheetWithOptions({
+                options,
+                cancelButtonIndex,
+                destructiveButtonIndex
+              }, (selectedIndex) => {
+                switch (selectedIndex) {
+                  case 0:
+                    url = `http://maps.apple.com/?saddr=${startingLocationLink}&daddr=${urlName}+West+Lafayette+IN`
+                    Linking.openURL(url)
+                    break;
+    
+                  case 1:
+                    url = `https://www.google.com/maps/dir/?api=1&origin=${startingLocationLink}&destination=${urlName}+West+Lafayette+IN&travelmode=driving`
+                    Linking.openURL(url)
+                    break;
+    
+                  case cancelButtonIndex:
+                    // Canceled
+                }});
+      },
+      [onOpenInMaps]
   );
 
   useEffect(() => {
     async function getUserRatings() {
       const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
           //TODO: API Call to backend to update the rating in the backend
-          await fetch(`${API_BASE}/user/get_user`, {
+          await fetch(`${API_BASE}/api/user/get_user`, {
             method: "POST",
             headers: {
             'Accept': 'application/json',
@@ -708,21 +680,27 @@ export default function GarageList({
                 <Text style={{ color: theme.text, fontSize: 22, fontWeight: "600" }}>
                   {item.name}
                 </Text>
+              </View>
+              {/* Rating Pill */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 {isGarageFull(item.current) && (
                   <View style={{
                     backgroundColor: "#ef4444",
-                    borderRadius: 10,
-                    paddingHorizontal: 6,
+                    borderWidth: 1,
+                    borderColor: "white",
+                    borderRadius: 999,
+                    paddingHorizontal: 8,
                     paddingVertical: 2,
+                    width: 50,
+                    height: 28,
+                    marginTop: 5,
                   }}>
-                    <Text style={{ fontSize: 10, color: "white", fontWeight: "600" }}>
+                    <Text style={{ fontSize: 12, color: "white", fontWeight: "bold", marginTop: 3.5, marginHorizontal: 1 }}>
                       {item.current === 0 ? "FULL" : "LOW"}
                     </Text>
                   </View>
                 )}
-              </View>
-              {/* Rating Pill */}
-              <View
+                <View
                 onLayout={() => avg_rating()}
                 style={{
                   borderWidth: 1,
@@ -748,11 +726,12 @@ export default function GarageList({
                   <Ionicons name={"star"} size={14} color={theme.primary} />
                 </Text>
               </View>
-
-              <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
+            </View>
+            <Text style={{ color: secondaryText, marginTop: 4, fontSize: 14 }}>
                 Passes: {passesLabel}
               </Text>
-            </View>
+              </View>
+              
 
             <View style={{ alignItems: "flex-end" }}>
               
@@ -1020,7 +999,7 @@ export default function GarageList({
                     gap: 12,
                   }}
                 >
-                  {PASS_OPTIONS.map((pass) => {
+                  {PARKING_PASS_OPTIONS.map((pass) => {
                     const isSelected = selectedPasses.includes(pass);
                     const backgroundColor = isSelected
                       ? theme.primary

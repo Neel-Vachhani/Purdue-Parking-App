@@ -18,15 +18,16 @@ cursor.execute("DELETE FROM parking_availability_data;")
 conn.commit()
 print("Cleared all existing rows.")
 
-# --- Garage columns and max capacities ---
+# --- Garage columns with capacities matching GARAGES array ---
 garage_columns = {
-    "pgmd_availability": 150,
-    "pgu_availability": 826,
-    "pgnw_availability": 434,
-    "pgg_availability": 648,
-    "pgw_availability": 200,
-    "pggh_availability": 130,
-    "pgh_availability": 800,
+    "pgh_availability": 240,
+    "pgg_availability": 240,
+    "pgu_availability": 240,
+    "pgnw_availability": 240,
+    "pgmd_availability": 240,
+    "pgw_availability": 240,
+    "pggh_availability": 240,
+    "pgm_availability": 240,
     "lot_r_availability": 120,
     "lot_h_availability": 80,
     "lot_fb_availability": 100,
@@ -42,7 +43,6 @@ garage_columns = {
     "mcut_harr_hill_availability": 100,
     "duhm_availability": 60,
     "pierce_st_availability": 100,
-    "pgm_availability": 200,
     "smth_bchm_availability": 120,
     "disc_a_availability": 100,
     "disc_ab_availability": 100,
@@ -58,7 +58,7 @@ for day_offset in range(30):
         row = [timestamp]
         for lot, capacity in garage_columns.items():
             # Random occupancy between 10% and 90% of capacity
-            row.append(randint(int(capacity*0.1), int(capacity*0.9)))
+            row.append(randint(int(capacity * 0.1), int(capacity * 0.9)))
         rows_to_insert.append(tuple(row))
 
 # --- Build query ---
