@@ -2,6 +2,19 @@
 import { Platform } from "react-native";
 import * as Location from "expo-location";
 import { getApiBaseUrl } from "../config/env";
+import axios from "axios";
+
+export interface NearestGarage {
+  id: number;
+  code: string | null;
+  name: string | null;
+  distance_m: number;
+}
+
+export interface NearestGarageResponse {
+  found: boolean;
+  garage?: NearestGarage;
+}
 
 export interface Coordinate {
   latitude: number;
@@ -12,7 +25,8 @@ export interface TravelTimeResult {
   distance: number; // in miles
   duration: number; // in minutes
   formattedDistance: string;
-  formattedDuration: string;
+  formattedDurationCar: string;
+  formattedDurationWalk: string;
   originType?: "saved" | "current"; // Track which origin was used
 }
 
@@ -36,6 +50,50 @@ function calculateDistance(from: Coordinate, to: Coordinate): number {
   const distance = R * c;
   
   return distance;
+}
+
+export async function findNearestGarageFromCoords(
+  coords: Coordinate,
+  radiusM: number = 80
+): Promise<NearestGarageResponse | null> {
+  try {
+    const API_BASE = getApiBaseUrl();
+
+    const { data } = await axios.post<NearestGarageResponse>(
+      `${API_BASE}/nearest-garage/`,
+      {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        radius_m: radiusM,
+      },
+      {
+        timeout: 6000,
+      }
+    );
+
+    return data;
+  } catch (error: any) {
+    console.error("Axios nearest-garage error:", error?.response || error);
+    return null;
+  }
+}
+
+export async function findNearestGarageForAddress(
+  address: string,
+  radiusM: number = 80
+): Promise<NearestGarageResponse | null> {
+  try {
+    const coords = await geocodeAddress(address);
+    if (!coords) {
+      console.warn("Could not geocode address:", address);
+      return null;
+    }
+
+    return await findNearestGarageFromCoords(coords, radiusM);
+  } catch (error) {
+    console.error("Error in findNearestGarageForAddress:", error);
+    return null;
+  }
 }
 
 /**
@@ -90,7 +148,7 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
     const encodedAddress = encodeURIComponent(address.trim());
     
     console.log(`Geocoding via backend: "${address}"`);
-    const response = await fetch(`${API_BASE}/api/geocode/?address=${encodedAddress}`);
+    const response = await fetch(`${API_BASE}/geocode/?address=${encodedAddress}`);
     
     if (!response.ok) {
       console.error(`Backend geocoding failed: ${response.status}`);
@@ -153,7 +211,8 @@ export async function calculateTravelTime(
       distance,
       duration,
       formattedDistance: formatDistance(distance),
-      formattedDuration: formatDuration(duration),
+      formattedDurationCar: formatDuration(duration),
+      formattedDurationWalk: formatDuration(duration * 0.2), // Assume walking is 1.5x slower
     };
   } catch (error) {
     console.error("Error calculating travel time:", error);
@@ -217,7 +276,7 @@ export async function getTravelTimeFromDefaultOrigin(
     
     // Try to fetch user's saved starting location
     try {
-      const response = await fetch(`${API_BASE}/api/user/origin/?email=${encodeURIComponent(userEmail)}`);
+      const response = await fetch(`${API_BASE}/user/origin/?email=${encodeURIComponent(userEmail)}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -242,7 +301,7 @@ export async function getTravelTimeFromDefaultOrigin(
     const result = await calculateTravelTime(origin, destination);
     
     if (result) {
-      console.log(`Travel time from ${originType} location: ${result.formattedDuration} (${result.formattedDistance})`);
+      console.log(`Travel time from ${originType} location: ${result.formattedDurationCar} (${result.formattedDistance})`);
       // Add originType to the result
       return {
         ...result,

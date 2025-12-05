@@ -5,6 +5,7 @@ import * as Linking from "expo-linking";
 import * as Device from "expo-device";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import {LocationProvider} from './app/utils/LocationContext';
 import { StatusBar } from "expo-status-bar";
 
 import ThemeProvider, { ThemeContext } from "./theme/ThemeProvider";
@@ -97,6 +98,7 @@ export default function App() {
   return (
     <EmailProvider>
     <ThemeProvider>
+      <LocationProvider>
       <SafeAreaProvider>
         {booting ? (
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -111,6 +113,7 @@ export default function App() {
           <AuthScreen pushToken={expoPushToken} onAuthed={() => setIsAuthed(true)} />
         )}
       </SafeAreaProvider>
+      </LocationProvider>
     </ThemeProvider>
     </EmailProvider>
   );

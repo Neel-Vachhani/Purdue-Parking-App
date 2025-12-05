@@ -22,7 +22,7 @@
         "NSLocationWhenInUseUsageDescription": "Boiler Park needs your location to calculate travel times to parking garages when you don't have a starting location saved.",
         "NSUserNotificationAlertStyle": "alert"
       },
-      "buildNumber": "6"
+      "buildNumber": "9"
     },
     "android": {
       "adaptiveIcon": {

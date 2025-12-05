@@ -15,8 +15,8 @@ urlpatterns = [
     path('api/user/get_user', views.get_user),
     path('api/geocode/', views.geocode_address),
     path('api/confirm_parking/', views.create_parking_log),
+    path('api/nearest-garage/', views.nearest_garage_from_location),
     path('api/user/insights/', views.user_insights, name='user_insights'),
-
 
     # Lot events (User Story #10)
     path('lots/<str:lot_code>/events/', views.list_lot_events),
