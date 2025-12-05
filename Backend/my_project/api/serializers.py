@@ -51,3 +51,10 @@ class GarageIssueReportSerializer(serializers.ModelSerializer):
         model = GarageIssueReport
         fields = ["id", "lot_code", "lot_name", "description", "created_at"]
         read_only_fields = ["id", "created_at"]
+
+
+class FavoriteLotAlertPreferenceSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    favoriteLotAlerts = serializers.BooleanField(required=False)
+    favoriteLotThreshold = serializers.IntegerField(min_value=5, max_value=95, required=False)
+    cooldownMinutes = serializers.IntegerField(min_value=5, max_value=240, required=False)

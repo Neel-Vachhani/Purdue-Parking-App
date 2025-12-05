@@ -17,7 +17,15 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, ParkingLot, UserPark, GarageIssueReport
-from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer, UserParkSerializer, GarageIssueReportSerializer
+from .serializers import (
+    ItemSerializer,
+    UserSerializer,
+    LotEventSerializer,
+    NotificationLogSerializer,
+    UserParkSerializer,
+    GarageIssueReportSerializer,
+    FavoriteLotAlertPreferenceSerializer,
+)
 from .services import verify_apple_identity, issue_session_token
 from django.utils.timezone import make_aware
 
@@ -1434,6 +1442,63 @@ def closure_notifications_toggle(request):
     return Response({
         "status": "ok",
         "closure_notifications_enabled": user.closure_notifications_enabled
+    })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def favorite_lot_alert_preferences(request):
+    """Get or update favorite-lot availability alert settings (User Story #4)."""
+
+    if request.method == 'GET':
+        email = request.query_params.get('email')
+        if not email:
+            return Response({"detail": "email required"}, status=400)
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response({"detail": "user not found"}, status=404)
+        return Response({
+            "favoriteLotAlerts": user.favorite_lot_alerts_enabled,
+            "favoriteLotThreshold": user.favorite_lot_threshold,
+            "cooldownMinutes": user.favorite_lot_cooldown_minutes,
+        })
+
+    serializer = FavoriteLotAlertPreferenceSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    email = data['email']
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response({"detail": "user not found"}, status=404)
+
+    updated_fields = []
+
+    alerts_enabled = data.get('favoriteLotAlerts')
+    if alerts_enabled is not None and alerts_enabled != user.favorite_lot_alerts_enabled:
+        user.favorite_lot_alerts_enabled = alerts_enabled
+        updated_fields.append('favorite_lot_alerts_enabled')
+
+    new_threshold = data.get('favoriteLotThreshold')
+    if new_threshold is not None and new_threshold != user.favorite_lot_threshold:
+        user.favorite_lot_threshold = new_threshold
+        user.favorite_lot_last_notified = {}
+        updated_fields.extend(['favorite_lot_threshold', 'favorite_lot_last_notified'])
+
+    new_cooldown = data.get('cooldownMinutes')
+    if new_cooldown is not None and new_cooldown != user.favorite_lot_cooldown_minutes:
+        user.favorite_lot_cooldown_minutes = new_cooldown
+        updated_fields.append('favorite_lot_cooldown_minutes')
+
+    if updated_fields:
+        # Deduplicate while preserving order
+        unique_fields = list(dict.fromkeys(updated_fields))
+        user.save(update_fields=unique_fields)
+
+    return Response({
+        "favoriteLotAlerts": user.favorite_lot_alerts_enabled,
+        "favoriteLotThreshold": user.favorite_lot_threshold,
+        "cooldownMinutes": user.favorite_lot_cooldown_minutes,
     })
 
 
