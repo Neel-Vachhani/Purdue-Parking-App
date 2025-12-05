@@ -638,7 +638,10 @@ const handleConfirmParking = async () => {
                     <Ionicons name="navigate" size={14} /> {travelTime.formattedDistance}
                   </Pill>
                   <Pill>
-                    <Ionicons name={travelTime.originType === "saved" ? "home" : "location"} size={14} /> {travelTime.formattedDuration}
+                    <Ionicons name={travelTime.originType === "saved" ? "home" : "location"} size={14} /> {travelTime.formattedDurationCar}
+                  </Pill>
+                  <Pill>
+                    <Ionicons name="walk" size={14} /> {travelTime.formattedDurationWalk}
                   </Pill>
                 </>
               )}

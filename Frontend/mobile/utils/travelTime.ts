@@ -25,7 +25,8 @@ export interface TravelTimeResult {
   distance: number; // in miles
   duration: number; // in minutes
   formattedDistance: string;
-  formattedDuration: string;
+  formattedDurationCar: string;
+  formattedDurationWalk: string;
   originType?: "saved" | "current"; // Track which origin was used
 }
 
@@ -210,7 +211,8 @@ export async function calculateTravelTime(
       distance,
       duration,
       formattedDistance: formatDistance(distance),
-      formattedDuration: formatDuration(duration),
+      formattedDurationCar: formatDuration(duration),
+      formattedDurationWalk: formatDuration(duration * 0.2), // Assume walking is 1.5x slower
     };
   } catch (error) {
     console.error("Error calculating travel time:", error);
@@ -299,7 +301,7 @@ export async function getTravelTimeFromDefaultOrigin(
     const result = await calculateTravelTime(origin, destination);
     
     if (result) {
-      console.log(`Travel time from ${originType} location: ${result.formattedDuration} (${result.formattedDistance})`);
+      console.log(`Travel time from ${originType} location: ${result.formattedDurationCar} (${result.formattedDistance})`);
       // Add originType to the result
       return {
         ...result,
