@@ -61,3 +61,5 @@ typing_extensions==4.15.0
 tzdata==2025.2
 urllib3==2.5.0
 x-wr-timezone==2.0.1
+exponent_server_sdk==2.2.0
+rollbar==1.3.0
