@@ -8,6 +8,7 @@ import * as AuthSession from "expo-auth-session";
 import * as AppleAuthentication from "expo-apple-authentication";
 import Constants from "expo-constants";
 import axios from "axios";
+import { API_BASE_URL } from "../../config/env";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -21,7 +22,15 @@ const GOOGLE_CLIENT_ID_WEB = "254023418229-bst7ahhn0aa5201jjd9ft40abma89l27.apps
 const GOOGLE_CLIENT_ID_IOS = "254023418229-3hj5ada3tl38jfk9p60lu88r6a3j3rk6.apps.googleusercontent.com";
 const GOOGLE_CLIENT_ID_ANDROID = "YOUR_ANDROID_CLIENT_ID.apps.googleusercontent.com";
 
-const API_URL = "http://localhost:3000/auth/";
+const buildApiUrl = (path: string) => {
+  const base = (API_BASE_URL || "").trim();
+  if (!base) {
+    return "";
+  }
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${normalizedBase}${normalizedPath}`;
+};
 
 export default function Login() {
   const isExpoGo = Constants.executionEnvironment === "storeClient";
@@ -65,7 +74,13 @@ export default function Login() {
           const idToken = tokenRes.idToken;
           if (!idToken) throw new Error("Missing idToken from Google");
 
-          const res = await axios.post(API_URL, { id_token: idToken });
+          const googleAuthUrl = buildApiUrl("/auth/");
+          if (!googleAuthUrl) {
+            Alert.alert("Missing API base URL", "Set EXPO_PUBLIC_API_BASE_URL_* or extra.apiBaseUrl in app.config.js");
+            return;
+          }
+
+          const res = await axios.post(googleAuthUrl, { id_token: idToken });
           const { token, user } = res.data;
 
           await SecureStore.setItemAsync("sessionToken", token);
@@ -91,7 +106,13 @@ export default function Login() {
       });
 
       // Send Apple identityToken to backend
-      const res = await axios.post("http://localhost:3000/auth/apple", {
+      const appleAuthUrl = buildApiUrl("/auth/apple");
+      if (!appleAuthUrl) {
+        Alert.alert("Missing API base URL", "Set EXPO_PUBLIC_API_BASE_URL_* or extra.apiBaseUrl in app.config.js");
+        return;
+      }
+
+      const res = await axios.post(appleAuthUrl, {
         identity_token: cred.identityToken,
       });
       const { token, user } = res.data;
