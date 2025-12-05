@@ -269,6 +269,8 @@ export default function GarageDetail({
     setReliability(Math.floor(Math.random() * 101));
   }, [garage.id]);
 
+  
+
 
   // State for travel time (User Story #9)
   const [travelTime, setTravelTime] = React.useState<TravelTimeResult | null>(null);
@@ -328,6 +330,11 @@ export default function GarageDetail({
     } catch (err) {
       console.error("Failed to load other location:", err);
     } 
+  }, []);
+
+  React.useEffect(() => {
+    loadLocation();
+    loadOrigin();
   }, []);
 
 const handleConfirmParking = async () => {
@@ -428,12 +435,12 @@ const handleConfirmParking = async () => {
         if (locationType == "origin") {
           loadOrigin();
           starting_location = origin
-        } else if (locationType == "other") {
+        } else {
           loadLocation();
           starting_location = location
-        } else {
-          starting_location = `Purdue+University%2C+West+Lafayette%2C+IN+47906`
         }
+        console.log("here")
+        console.log(starting_location)
         const startingLocationName = starting_location.replaceAll(" ", "+"); 
         const startingLocationLink = startingLocationName.replaceAll(",", "%2C"); 
         showActionSheetWithOptions({
