@@ -3,17 +3,17 @@ from . import views
 
 urlpatterns = [
     path('', views.get_data),
-    path('signup/', views.sign_up),
-    path('parking/availability/', views.get_parking_availability),
-    path('login/', views.log_in),
-    path('apple/', views.apple_sign_in),
-    path('notification_token/', views.accept_notification_token),
-    path('notification_disable/', views.notification_disable),
-    path('notification_test/', views.notification_test),
-    path('user/origin/', views.user_origin),
-    path('user/location/', views.get_location),
-    path('user/get_user', views.get_user),
-    path('geocode/', views.geocode_address),
+    path('api/signup/', views.sign_up),
+    path('api/parking/availability/', views.get_parking_availability),
+    path('api/login/', views.log_in),
+    path('api/apple/', views.apple_sign_in),
+    path('api/notification_token/', views.accept_notification_token),
+    path('api/notification_disable/', views.notification_disable),
+    path('api/notification_test/', views.notification_test),
+    path('api/user/origin/', views.user_origin),
+    path('api/user/location/', views.get_location),
+    path('api/user/get_user', views.get_user),
+    path('api/geocode/', views.geocode_address),
 
     # Lot events (User Story #10)
     path('lots/<str:lot_code>/events/', views.list_lot_events),

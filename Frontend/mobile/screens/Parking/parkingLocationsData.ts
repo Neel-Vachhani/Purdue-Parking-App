@@ -273,7 +273,7 @@ type ApiLot = {
   capacity?: number;
 };
 
-const AVAILABILITY_ENDPOINT = "/parking/availability/";
+const AVAILABILITY_ENDPOINT = "/api/parking/availability/";
 
 const getApiBaseUrl = (): string => {
   const configExtra = Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined;
