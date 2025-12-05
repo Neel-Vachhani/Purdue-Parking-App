@@ -28,6 +28,8 @@ from .serializers import (
 )
 from .services import verify_apple_identity, issue_session_token
 from django.utils.timezone import make_aware
+from math import radians, sin, cos, sqrt, atan2
+from rest_framework.permissions import AllowAny
 
 import jwt
 from datetime import datetime, timedelta, time, date
@@ -1907,3 +1909,110 @@ def geocode_address(request):
             {"error": "Geocoding service unavailable"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE
         )
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def nearest_garage_from_location(request):
+    """
+    Given a latitude/longitude, return the nearest garage within a given radius.
+
+    Body (JSON):
+      {
+        "latitude": 40.424123,
+        "longitude": -86.914321,
+        "radius_m": 80   # optional, default 80 meters
+      }
+
+    Response if a nearby garage is found:
+      {
+        "found": true,
+        "garage": {
+          "id": 3,
+          "code": "PGU",
+          "name": "University Street Parking Garage",
+          "distance_m": 35.4
+        }
+      }
+
+    Response if none are within radius:
+      {
+        "found": false
+      }
+    """
+    try:
+        lat = request.data.get("latitude")
+        lng = request.data.get("longitude")
+        radius_m = float(request.data.get("radius_m", 80))  # default ~80m
+
+        if lat is None or lng is None:
+            return Response(
+                {"detail": "latitude and longitude are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_lat = float(lat)
+        user_lng = float(lng)
+
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "latitude and longitude must be numeric"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Haversine distance (meters)
+    def _distance_m(lat1, lon1, lat2, lon2):
+        R = 6371000.0  # Earth radius in meters
+        phi1 = radians(lat1)
+        phi2 = radians(lat2)
+        d_phi = radians(lat2 - lat1)
+        d_lambda = radians(lon2 - lon1)
+
+        a = (
+            sin(d_phi / 2) ** 2
+            + cos(phi1) * cos(phi2) * sin(d_lambda / 2) ** 2
+        )
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return R * c
+
+
+    garages = ParkingLot.objects.all()
+
+    nearest = None
+    nearest_dist = None
+
+    for lot in garages:
+        # Adjust these attribute names if your model is different
+        lot_lat = getattr(lot, "lat", None)
+        lot_lng = getattr(lot, "lon", None)
+
+        if lot_lat is None or lot_lng is None:
+            continue
+
+        try:
+            lot_lat = float(lot_lat)
+            lot_lng = float(lot_lng)
+        except (TypeError, ValueError):
+            continue
+
+        d = _distance_m(user_lat, user_lng, lot_lat, lot_lng)
+
+        if d <= radius_m and (nearest is None or d < nearest_dist):
+            nearest = lot
+            nearest_dist = d
+
+    if not nearest:
+        # No garage within radius
+        return Response({"found": False}, status=status.HTTP_200_OK)
+
+    return Response(
+        {
+            "found": True,
+            "garage": {
+                "id": nearest.id,
+                "code": getattr(nearest, "code", None),
+                "name": getattr(nearest, "name", None),
+                "distance_m": round(nearest_dist, 2),
+            },
+        },
+        status=status.HTTP_200_OK,
+    )

@@ -71,7 +71,7 @@ const fetchComparisonData = async () => {
         if (!garage) throw new Error(`Garage id ${garageId} not found in GARAGES`);
 
         const BACKEND_BASE = getApiBaseUrl(); // change to your backend host if different
-        const url = `${BACKEND_BASE}/api/parking/comparison?lots=${encodeURIComponent(garage.code)}&period=${timePeriod}`;
+        const url = `${BACKEND_BASE}/parking/comparison?lots=${encodeURIComponent(garage.code)}&period=${timePeriod}`;
 
         const resp = await fetch(url);
         if (!resp.ok) {

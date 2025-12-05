@@ -93,7 +93,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
       }
 
       // login
-      const res = await axios.post(`${API_BASE}/api/login/`, {
+      const res = await axios.post(`${API_BASE}/login/`, {
         email,
         password,
       });
@@ -220,6 +220,8 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
     }
   };
   // ------------------------------------------------------
+
+  console.log('API_BASE_URL', API_BASE_URL)
 
   return (
     <ThemedView style={styles.container}>

@@ -9,6 +9,7 @@ import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../utils/trave
 import { useActionSheet } from '@expo/react-native-action-sheet';
 import StarRating from 'react-native-star-rating-widget';
 import axios from "axios";
+import { API_BASE_URL } from "../config/env";
 
 
 
@@ -325,9 +326,9 @@ export default function GarageDetail({
   const [origin, setOrigin] = React.useState("");
   const [location, setLocation] = React.useState("");
 
-  const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+  const API_BASE = API_BASE_URL
 
-
+  console.log('API_BASE', API_BASE)
 
   const RatingWidget = () => {
     
@@ -346,7 +347,7 @@ export default function GarageDetail({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/api/user/origin/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
       const loadedOrigin = res?.data?.default_origin ?? "";
       setOrigin(loadedOrigin);
       console.log("Loaded starting location:", loadedOrigin || "(none)");
@@ -361,7 +362,7 @@ export default function GarageDetail({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/api/user/location/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/user/location/`, { params: { email } });
       const loadedLocation = res?.data?.other_location ?? "";
       setLocation(loadedLocation);
       console.log("Loaded other location:", loadedLocation || "(none)");
@@ -382,7 +383,7 @@ const handleConfirmParking = async () => {
     const email = user?.email;
     if (!email) return;
 
-    await axios.post(`${API_BASE}/api/confirm_parking/`, {
+    await axios.post(`${API_BASE}/confirm_parking/`, {
       code: garage.code,
       email,
       timestamp: new Date().toISOString()
@@ -414,7 +415,7 @@ const handleConfirmParking = async () => {
     const email = user?.email;
     if (!email) return;
     setRating(rating)
-    await fetch(`${API_BASE}/api/update_rating`, {
+    await fetch(`${API_BASE}/update_rating`, {
       method: "POST",
       headers: {
       'Accept': 'application/json',
@@ -426,7 +427,7 @@ const handleConfirmParking = async () => {
       })
     })
   
-    await fetch(`${API_BASE}/api/update_specific_rating`, {
+    await fetch(`${API_BASE}/update_specific_rating`, {
       
       method: "POST",
       headers: {
@@ -446,7 +447,7 @@ const handleConfirmParking = async () => {
     const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
     // API call to update data accuracy rating
     try {
-      await fetch(`${API_BASE}/api/update_data_accuracy`, {
+      await fetch(`${API_BASE}/update_data_accuracy`, {
         method: "POST",
         headers: {
           'Accept': 'application/json',
@@ -722,7 +723,10 @@ const handleConfirmParking = async () => {
                     <Ionicons name="navigate" size={14} /> {travelTime.formattedDistance}
                   </Pill>
                   <Pill>
-                    <Ionicons name={travelTime.originType === "saved" ? "home" : "location"} size={14} /> {travelTime.formattedDuration}
+                    <Ionicons name={travelTime.originType === "saved" ? "home" : "location"} size={14} /> {travelTime.formattedDurationCar}
+                  </Pill>
+                  <Pill>
+                    <Ionicons name="walk" size={14} /> {travelTime.formattedDurationWalk}
                   </Pill>
                 </>
               )}
