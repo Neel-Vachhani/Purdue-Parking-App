@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/notifications/stats/', views.notification_stats),
     path('api/notifications/check/', views.check_user_notifications),
     path('api/closure-notifications/', views.closure_notifications_toggle),
+    path('api/favorite-alerts/', views.favorite_lot_alert_preferences),
     path("api/postgres-parking/", views.get_postgres_parking_data),
     path("api/parking/hourly-average/", views.get_hourly_average_parking),
     path('api/calendar/upload-ics/', views.upload_ics_events),

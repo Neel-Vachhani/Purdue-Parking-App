@@ -14,6 +14,8 @@ if str(DJANGO_PROJECT_DIR) not in sys.path:
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "my_project.settings")
 django.setup()
 
+from api.favorite_alerts import handle_favorite_lot_update
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("redis_bridge")
 
@@ -88,6 +90,11 @@ try:
         previous = last_sent.get(key)
         if previous and previous.get("value") == value and previous.get("event") == event:
             continue
+
+        try:
+            handle_favorite_lot_update(lot, value)
+        except Exception:
+            logger.exception("Favorite alert evaluation failed for %s", lot)
 
         last_sent[key] = {"value": value, "event": event}
         

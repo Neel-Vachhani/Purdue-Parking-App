@@ -79,6 +79,11 @@ class User(models.Model):
 
     closure_notifications_enabled = models.BooleanField(default=True)
 
+    favorite_lot_alerts_enabled = models.BooleanField(default=False)
+    favorite_lot_threshold = models.PositiveSmallIntegerField(default=25)
+    favorite_lot_cooldown_minutes = models.PositiveSmallIntegerField(default=30)
+    favorite_lot_last_notified = models.JSONField(default=dict, blank=True, null=True)
+
     # stays JSON → matches db jsonb
     lot_ratings = models.JSONField(
         default=dict,
@@ -122,6 +127,7 @@ class ParkingLot(models.Model):
         max_length=100, choices=parking_passes, blank=True))
     rating = models.FloatField(null=True)
     num_of_ratings = models.PositiveIntegerField()
+    capacity = models.PositiveIntegerField(null=True, blank=True)
 
 
 class CalendarEvent(models.Model):
@@ -219,6 +225,7 @@ class NotificationLog(models.Model):
         ('lot_closure', 'Lot Closure Alert'),
         ('permit_expiring', 'Permit Expiring'),
         ('event_closure', 'Event Day Closure'),
+        ('favorite_threshold', 'Favorite Lot Availability'),
     ]
 
     user = models.ForeignKey(
