@@ -34,6 +34,7 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
   const [locations, setLocations] = useState<ParkingLocationWithTravel[]>(PARKING_LOCATIONS);
   const [selectedPass, setSelectedPass] = useState<ParkingPass | null>(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [filtersVisible, setFiltersVisible] = useState(false);
 
   const theme = useContext(ThemeContext);
 
@@ -109,6 +110,7 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
   }, [locations, selectedPass, favoritesOnly]);
 
   const hasActiveFilters = Boolean(selectedPass || favoritesOnly);
+  const activeFilterCount = (selectedPass ? 1 : 0) + (favoritesOnly ? 1 : 0);
 
   const handlePassPress = (pass: ParkingPass) => {
     setSelectedPass((current) => (current === pass ? null : pass));
@@ -143,102 +145,143 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
         </ParkingMap>
 
         <View pointerEvents="box-none" style={styles.overlayContainer}>
-          <TouchableOpacity
-            onPress={() => {
-              setView("garage");
-            }}
-            style={[
-              styles.homeButton,
-              {
-                backgroundColor: theme.surface,
-                shadowColor: theme.shadow,
-              },
-            ]}
-          >
-            <Ionicons name="home" size={22} color={theme.primary} />
-          </TouchableOpacity>
-
-          <View
-            style={[
-              styles.filterCard,
-              {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
-                shadowColor: theme.shadow,
-              },
-            ]}
-          >
-            <Text style={[styles.filterHeading, { color: theme.text }]}>Filter by pass</Text>
-            <View style={styles.chipRow}>
-              {PARKING_PASS_OPTIONS.map((pass) => {
-                const isSelected = selectedPass === pass;
-                return (
-                  <TouchableOpacity
-                    key={pass}
-                    onPress={() => handlePassPress(pass)}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: isSelected ? theme.primary : theme.sectionBg,
-                        borderColor: isSelected ? theme.primary : theme.border,
-                      },
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isSelected }}
-                  >
-                    <Text
-                      style={{
-                        color: isSelected ? theme.primaryText : theme.text,
-                        fontWeight: "600",
-                      }}
-                    >
-                      {pass}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+          <View style={styles.topControls}>
+            <TouchableOpacity
+              onPress={() => {
+                setView("garage");
+              }}
+              style={[
+                styles.homeButton,
+                {
+                  backgroundColor: theme.surface,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <Ionicons name="home" size={22} color={theme.primary} />
+            </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setFavoritesOnly((current) => !current)}
+              onPress={() => setFiltersVisible((current) => !current)}
               style={[
-                styles.favoritesButton,
+                styles.filterToggleButton,
                 {
-                  backgroundColor: favoritesOnly ? theme.primary : theme.sectionBg,
-                  borderColor: favoritesOnly ? theme.primary : theme.border,
+                  backgroundColor: theme.surface,
+                  borderColor: hasActiveFilters ? theme.primary : theme.border,
+                  shadowColor: theme.shadow,
                 },
               ]}
               accessibilityRole="button"
-              accessibilityState={{ selected: favoritesOnly }}
+              accessibilityLabel="Toggle parking filters"
+              accessibilityState={{ expanded: filtersVisible }}
             >
               <Ionicons
-                name={favoritesOnly ? "star" : "star-outline"}
+                name="options"
                 size={18}
-                color={favoritesOnly ? theme.primaryText : theme.text}
+                color={hasActiveFilters ? theme.primary : theme.text}
               />
-              <Text
-                style={{
-                  color: favoritesOnly ? theme.primaryText : theme.text,
-                  fontWeight: "600",
-                  marginLeft: 8,
-                }}
-              >
-                Favorites only
-              </Text>
+              <Text style={[styles.filterToggleText, { color: theme.text }]}>Filters</Text>
+              {hasActiveFilters && (
+                <View style={[styles.badge, { backgroundColor: theme.primary }]}>
+                  <Text style={[styles.badgeText, { color: theme.primaryText }]}>{activeFilterCount}</Text>
+                </View>
+              )}
+              <Ionicons
+                name={filtersVisible ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={theme.text}
+                style={{ marginLeft: 4 }}
+              />
             </TouchableOpacity>
-
-            {hasActiveFilters && (
-              <TouchableOpacity onPress={handleClearFilters} style={styles.clearFiltersButton}>
-                <Text style={{ color: theme.primary, fontWeight: "600" }}>Clear filters</Text>
-              </TouchableOpacity>
-            )}
-
-            {filteredLocations.length === 0 && (
-              <Text style={[styles.emptyState, { color: theme.textMuted }]}>
-                No locations match these filters yet.
-              </Text>
-            )}
           </View>
+
+          {filtersVisible && (
+            <View
+              style={[
+                styles.filterCard,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <View style={styles.filterCardHeader}>
+                <Text style={[styles.filterHeading, { color: theme.text }]}>Filter by pass</Text>
+                <TouchableOpacity onPress={() => setFiltersVisible(false)} accessibilityRole="button">
+                  <Ionicons name="close" size={18} color={theme.text} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.chipRow}>
+                {PARKING_PASS_OPTIONS.map((pass) => {
+                  const isSelected = selectedPass === pass;
+                  return (
+                    <TouchableOpacity
+                      key={pass}
+                      onPress={() => handlePassPress(pass)}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: isSelected ? theme.primary : theme.sectionBg,
+                          borderColor: isSelected ? theme.primary : theme.border,
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                    >
+                      <Text
+                        style={{
+                          color: isSelected ? theme.primaryText : theme.text,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {pass}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setFavoritesOnly((current) => !current)}
+                style={[
+                  styles.favoritesButton,
+                  {
+                    backgroundColor: favoritesOnly ? theme.primary : theme.sectionBg,
+                    borderColor: favoritesOnly ? theme.primary : theme.border,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: favoritesOnly }}
+              >
+                <Ionicons
+                  name={favoritesOnly ? "star" : "star-outline"}
+                  size={18}
+                  color={favoritesOnly ? theme.primaryText : theme.text}
+                />
+                <Text
+                  style={{
+                    color: favoritesOnly ? theme.primaryText : theme.text,
+                    fontWeight: "600",
+                    marginLeft: 8,
+                  }}
+                >
+                  Favorites only
+                </Text>
+              </TouchableOpacity>
+
+              {hasActiveFilters && (
+                <TouchableOpacity onPress={handleClearFilters} style={styles.clearFiltersButton}>
+                  <Text style={{ color: theme.primary, fontWeight: "600" }}>Clear filters</Text>
+                </TouchableOpacity>
+              )}
+
+              {filteredLocations.length === 0 && (
+                <Text style={[styles.emptyState, { color: theme.textMuted }]}>No locations match these filters yet.</Text>
+              )}
+            </View>
+          )}
         </View>
       </View>
     </ThemedView>
@@ -258,6 +301,11 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingHorizontal: 16,
   },
+  topControls: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   homeButton: {
     padding: 10,
     borderRadius: 999,
@@ -265,7 +313,32 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 1,
     borderColor: "transparent",
-    marginBottom: 12,
+  },
+  filterToggleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    elevation: 3,
+  },
+  filterToggleText: {
+    fontWeight: "600",
+    marginLeft: 6,
+  },
+  badge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    marginLeft: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   filterCard: {
     borderRadius: 16,
@@ -274,11 +347,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
+    marginTop: 12,
+  },
+  filterCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
   },
   filterHeading: {
     fontSize: 14,
     fontWeight: "600",
-    marginBottom: 12,
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
