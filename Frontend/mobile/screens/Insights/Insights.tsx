@@ -4,6 +4,8 @@ import { BarChart } from "react-native-chart-kit";
 import Constants from "expo-constants";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import { Dimensions } from "react-native";
+import { getApiBaseUrl } from "../../config/env";
+
 
 const { width } = Dimensions.get("window");
 
@@ -109,9 +111,6 @@ export default function InsightsScreen() {
   const secondaryText = isDark ? "#9ca3af" : "#6b7280";
   const accentColor = "#6366f1";
 
-  const getApiBaseUrl = (): string => {
-    return "http://localhost:7500";
-  };
 
   const fetchCurrentData = async () => {
     setLoading(true);

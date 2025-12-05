@@ -5,8 +5,8 @@ import { ThemeContext } from "../../theme/ThemeProvider";
 import { Platform } from "react-native";
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
-
-const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+import { getApiBaseUrl } from "../../config/env";
+const API_BASE = getApiBaseUrl();
 
 const { width } = Dimensions.get("window");
 
@@ -56,7 +56,7 @@ export default function UserInsightsTab() {
         return;
       }
 
-      const res = await axios.post(`${API_BASE}/user/insights/`, { email });
+      const res = await axios.post(`${API_BASE}/api/user/insights/`, { email });
       const data = res.data;
 
       if (data.success) {

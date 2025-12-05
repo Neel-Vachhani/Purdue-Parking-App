@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from "react-native";
+import { getApiBaseUrl } from "../../config/env";
+const API_BASE = getApiBaseUrl();
 
 // Garage type definition
 type Garage = {
@@ -68,8 +70,8 @@ const fetchComparisonData = async () => {
         const garage = GARAGES.find((g) => g.id === garageId)!;
         if (!garage) throw new Error(`Garage id ${garageId} not found in GARAGES`);
 
-        const BACKEND_BASE = "http://127.0.0.1:7500"; // change to your backend host if different
-        const url = `${BACKEND_BASE}/parking/comparison?lots=${encodeURIComponent(garage.code)}&period=${timePeriod}`;
+        const BACKEND_BASE = getApiBaseUrl(); // change to your backend host if different
+        const url = `${BACKEND_BASE}/api/parking/comparison?lots=${encodeURIComponent(garage.code)}&period=${timePeriod}`;
 
         const resp = await fetch(url);
         if (!resp.ok) {
