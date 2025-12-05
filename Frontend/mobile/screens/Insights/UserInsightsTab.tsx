@@ -56,7 +56,7 @@ export default function UserInsightsTab() {
         return;
       }
 
-      const res = await axios.post(`${API_BASE}/api/user/insights/`, { email });
+      const res = await axios.post(`${API_BASE}/user/insights/`, { email });
       const data = res.data;
 
       if (data.success) {

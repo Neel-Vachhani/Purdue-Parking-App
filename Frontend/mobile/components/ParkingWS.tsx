@@ -10,19 +10,26 @@ const ParkingWS: React.FC = () => {
   const reconnectDelayRef = useRef<number>(1000);
 
   const getWebSocketUrl = (): string => {
-    let host = 'localhost';
+    // if (__DEV__) {
+    //   // Local dev
+    //   let host: string;
 
-    if (Platform.OS === 'android') {
-      host = '10.0.2.2';
-    } else if (Platform.OS === 'ios') {
-      const debuggerHost = Constants.expoConfig?.hostUri;
-      if (debuggerHost) {
-        host = debuggerHost.split(':')[0];
-      }
-    }
+    //   if (Platform.OS === 'android') {
+    //     // Android emulator talking to your laptop
+    //     host = '10.0.2.2';
+    //   } else {
+    //     // iOS simulator OR physical device on same Wi-Fi
+    //     // use your laptop's LAN IP here if the backend is local
+    //     host = '10.165.14.186'; // <- change to your actual local IP
+    //   }
 
-    return `ws://${host}:8000/ws/parking/`;
+    //   return `ws://${host}:8000/ws/parking/`;
+    // }
+
+    // Production (Render)
+    return 'wss://purdue-parking-app.onrender.com/ws/parking/';
   };
+
 
   const connect = () => {
     const wsUrl = getWebSocketUrl();

@@ -30,6 +30,7 @@ import { useActionSheet } from "@expo/react-native-action-sheet";
 import axios from "axios";
 import { ParkingPass, PARKING_PASS_OPTIONS } from "../constants/passes";
 import { INITIAL_GARAGES, InitialGarage } from "../data/initialGarageAvailability";
+import { API_BASE_URL } from "../config/env";
 
 type Garage = InitialGarage;
 export type Amenity =
@@ -114,8 +115,8 @@ function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
   let lot_ratings: {[name: string]: number} = {}
   
   async function getUserRatings(){
-      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
-      await fetch(`${API_BASE}/api/user/get_user`, {
+      const API_BASE = API_BASE_URL;
+      await fetch(`${API_BASE}/user/get_user`, {
             method: "POST",
             headers: {
             'Accept': 'application/json',
@@ -141,6 +142,8 @@ function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
     covered: true,
     shaded: true,
     rating: g.rating,
+    latitude: g.lat,
+    longitude: g.lng,
     amenities: ["covered", "lighting"],
     price: g.paid ? "Paid Lot" : "Free",
     hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
@@ -440,7 +443,7 @@ export default function GarageList({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/api/user/origin/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
       const loadedOrigin = res?.data?.default_origin ?? "";
       setOrigin(loadedOrigin);
       console.log("Loaded starting location:", loadedOrigin || "(none)");
@@ -455,7 +458,7 @@ export default function GarageList({
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/api/user/location/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/user/location/`, { params: { email } });
       const loadedLocation = res?.data?.other_location ?? "";
       setLocation(loadedLocation);
       console.log("Loaded other location:", loadedLocation || "(none)");
@@ -503,7 +506,7 @@ export default function GarageList({
     async function getUserRatings() {
       const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
           //TODO: API Call to backend to update the rating in the backend
-          await fetch(`${API_BASE}/api/user/get_user`, {
+          await fetch(`${API_BASE}/user/get_user`, {
             method: "POST",
             headers: {
             'Accept': 'application/json',
@@ -621,7 +624,7 @@ export default function GarageList({
       const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
       //TODO: API Call to backend to update the rating in the backend
       let avg_rating: number = 0
-      await fetch(`${API_BASE}/api/get_rating`, {
+      await fetch(`${API_BASE}/get_rating`, {
         method: "POST",
         headers: {
         'Accept': 'application/json',

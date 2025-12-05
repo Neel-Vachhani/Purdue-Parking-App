@@ -16,6 +16,7 @@ import ThemedView from "../../components/ThemedView";
 import ThemedText from "../../components/ThemedText";
 import AuthInput from "../../components/AuthInput";
 import { getApiBaseUrl } from "../../config/env";
+import { geocodeAddress, Coordinate, findNearestGarageForAddress } from "../../utils/travelTime";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -62,6 +63,8 @@ const DEFAULT_SECTION_STATE: Record<SectionId, boolean> = {
   notifications: true,
   about: false,
 };
+
+
 
 export default function SettingsScreen({ onLogout }: Props) {
   const theme = React.useContext(ThemeContext);
@@ -116,6 +119,50 @@ export default function SettingsScreen({ onLogout }: Props) {
     })();
   }, []);
 
+  const checkNearbyGarageForOrigin = React.useCallback(
+    async (address: string) => {
+      const trimmed = address.trim();
+      if (!trimmed) return;
+
+      try {
+        const result = await findNearestGarageForAddress(trimmed, 80); // 80m radius, tweak if needed
+
+        if (result?.found && result.garage?.name) {
+          Alert.alert(
+            `How full is ${result.garage.name}?`,
+            "Tell us what you see right now.",
+            [
+              {
+                text: "Pretty empty",
+                onPress: () => {
+                  Alert.alert("Thank you for your feedback!");
+                  // later you can POST this rating to backend here
+                },
+              },
+              {
+                text: "Somewhat full",
+                onPress: () => {
+                  Alert.alert("Thank you for your feedback!");
+                },
+              },
+              {
+                text: "Totally packed",
+                onPress: () => {
+                  Alert.alert("Thank you for your feedback!");
+                },
+              },
+            ]
+          );
+        } else {
+          console.log("No garage found near that origin");
+        }
+      } catch (err) {
+        console.error("Failed to check nearby garage for origin:", err);
+      }
+    },
+    []
+  );
+
   // -------- Starting Location (origin) load/save --------
   const loadOrigin = React.useCallback(async () => {
     try {
@@ -124,7 +171,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/api/user/origin/`, { params: { email } });
+      const res = await axios.get(`${API_BASE}/user/origin/`, { params: { email } });
       const loadedOrigin = res?.data?.default_origin ?? "";
       setOrigin(loadedOrigin);
       setSavedOrigin(loadedOrigin); // Track saved value separately
@@ -147,7 +194,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       const user = userJson ? JSON.parse(userJson) : null;
       const email = user?.email;
       if (!email) return;
-      const res = await axios.get(`${API_BASE}/api/user/location/`, { params: { email, other_location: "" } });
+      const res = await axios.get(`${API_BASE}/user/location/`, { params: { email, other_location: "" } });
       const loadedLocation = res?.data?.other_location ?? "";
       setLocation(loadedLocation);
       setSavedLocation(loadedLocation); // Track saved value separately
@@ -173,7 +220,7 @@ export default function SettingsScreen({ onLogout }: Props) {
         
         if (!email) return;
         
-        const res = await axios.get(`${API_BASE}/api/closure-notifications/`, {
+        const res = await axios.get(`${API_BASE}/closure-notifications/`, {
           params: { email }
         });
         
@@ -201,7 +248,7 @@ export default function SettingsScreen({ onLogout }: Props) {
         if (!email) return;
         
         // Fetch user's notification token status from backend
-        const res = await axios.get(`${API_BASE}/api/notifications/check/`, {
+        const res = await axios.get(`${API_BASE}/notifications/check/`, {
           params: { email }
         });
         
@@ -231,9 +278,10 @@ export default function SettingsScreen({ onLogout }: Props) {
       
       const trimmedOrigin = origin.trim();
       console.log("Saving starting location:", trimmedOrigin || "(clearing)");
-      await axios.post(`${API_BASE}/api/user/origin/`, { email, default_origin: trimmedOrigin });
+      await axios.post(`${API_BASE}/user/origin/`, { email, default_origin: trimmedOrigin });
       
       // Update saved origin state
+      const originChanged = trimmedOrigin !== savedOrigin;
       setSavedOrigin(trimmedOrigin);
       
       if (trimmedOrigin) {
@@ -242,6 +290,9 @@ export default function SettingsScreen({ onLogout }: Props) {
           `Starting location: "${trimmedOrigin}"\n\nTravel times will now be calculated from this location.`,
           [{ text: "OK" }]
         );
+        if (originChanged) {
+          checkNearbyGarageForOrigin(trimmedOrigin);
+        }
       } else {
         Alert.alert(
           "Cleared Successfully",
@@ -270,7 +321,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       }
       
       console.log("Clearing starting location");
-      await axios.post(`${API_BASE}/api/user/origin/`, { email, default_origin: "" });
+      await axios.post(`${API_BASE}/user/origin/`, { email, default_origin: "" });
       setOrigin("");
       setSavedOrigin(""); // Clear saved origin state
       
@@ -300,7 +351,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       
       const trimmedLocation = location.trim();
       console.log("Saving starting location:", trimmedLocation || "(clearing)");
-      await axios.post(`${API_BASE}/api/user/location/`, { email, other_location: trimmedLocation });
+      await axios.post(`${API_BASE}/user/location/`, { email, other_location: trimmedLocation });
       
       // Update saved origin state
       setSavedLocation(trimmedLocation);
@@ -339,7 +390,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       }
       
       console.log("Clearing location");
-      await axios.post(`${API_BASE}/api/user/location/`, { email, other_location: "" });
+      await axios.post(`${API_BASE}/user/location/`, { email, other_location: "" });
       setLocation("");
       setSavedLocation(""); // Clear saved origin state
       
@@ -469,7 +520,7 @@ export default function SettingsScreen({ onLogout }: Props) {
 
     try {
       // Update backend preference
-      await axios.post(`${API_BASE}/api/closure-notifications/`, {
+      await axios.post(`${API_BASE}/closure-notifications/`, {
         email,
         enabled
       });
@@ -750,7 +801,7 @@ export default function SettingsScreen({ onLogout }: Props) {
                 placeholder="Enter your starting location..."
                 secure={false}
                 value={origin}
-                onChangeText={(text) => setOrigin}
+                onChangeText={(text) => setOrigin(text)}
                 style={{ paddingRight: origin ? 50 : 12, fontSize: 15 }}
               />
               {origin ? (
