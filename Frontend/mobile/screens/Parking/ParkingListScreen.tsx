@@ -333,7 +333,7 @@ export default function ParkingListScreen() {
                     color={theme.mode === "dark" ? "#9ca3af" : "#6b7280"} 
                   />
                   <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
-                    {lot.travelTime.formattedDuration} ({lot.travelTime.formattedDistance})
+                    {lot.travelTime.formattedDurationCar} ({lot.travelTime.formattedDistance})
                   </ThemedText>
                 </View>
               )}

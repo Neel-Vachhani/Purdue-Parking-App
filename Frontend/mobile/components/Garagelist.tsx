@@ -87,7 +87,7 @@ type ApiLot = {
   capacity?: number;
 };
 
-const AVAILABILITY_ENDPOINT = "/api/parking/availability/";
+const AVAILABILITY_ENDPOINT = "/parking/availability/";
 
 const formatLastUpdatedTimestamp = () =>
   new Date().toLocaleString("en-US", {
@@ -125,7 +125,7 @@ function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
   
   async function getUserRatings(){
       const API_BASE = API_BASE_URL;
-      await fetch(`${API_BASE}/user/get_user`, {
+      await fetch(`${API_BASE}/api/user/get_user`, {
             method: "POST",
             headers: {
             'Accept': 'application/json',
@@ -510,7 +510,7 @@ export default function GarageList({
     async function getUserRatings() {
       const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
           //TODO: API Call to backend to update the rating in the backend
-          await fetch(`${API_BASE}/user/get_user`, {
+          await fetch(`${API_BASE}/api/user/get_user`, {
             method: "POST",
             headers: {
             'Accept': 'application/json',
@@ -708,7 +708,7 @@ export default function GarageList({
       const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
       //TODO: API Call to backend to update the rating in the backend
       let avg_rating: number = 0
-      await fetch(`${API_BASE}/get_rating`, {
+      await fetch(`${API_BASE}/api/get_rating`, {
         method: "POST",
         headers: {
         'Accept': 'application/json',

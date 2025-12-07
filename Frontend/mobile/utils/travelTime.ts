@@ -148,6 +148,7 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
     const encodedAddress = encodeURIComponent(address.trim());
     
     console.log(`Geocoding via backend: "${address}"`);
+    console.log(encodedAddress)
     const response = await fetch(`${API_BASE}/geocode/?address=${encodedAddress}`);
     
     if (!response.ok) {
