@@ -221,7 +221,6 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
   };
   // ------------------------------------------------------
 
-  console.log('API_BASE_URL', API_BASE_URL)
 
   return (
     <ThemedView style={styles.container}>

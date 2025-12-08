@@ -71,7 +71,7 @@ const INITIAL_PARKING_LOTS: ParkingLot[] = [
   },
 ];
 
-const AVAILABILITY_ENDPOINT = "/api/parking/availability/";
+const AVAILABILITY_ENDPOINT = "/parking/availability/";
 
 const getApiBaseUrl = (): string => {
   const extraFromConfig = Constants.expoConfig?.extra as
