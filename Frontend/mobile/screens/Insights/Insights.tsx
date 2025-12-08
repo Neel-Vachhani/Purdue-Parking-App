@@ -4,10 +4,11 @@ import { BarChart } from "react-native-chart-kit";
 import Constants from "expo-constants";
 import { ThemeContext } from "../../theme/ThemeProvider";
 import { Dimensions } from "react-native";
-import { getApiBaseUrl } from "../../config/env";
+import { API_BASE_URL, getApiBaseUrl } from "../../config/env";
 
 
 const { width } = Dimensions.get("window");
+const API_BASE = API_BASE_URL
 
 type Garage = {
   id: string;
