@@ -50,7 +50,7 @@ const DEFAULT_PREFS: NotifPrefs = {
   frequency: "realtime",
 };
 
-const API_BASE = `${getApiBaseUrl().replace(/\/$/, "")}/api`;
+const API_BASE = getApiBaseUrl();
 
 const SECTION_STATE_KEY = "settings_section_state_v1";
 const SECTION_IDS = ["account", "travel", "notifications", "about"] as const;
