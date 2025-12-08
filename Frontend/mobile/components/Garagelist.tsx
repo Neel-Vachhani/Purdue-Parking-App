@@ -87,7 +87,7 @@ type ApiLot = {
   capacity?: number;
 };
 
-const AVAILABILITY_ENDPOINT = "/api/parking/availability/";
+const AVAILABILITY_ENDPOINT = "/parking/availability/";
 
 const formatLastUpdatedTimestamp = () =>
   new Date().toLocaleString("en-US", {

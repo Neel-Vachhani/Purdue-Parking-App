@@ -1485,7 +1485,8 @@ def favorite_lot_alert_preferences(request):
     if new_threshold is not None and new_threshold != user.favorite_lot_threshold:
         user.favorite_lot_threshold = new_threshold
         user.favorite_lot_last_notified = {}
-        updated_fields.extend(['favorite_lot_threshold', 'favorite_lot_last_notified'])
+        updated_fields.extend(
+            ['favorite_lot_threshold', 'favorite_lot_last_notified'])
 
     new_cooldown = data.get('cooldownMinutes')
     if new_cooldown is not None and new_cooldown != user.favorite_lot_cooldown_minutes:
@@ -1870,7 +1871,7 @@ def geocode_address(request):
         geocode_url = "https://maps.googleapis.com/maps/api/geocode/json"
         params = {
             'address': search_address,
-            'key': "APIKEY",
+            'key': "AIzaSyAtTaJnEXiIL85ZfIkiY6PxgNQ9xtImJm4",
             'bounds': '40.39286,-86.954622|40.466874,-86.871755',  # West Lafayette bounds
             'region': 'us'
         }
@@ -1909,6 +1910,7 @@ def geocode_address(request):
             {"error": "Geocoding service unavailable"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE
         )
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -1973,7 +1975,6 @@ def nearest_garage_from_location(request):
         )
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return R * c
-
 
     garages = ParkingLot.objects.all()
 
