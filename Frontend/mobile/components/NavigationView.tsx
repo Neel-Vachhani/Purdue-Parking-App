@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet, Button, Linking } from 'react-native'
 import GooglePlacesTextInput from 'react-native-google-places-textinput';
 import { ThemeContext } from '../theme/ThemeProvider';
+import { GOOGLE_MAPS_API_KEY } from '../config/env';
 
 const NavigationView = () => {
   const [places, setPlaces] = React.useState<any[]>([]);
@@ -110,7 +111,7 @@ const NavigationView = () => {
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': 'APIKEY',
+              'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
               'X-Goog-FieldMask': 'places.displayName,places.name,places.googleMapsUri,places.formattedAddress'
             },
             body: JSON.stringify({
@@ -169,7 +170,7 @@ const NavigationView = () => {
   return (
     <View>
         <GooglePlacesTextInput
-        apiKey="APIKEY"
+        apiKey={GOOGLE_MAPS_API_KEY}
         placeHolderText="Search for a place"
         onPlaceSelect={handlePlaceSelect}
         fetchDetails={true}
