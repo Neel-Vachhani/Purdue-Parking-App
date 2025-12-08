@@ -26,7 +26,7 @@ export default {
           "Boiler Park needs your location to calculate travel times to parking garages when you don't have a starting location saved.",
         NSUserNotificationAlertStyle: "alert"
       },
-      buildNumber: "11"
+      buildNumber: "12"
     },
     android: {
       adaptiveIcon: {

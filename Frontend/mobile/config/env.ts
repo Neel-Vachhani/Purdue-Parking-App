@@ -41,7 +41,7 @@ export const getApiBaseUrl = (): string => {
     if (Platform.OS === "android") {
       return "http://10.0.2.2:7500";
     }
-    return "http://localhost:7500";
+    return "http://localhost:7500/api";
   }
 
   console.warn(

@@ -1870,7 +1870,7 @@ def geocode_address(request):
         geocode_url = "https://maps.googleapis.com/maps/api/geocode/json"
         params = {
             'address': search_address,
-            'key': "APIKEY",
+            'key': "AIzaSyAtTaJnEXiIL85ZfIkiY6PxgNQ9xtImJm4",
             'bounds': '40.39286,-86.954622|40.466874,-86.871755',  # West Lafayette bounds
             'region': 'us'
         }

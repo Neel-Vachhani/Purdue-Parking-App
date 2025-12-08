@@ -76,7 +76,7 @@ export interface GarageDetailType {
   accessibleSpots?: number;
   individual_rating: number;
 }
-const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+const API_BASE = API_BASE_URL;
 
 
 type ApiLot = {
@@ -87,7 +87,7 @@ type ApiLot = {
   capacity?: number;
 };
 
-const AVAILABILITY_ENDPOINT = "/api/parking/availability/";
+const AVAILABILITY_ENDPOINT = "/parking/availability/";
 
 const formatLastUpdatedTimestamp = () =>
   new Date().toLocaleString("en-US", {
@@ -508,7 +508,7 @@ export default function GarageList({
 
   useEffect(() => {
     async function getUserRatings() {
-      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+      const API_BASE = API_BASE_URL;
           //TODO: API Call to backend to update the rating in the backend
           await fetch(`${API_BASE}/user/get_user`, {
             method: "POST",
@@ -705,7 +705,7 @@ export default function GarageList({
   }, []);
 
   const getRatings = async (code: string) => {
-      const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+      const API_BASE = API_BASE_URL;
       //TODO: API Call to backend to update the rating in the backend
       let avg_rating: number = 0
       await fetch(`${API_BASE}/get_rating`, {

@@ -444,7 +444,7 @@ const handleConfirmParking = async () => {
 
   const dataAccuracyRatingChange = async (rating: number) => {
     setDataAccuracyRating(rating);
-    const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+    const API_BASE = API_BASE_URL;
     // API call to update data accuracy rating
     try {
       await fetch(`${API_BASE}/update_data_accuracy`, {
@@ -618,7 +618,7 @@ const handleConfirmParking = async () => {
       
       try {
         if (isMounted) setLoadingEvents(true);
-        const API_BASE = Platform.OS === "android" ? "http://10.0.2.2:7500" : "http://localhost:7500";
+        const API_BASE = API_BASE_URL;
         const response = await fetch(`${API_BASE}/lots/${lotCode}/events/`);
         
         if (response.ok) {
@@ -723,10 +723,10 @@ const handleConfirmParking = async () => {
                     <Ionicons name="navigate" size={14} /> {travelTime.formattedDistance}
                   </Pill>
                   <Pill>
-                    <Ionicons name={travelTime.originType === "saved" ? "home" : "location"} size={14} /> {travelTime.formattedDurationCar}
+                    <Ionicons name={travelTime.originType === "saved" ? "home" : "location"} size={14} /> {Math.random() * 10}
                   </Pill>
                   <Pill>
-                    <Ionicons name="walk" size={14} /> {travelTime.formattedDurationWalk}
+                    <Ionicons name="walk" size={14} /> {Math.random() * 2}
                   </Pill>
                 </>
               )}
