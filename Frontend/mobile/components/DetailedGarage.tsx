@@ -328,8 +328,6 @@ export default function GarageDetail({
 
   const API_BASE = API_BASE_URL
 
-  console.log('API_BASE', API_BASE)
-
   const RatingWidget = () => {
     
     return (
