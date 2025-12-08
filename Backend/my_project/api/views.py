@@ -1830,9 +1830,8 @@ def geocode_address(request):
         )
 
     # Get API key from environment variables (kept secure on backend)
-    # api_key = config('GOOGLE_MAPS_API_KEY', default='')
-    api_key = "APIKEY"
-
+    api_key = config('GOOGLE_MAPS_API_KEY', default='')
+    print(api_key)
     if not api_key:
         logger.error(
             "GOOGLE_MAPS_API_KEY not configured in backend environment")
@@ -1871,7 +1870,7 @@ def geocode_address(request):
         geocode_url = "https://maps.googleapis.com/maps/api/geocode/json"
         params = {
             'address': search_address,
-            'key': "AIzaSyAtTaJnEXiIL85ZfIkiY6PxgNQ9xtImJm4",
+            'key': api_key,
             'bounds': '40.39286,-86.954622|40.466874,-86.871755',  # West Lafayette bounds
             'region': 'us'
         }

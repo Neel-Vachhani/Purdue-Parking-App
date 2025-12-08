@@ -58,9 +58,8 @@ export const getApiBaseUrl = (): string => {
  * 2. extra.googleMapsApiKey from app.config.js (optional)
  */
 export const getGoogleMapsApiKey = (): string => {
-  const fromEnv = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const fromEnv = process.env.GOOGLE_MAPS_API_KEY;
   const fromExtra = extra.googleMapsApiKey;
-
   const apiKey = fromEnv || fromExtra || "";
 
   if (!apiKey) {

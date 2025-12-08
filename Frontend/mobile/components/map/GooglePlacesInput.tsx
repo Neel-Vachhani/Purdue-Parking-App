@@ -4,7 +4,6 @@ import { getGoogleMapsApiKey } from '../../config/env';
 
 const StyledGooglePlacesTextInput = () => {
   const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey();
-  
   const  handlePlaceSelect = async (place: any) => {
     console.log("here")
     console.log(place);
@@ -13,7 +12,7 @@ const StyledGooglePlacesTextInput = () => {
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': "APIKEY",
+              'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
               'X-Goog-FieldMask': 'routes.duration'
             },
             body: JSON.stringify({
@@ -118,7 +117,7 @@ const StyledGooglePlacesTextInput = () => {
 
   return (
     <GooglePlacesTextInput
-      apiKey="APIKEY"
+      apiKey={GOOGLE_MAPS_API_KEY}
       placeHolderText="Search for a garage"
       onPlaceSelect={handlePlaceSelect}
       fetchDetails={true}
