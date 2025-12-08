@@ -79,7 +79,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
       setSubmitting(true);
 
       if (mode === "signup") {
-        const res = await axios.post(`${API_BASE}signup/`, {
+        const res = await axios.post(`${API_BASE}/signup/`, {
           email,
           password,
           name: email,

@@ -6,7 +6,6 @@ urlpatterns = [
     path('api/signup/', views.sign_up),
     path('api/parking/availability/', views.get_parking_availability),
     path('api/login/', views.log_in),
-    path('login/', views.log_in),
     path('api/apple/', views.apple_sign_in),
     path('api/notification_token/', views.accept_notification_token),
     path('api/notification_disable/', views.notification_disable),
