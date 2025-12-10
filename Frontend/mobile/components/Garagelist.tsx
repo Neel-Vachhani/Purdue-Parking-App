@@ -328,7 +328,7 @@ export default function GarageList({
     
     const availableGarages = garages.filter(g => 
       g.id !== currentGarage.id && // Exclude current garage
-      !isGarageFull(g.current) && // Only non-full garages
+      !isGarageFull(g.total - g.current) && // Only non-full garages
       g.lat && g.lng // Must have coordinates
     );
 
@@ -371,7 +371,7 @@ export default function GarageList({
 
   // Handle garage press interaction for full garage popup
   const handleGaragePress = React.useCallback((garage: Garage) => {
-    if (isGarageFull(garage.current)) {
+    if (isGarageFull(garage.total - garage.current)) {
       const statusText = getGarageStatus(garage.current, garage.total);
       const alertTitle = garage.current === 0 ? "Garage Full" : "Garage Nearly Full";
       const alertMessage = `${garage.name} is ${statusText} with ${garage.current} spots remaining.\n\nConsider checking other nearby garages for better availability.`;
@@ -758,7 +758,7 @@ export default function GarageList({
             shadowRadius: 10,
             shadowOffset: { width: 0, height: 6 },
             // Add subtle opacity for full garages
-            opacity: isGarageFull(item.current) ? 0.8 : 1,
+            opacity: isGarageFull(item.total - item.current) ? 0.8 : 1,
           }}
         >
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
@@ -770,7 +770,7 @@ export default function GarageList({
               </View>
               {/* Rating Pill */}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                {isGarageFull(item.current) && (
+                {isGarageFull(item.total - item.current) && (
                   <View style={{
                     backgroundColor: "#ef4444",
                     borderWidth: 1,
