@@ -268,7 +268,7 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
       </TouchableOpacity>
 
       {/* Google Sign-In */}
-      <GoogleLoginButton onPress={handleGoogle} />
+      {/* <GoogleLoginButton onPress={handleGoogle} /> */}
 
       {Platform.OS === "ios" && (
         <View style={{ width: "100%", marginTop: 12 }}>

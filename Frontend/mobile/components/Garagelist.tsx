@@ -120,7 +120,7 @@ const getApiBaseUrl = (): string => {
 
 // Changes the traditional garage data to the detailed format
 function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
-  const occupied = Math.max(0, (g.total ?? 0) - (g.current ?? 0));
+  const occupied = g.current;
   let lot_ratings: {[name: string]: number} = {}
   
   async function getUserRatings(){

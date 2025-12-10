@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking, Modal, TextInput, Alert } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
@@ -81,8 +81,6 @@ function toMiles(meters?: number) {
   return (meters / 1609.344).toFixed(1);
 }
 
-
-
 function percent(occupied?: number, total?: number) {
   if (!total || total <= 0) return 0;
   const val = Math.max(0, Math.min(1, (occupied ?? 0) / total));
@@ -123,7 +121,7 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
   headerLeft: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   headerRight: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700", color: theme.text },
-  scroll: { padding: 16 },
+  scroll: { padding: 0 },
   hero: { width: "100%", height: 160, borderRadius: 16 },
   heroPlaceholder: { backgroundColor: theme.bg, alignItems: "center", justifyContent: "center", borderRadius: 16 },
 
@@ -133,12 +131,13 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     gap: 8,
+    position: "relative",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.border,
   },
   name: { fontSize: 20, fontWeight: "800", color: theme.text },
   address: { fontSize: 13, color: theme.text },
-  summaryRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 6 },
+  summaryRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 4},
   pill: { backgroundColor: theme.bg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9999, flexDirection: "row", gap: 6, alignItems: "center" },
   directions: { flexDirection: "row", alignItems: "flex-end"},
   pillText: { color: theme.text, fontSize: 12, fontWeight: "600" },
@@ -150,6 +149,10 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.border,
+  },
+  miniCard: {
+    marginTop: 12,
+    backgroundColor: theme.bg,
   },
   sectionTitle: { color: theme.text, fontSize: 16, fontWeight: "700", marginBottom: 8 },
 
@@ -193,12 +196,12 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
   accuracySummaryCaption: { marginTop: 6, color: theme.text, opacity: 0.7, fontSize: 11 },
 
   priceRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
-  priceLabel: { color: theme.text },
-  priceAmt: { color: theme.text, fontWeight: "500" },
+  priceLabel: { color: theme.text, fontSize: 10 },
+  priceAmt: { color: theme.text, fontWeight: "500", fontSize: 10 },
 
   hoursRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  hoursDays: { color: theme.text },
-  hoursTime: { color: theme.text },
+  hoursDays: { color: theme.text, fontSize: 10 },
+  hoursTime: { color: theme.text, fontSize: 10 },
 
   amenitiesWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   amenity: { backgroundColor: theme.bg, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 6 },
@@ -249,6 +252,30 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
     backgroundColor: "#fbbf24",
     borderRadius: 12,
   },
+  navMenuWrapper: {
+    position: "relative",
+    alignItems: "flex-end", // or "center" depending on layout
+  },
+  navCircleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: theme.mode != "dark" ? "rgba(17,24,39,0.05)" : "rgba(255,255,255,0.05)", // or your theme bg
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  navDropdown: {
+    position: "absolute",
+    width: 80,
+    top: 48,          // just below the circle
+    right: -20,         // align with button left edge
+    gap: 8,           // if using RN 0.71+ or use marginBottom on children
+  },
 });
 
 const Pill = ({ children }: { children: React.ReactNode }) => {
@@ -293,7 +320,7 @@ export default function GarageDetail({
   const theme = useContext(ThemeContext);
   const styles = makeStyles(theme);
   const insets = useSafeAreaInsets();
-  const headerInset = Math.max(insets.top, Platform.OS === "android" ? 24 : 16);
+  const headerInset = 8
   const miles = toMiles(garage.distanceMeters);
   const p = percent(garage.occupiedSpots, garage.totalSpots);
   const pctStr = `${Math.round(p * 100)}%`;
@@ -320,6 +347,7 @@ export default function GarageDetail({
   const [reportDescription, setReportDescription] = React.useState("");
   const [reportSubmitting, setReportSubmitting] = React.useState(false);
   const [dataAccuracyRating, setDataAccuracyRating] = React.useState(0);
+  const [navMenuOpen, setNavMenuOpen] = useState(false);
   const fakeAccuracyStats = React.useMemo(() => ({ averageRating: 4.6, sampleSize: 46 }), []);
 
   //State for origin/location
@@ -653,7 +681,7 @@ const handleConfirmParking = async () => {
   return (
     <SafeAreaView
       style={[styles.root, { paddingTop: headerInset }]}
-      edges={['top', 'left', 'right']}
+      edges={['left', 'right']}
     >
       <View style={styles.header}>
         <Pressable onPress={onBack} hitSlop={12} style={styles.headerLeft}>
@@ -670,50 +698,45 @@ const handleConfirmParking = async () => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Hero
-        {garage.heroImageUrl ? (
-          <Image source={{ uri: garage.heroImageUrl }} style={styles.hero} resizeMode="cover" />
-        ) : (
-          <View style={[styles.hero, styles.heroPlaceholder]}>
-            <MaterialCommunityIcons name="parking" size={64} />
-          </View>
-        )} */}
-
         {/* Top summary */}
         <View style={styles.summaryCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.name}>{garage.name}</Text>
-             <View style={[{flexDirection:'row', alignItems:'center'}]}>
-                <View style={[{flex:1,flexDirection:'row'}]}>
-                    <Text style={styles.address} numberOfLines={2}>{garage.address}</Text>
-                </View>
-                <View style={[{justifyContent:'space-evenly', marginVertical:10}]}>
-              <TouchableOpacity onPress={() => handleOpenInMaps("origin")}>
-              <Pill>
-                  <Ionicons name="navigate-outline" size={14}  /> Origin
-              </Pill>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleOpenInMaps("other")}>
-              <Pill>
-                  <Ionicons name="navigate-outline" size={14}  /> Other
-              </Pill>
-              </TouchableOpacity>
-              <View style={{ justifyContent: 'space-evenly', marginVertical: 10 }}>
+            <View>
+              <View style={[{flex:1,flexDirection:'row'}]}>
+                  <Text style={styles.address} numberOfLines={2}>{garage.address}</Text>
+              </View>
+            <View style={[{justifyContent:'space-evenly', marginVertical:10}]}>
+            <View style={{position: "absolute", top: -50, right: 6}}>
+              <View style={styles.navMenuWrapper}>
+            {/* Circle button */}
+            <TouchableOpacity
+              style={styles.navCircleButton}
+              onPress={() => setNavMenuOpen((prev) => !prev)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="navigate-outline" size={18} style={{ color: theme.mode === "dark" ? "#fff" : "#000", position: "absolute", top: 12, right: 12 }} />
+            </TouchableOpacity>
 
+            {/* Dropdown with the two pills */}
+            {navMenuOpen && (
+              <View style={styles.navDropdown}>
+                <TouchableOpacity onPress={() => { handleOpenInMaps("origin"); setNavMenuOpen(false); }}>
+                  <Pill>
+                    <Ionicons name="navigate-outline" size={14} /> Origin
+                  </Pill>
+                </TouchableOpacity>
 
-              {/* Step 1: New button */}
-              <TouchableOpacity onPress={handleConfirmParking}>
-                <Pill>
-                  <Ionicons name="car" size={14} /> Mark as Parked 
-                </Pill>
-              </TouchableOpacity>
-
-            </View>
-
-                </View>
-            </View>
-            
-            <View style={styles.summaryRow}>
+                <TouchableOpacity onPress={() => { handleOpenInMaps("other"); setNavMenuOpen(false); }}>
+                  <Pill>
+                    <Ionicons name="navigate-outline" size={14} /> Other
+                  </Pill>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          </View>
+          <View style={styles.summaryRow}>
               {loadingTravel && (
                 <Pill>
                   <Ionicons name="hourglass-outline" size={14} /> Calculating...
@@ -725,28 +748,49 @@ const handleConfirmParking = async () => {
                     <Ionicons name="navigate" size={14} /> {travelTime.formattedDistance}
                   </Pill>
                   <Pill>
-                    <Ionicons name={travelTime.originType === "saved" ? "home" : "location"} size={14} /> {Math.random() * 10}
-                  </Pill>
-                  <Pill>
-                    <Ionicons name="walk" size={14} /> {Math.random() * 2}
+                    <Ionicons name={travelTime.originType === "saved" ? "home" : "location"} size={14} /> {travelTime.formattedDurationCar}
                   </Pill>
                 </>
               )}
-              <Pill>
-                <Ionicons name={garage.isOpen ? "time" : "close"} size={14} /> {garage.isOpen ? "Open" : "Closed"}
-              </Pill>
-              <Pill>
-                {garage.covered ? (
-                  <>
-                    <MaterialCommunityIcons name="car" size={14} /> Covered
-                  </>
-                ) : (
-                  <>
-                    <MaterialCommunityIcons name="car-outline" size={14} /> Uncovered
-                  </>
-                )}
-              </Pill>
             </View>
+
+            {/* Pricing */}
+            {garage.price && garage.price.length > 0 && (
+              <View style={styles.miniCard}>
+                <Text style={{color: theme.text, fontSize: 12, fontWeight: "700", marginBottom: 4}}>Pricing</Text>
+                <Text style={styles.priceLabel}>{garage.price}</Text>
+              </View>
+            )}
+
+            {/* Hours */}
+            {garage.hours && garage.hours.length > 0 && (
+              <View style={styles.miniCard}>
+                <Text style={{color: theme.text, fontSize: 12, fontWeight: "700", marginBottom: 4}}>Hours</Text>
+                {garage.hours.map((h, i) => (
+                  <View key={`${h.days}-${i}`} style={styles.hoursRow}>
+                    <Text style={styles.hoursDays}>{h.days}</Text>
+                    <Text style={styles.hoursTime}>{h.close === "24/7" ? "24/7" : `${h.open} - ${h.close}`}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+              <View style={{ justifyContent: 'space-evenly', marginVertical: 10 }}>
+
+
+              {/* Step 1: New button */}
+              {/* <TouchableOpacity onPress={handleConfirmParking}>
+                <Pill>
+                  <Ionicons name="car" size={14} /> Mark as Parked 
+                </Pill>
+              </TouchableOpacity> */}
+
+            </View>
+
+                </View>
+            </View>
+            
+            
             {/* Reliability indicator */}
             <View
               style={[
@@ -799,26 +843,6 @@ const handleConfirmParking = async () => {
           </View>
         </View>
 
-        {/* Pricing */}
-        {garage.price && garage.price.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Pricing</Text>
-            <Text style={styles.priceLabel}>{garage.price}</Text>
-          </View>
-        )}
-
-        {/* Hours */}
-        {garage.hours && garage.hours.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Hours</Text>
-            {garage.hours.map((h, i) => (
-              <View key={`${h.days}-${i}`} style={styles.hoursRow}>
-                <Text style={styles.hoursDays}>{h.days}</Text>
-                <Text style={styles.hoursTime}>{h.close === "24/7" ? "24/7" : `${h.open} - ${h.close}`}</Text>
-              </View>
-            ))}
-          </View>
-        )}
 
         {/* Ratings */}
         <View style={styles.card}>
