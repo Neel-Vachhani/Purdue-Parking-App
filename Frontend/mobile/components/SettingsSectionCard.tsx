@@ -48,6 +48,8 @@ const SettingsSectionCard = ({ id, title, icon, expanded, onToggle, children }: 
             backgroundColor: theme.sectionHeaderBg,
             flexDirection: "row",
             alignItems: "center",
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
             gap: 12,
           }}
         >
@@ -69,7 +71,7 @@ const SettingsSectionCard = ({ id, title, icon, expanded, onToggle, children }: 
           <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color={theme.sectionHeaderText} />
         </Pressable>
         {expanded ? (
-          <View style={{ paddingHorizontal: 16, paddingVertical: 16, backgroundColor: theme.sectionBg }}>
+          <View style={{ paddingHorizontal: 16, paddingVertical: 16, backgroundColor: theme.sectionBg, borderRadius: 16, borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
             {children}
           </View>
         ) : null}

@@ -402,13 +402,10 @@ const getChartData = () => {
             shadowRadius: 12,
             elevation: 5,
           }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <View style={{ justifyContent: "space-between", marginBottom: 20 }}>
               <View>
                 <Text style={{ color: theme.text, fontSize: 20, fontWeight: "700" }}>
                   {currentStatus.name}
-                </Text>
-                <Text style={{ color: secondaryText, fontSize: 13, marginTop: 4 }}>
-                  Current Status
                 </Text>
               </View>
               <View style={{
@@ -416,6 +413,8 @@ const getChartData = () => {
                 paddingVertical: 6,
                 borderRadius: 20,
                 backgroundColor: getOccupancyColor(currentStatus.occupancy_percentage) + "20",
+                width: 100,
+                marginTop: 8,
               }}>
                 <Text style={{ 
                   color: getOccupancyColor(currentStatus.occupancy_percentage), 
@@ -425,6 +424,7 @@ const getChartData = () => {
                   {getStatusText(currentStatus.occupancy_percentage)}
                 </Text>
               </View>
+              
             </View>
 
             <View style={{ 
