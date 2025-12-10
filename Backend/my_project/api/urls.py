@@ -19,7 +19,7 @@ urlpatterns = [
     path('api/user/insights/', views.user_insights, name='user_insights'),
 
     # Lot events (User Story #10)
-    path('lots/<str:lot_code>/events/', views.list_lot_events),
+    path('api/lots/<str:lot_code>/events/', views.list_lot_events),
 
     # Push notifications (User Story #2 and #11)
     path('api/notify/sale/', views.notify_parking_pass_sale),

@@ -1202,16 +1202,7 @@ export default function GarageList({
         </Pressable>
       </Animated.View>
 
-      <Text
-        style={{
-          color: "#cfd2d6",
-          fontSize: 14,
-          marginHorizontal: 16,
-          marginBottom: 16,
-        }}
-      >
-        Last Updated: {lastUpdated}
-      </Text>
+
 
       {/* Slide-over detail panel */}
       {selected && (

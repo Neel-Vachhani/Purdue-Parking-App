@@ -351,10 +351,6 @@ export default function ParkingListScreen() {
           </ThemedView>
         </ThemedView>
       ))}
-
-      <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280", textAlign: "center", marginTop: 24 }}>
-        Last Updated: {currentTime}
-      </ThemedText>
     </ThemedView>
   );
 }

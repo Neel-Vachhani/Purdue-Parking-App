@@ -574,6 +574,10 @@ const handleConfirmParking = async () => {
           { latitude: lat, longitude: lng },
           email
         );
+
+        if (!result) {
+          
+        }
         
         if (isMounted) {
           // Only set travel time if we got valid data
@@ -686,12 +690,12 @@ const handleConfirmParking = async () => {
                 <View style={[{justifyContent:'space-evenly', marginVertical:10}]}>
               <TouchableOpacity onPress={() => handleOpenInMaps("origin")}>
               <Pill>
-                  <Ionicons name="navigate-outline" size={14}  /> Directions from saved Origin
+                  <Ionicons name="navigate-outline" size={14}  /> Origin
               </Pill>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleOpenInMaps("other")}>
               <Pill>
-                  <Ionicons name="navigate-outline" size={14}  /> Directions from saved Location
+                  <Ionicons name="navigate-outline" size={14}  /> Other
               </Pill>
               </TouchableOpacity>
               <View style={{ justifyContent: 'space-evenly', marginVertical: 10 }}>
@@ -810,7 +814,7 @@ const handleConfirmParking = async () => {
             {garage.hours.map((h, i) => (
               <View key={`${h.days}-${i}`} style={styles.hoursRow}>
                 <Text style={styles.hoursDays}>{h.days}</Text>
-                <Text style={styles.hoursTime}>{h.close === "24/7" ? "24/7" : `${h.open} – ${h.close}`}</Text>
+                <Text style={styles.hoursTime}>{h.close === "24/7" ? "24/7" : `${h.open} - ${h.close}`}</Text>
               </View>
             ))}
           </View>

@@ -269,48 +269,61 @@ export async function getTravelTimeFromDefaultOrigin(
   userEmail: string
 ): Promise<TravelTimeResult | null> {
   try {
-    // Get API base URL from environment variables
     const API_BASE = getApiBaseUrl();
-    
+
     let origin: string | Coordinate | null = null;
     let originType: "saved" | "current" = "saved";
-    
-    // Try to fetch user's saved starting location
+
+    // 1. Try to fetch user's saved starting location
     try {
-      const response = await fetch(`${API_BASE}/user/origin/?email=${encodeURIComponent(userEmail)}`);
-      
+      const response = await fetch(
+        `${API_BASE}/user/origin/?email=${encodeURIComponent(userEmail)}`
+      );
+
       if (response.ok) {
         const data = await response.json();
         const savedOrigin = data?.default_origin;
-        
+
         if (savedOrigin && savedOrigin.trim() !== "") {
           origin = savedOrigin;
+          originType = "saved";
           console.log(`Using saved starting location: ${savedOrigin}`);
         }
       }
     } catch (error) {
       console.warn("Failed to fetch saved location:", error);
     }
-    
-    // If no saved origin, don't show travel time (User Story #9 - AC4)
+
+    // 2. Fallback to current location if no saved origin
     if (!origin) {
-      console.log("No saved starting location - not displaying travel time (per AC4)");
-        return null;
+      console.log("No saved starting location, using current location instead");
+
+      const currentLocation = await getCurrentLocation();
+      if (currentLocation) {
+        origin = currentLocation;
+        originType = "current";
+      }
     }
-    
-    // Calculate travel time
+
+    // 3. If still no origin, do not show travel time
+    if (!origin) {
+      console.log("No origin available (saved or current) – not displaying travel time");
+      return null;
+    }
+
+    // 4. Calculate travel time
     const result = await calculateTravelTime(origin, destination);
-    
-    if (result) {
-      console.log(`Travel time from ${originType} location: ${result.formattedDurationCar} (${result.formattedDistance})`);
-      // Add originType to the result
-      return {
-        ...result,
-        originType
-      };
-    }
-    
-    return null;
+
+    if (!result) return null;
+
+    console.log(
+      `Travel time from ${originType} location: ${result.formattedDurationCar} (${result.formattedDistance})`
+    );
+
+    return {
+      ...result,
+      originType,
+    };
   } catch (error) {
     console.error("Error getting travel time:", error);
     return null;
