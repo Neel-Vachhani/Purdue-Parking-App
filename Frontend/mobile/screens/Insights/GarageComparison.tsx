@@ -112,11 +112,11 @@ const fetchComparisonData = async () => {
         // Update the garage object with current values returned by backend (optional but helpful)
         const mappedGarage: Garage = {
           ...garage,
-          current: typeof c.current_occupancy === "number" ? c.current_occupancy : garage.current,
+          current: typeof c.average_occupancy === "number" ? Math.round(c.average_occupancy): garage.current,
           total: typeof c.total_capacity === "number" ? c.total_capacity : garage.total,
           occupancy_percentage:
             typeof c.total_capacity === "number" && typeof c.current_occupancy === "number"
-              ? Number((((c.toal_capacity - c.current_occupancy) / c.total_capacity) * 100).toFixed(1))
+              ? Number(Math.round((((c.average_occupancy) / c.total_capacity) * 100)).toFixed(1))
               : garage.occupancy_percentage,
         };
 
@@ -153,6 +153,41 @@ const fetchComparisonData = async () => {
       return prev;
     });
   };
+
+function fixLotData(lot: {
+  total_capacity: number;
+  available_spots: number;
+  [key: string]: any;
+}) {
+  const capacity = Number(lot.total_capacity ?? 0);
+  const available = Number(lot.available_spots ?? 0);
+
+  // Ensure no negative or NaN values
+  const safeCapacity = Math.max(capacity, 1);
+  const safeAvailable = Math.max(Math.min(available, safeCapacity), 0);
+
+  // Correct occupancy
+  const correctOccupancy = safeCapacity - safeAvailable;
+
+  // Correct percentage
+  const correctOccupancyPct =
+    Math.round((correctOccupancy / safeCapacity) * 1000) / 10; // one decimal place
+
+  return {
+    ...lot,
+    current_occupancy: correctOccupancy,
+    occupancy_percentage: correctOccupancyPct,
+  };
+}
+
+function normalizeParkingComparisonResponse(data: { comparisons: { [key: string]: any; total_capacity: number; available_spots: number; }[]; }) {
+  return {
+    ...data,
+    comparisons: data.comparisons.map(fixLotData),
+  };
+}
+
+
 
   const getOccupancyColor = (percentage: number) => {
     if (percentage >= 85) return "#ef4444";

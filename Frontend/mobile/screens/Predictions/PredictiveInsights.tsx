@@ -444,8 +444,8 @@ export default function PredictiveInsights() {
                     style={[
                       styles.progressBarFill,
                       { 
-                        width: `${result.average_occupancy}%`,
-                        backgroundColor: getOccupancyColor(result.average_occupancy)
+                        width: `${Math.round(Math.min(Math.max(0, result.average_occupancy / selectedLot.total * 100), 100))}%`,
+                        backgroundColor: getOccupancyColor(Math.round(Math.min(Math.max(0, result.average_occupancy / selectedLot.total * 100), 100)))
                       }
                     ]} 
                   />
@@ -453,7 +453,7 @@ export default function PredictiveInsights() {
                 <View style={styles.progressLabels}>
                   <Text style={styles.progressLabel}>0%</Text>
                   <Text style={[styles.progressLabel, { fontWeight: "700" }]}>
-                    {result.average_occupancy}% Full
+                    {Math.round(Math.min(Math.max(0, result.average_occupancy / selectedLot.total * 100), 100))}% Full
                   </Text>
                   <Text style={styles.progressLabel}>100%</Text>
                 </View>
