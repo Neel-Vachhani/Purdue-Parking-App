@@ -2016,3 +2016,66 @@ def nearest_garage_from_location(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def distance_matrix(request):
+  """
+  Request body:
+  {
+    "origin": { "latitude": 40.42, "longitude": -86.92 },
+    "destination": { "latitude": 40.43, "longitude": -86.91 }
+  }
+  """
+  api_key = config('GOOGLE_MAPS_API_KEY', default='')
+  if not api_key:
+    return Response(
+      {"error": "Google Maps API key not configured"},
+      status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+  try:
+    origin = request.data.get("origin")
+    destination = request.data.get("destination")
+
+    if not origin or not destination:
+      return Response({"error": "origin and destination required"}, status=400)
+
+    origin_str = f"{origin['latitude']},{origin['longitude']}"
+    dest_str   = f"{destination['latitude']},{destination['longitude']}"
+
+    resp = requests.get(
+      "https://maps.googleapis.com/maps/api/distancematrix/json",
+      params={
+        "origins": origin_str,
+        "destinations": dest_str,
+        "mode": "driving",
+        "units": "imperial",
+        "key": api_key,
+      },
+      timeout=5,
+    )
+    data = resp.json()
+
+    if data.get("status") != "OK":
+      return Response({"error": data.get("error_message", "Google error")}, status=502)
+
+    row = data["rows"][0]["elements"][0]
+    if row.get("status") != "OK":
+      return Response({"error": row.get("status", "No route")}, status=502)
+
+    distance_meters = row["distance"]["value"]
+    duration_seconds = row["duration"]["value"]
+
+    return Response(
+      {
+        "distance_meters": distance_meters,
+        "duration_seconds": duration_seconds,
+      }
+    )
+  except Exception as e:
+    return Response({"error": str(e)}, status=500)
+
+

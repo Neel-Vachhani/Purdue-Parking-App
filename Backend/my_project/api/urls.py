@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/user/location/', views.get_location),
     path('api/user/get_user', views.get_user),
     path('api/geocode/', views.geocode_address),
+    path("api/distance-matrix/", views.distance_matrix, name="distance-matrix"),
     path('api/confirm_parking/', views.create_parking_log),
     path('api/nearest-garage/', views.nearest_garage_from_location),
     path('api/user/insights/', views.user_insights, name='user_insights'),

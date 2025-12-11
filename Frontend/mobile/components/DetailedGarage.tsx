@@ -272,9 +272,11 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
   navDropdown: {
     position: "absolute",
     width: 80,
+    height: 120,
     top: 48,          // just below the circle
     right: -20,         // align with button left edge
     gap: 8,           // if using RN 0.71+ or use marginBottom on children
+    zIndex: 20,
   },
 });
 

@@ -30,11 +30,53 @@ export interface TravelTimeResult {
   originType?: "saved" | "current"; // Track which origin was used
 }
 
+type GoogleDistanceResult = {
+  distance_meters: number;
+  duration_seconds: number;
+};
+
+async function getGoogleDistance(
+  origin: Coordinate,
+  destination: Coordinate
+): Promise<GoogleDistanceResult | null> {
+  try {
+    const API_BASE = getApiBaseUrl();
+
+    const { data } = await axios.post<GoogleDistanceResult>(
+      `${API_BASE}/distance-matrix/`,
+      {
+        origin: {
+          latitude: origin.latitude,
+          longitude: origin.longitude,
+        },
+        destination: {
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+        },
+      },
+      { timeout: 6000 }
+    );
+
+    if (
+      typeof data.distance_meters === "number" &&
+      typeof data.duration_seconds === "number"
+    ) {
+      return data;
+    }
+
+    console.warn("Distance-matrix response missing fields:", data);
+    return null;
+  } catch (error: any) {
+    console.error("Error calling distance-matrix endpoint:", error?.response || error);
+    return null;
+  }
+}
+
 /**
  * Calculate straight-line distance between two coordinates using the Haversine formula
  * Returns distance in miles
  */
-function calculateDistance(from: Coordinate, to: Coordinate): number {
+function calculateStraightLineDistance(from: Coordinate, to: Coordinate): number {
   const R = 3959; // Earth's radius in miles
   const dLat = ((to.latitude - from.latitude) * Math.PI) / 180;
   const dLon = ((to.longitude - from.longitude) * Math.PI) / 180;
@@ -190,7 +232,7 @@ export async function calculateTravelTime(
 ): Promise<TravelTimeResult | null> {
   try {
     let originCoord: Coordinate | null;
-    
+
     // If origin is a string (address), geocode it first
     if (typeof origin === "string") {
       originCoord = await geocodeAddress(origin);
@@ -201,25 +243,37 @@ export async function calculateTravelTime(
     } else {
       originCoord = origin;
     }
-    
-    // Calculate distance
-    const distance = calculateDistance(originCoord, destination);
-    
-    // Estimate travel time
-    const duration = estimateTravelTime(distance);
-    
+
+    // Try Google Distance Matrix first
+    let distanceMiles: number;
+    let durationMinutes: number;
+
+    const googleResult = await getGoogleDistance(originCoord, destination);
+
+    if (googleResult) {
+      distanceMiles = googleResult.distance_meters / 1609.34; // meters -> miles
+      durationMinutes = googleResult.duration_seconds / 60;   // seconds -> minutes
+    } else {
+      // Fallback: straight-line distance + heuristic
+      console.warn("Falling back to Haversine distance + estimated time");
+      distanceMiles = calculateStraightLineDistance(originCoord, destination);
+      durationMinutes = estimateTravelTime(distanceMiles);
+    }
+
     return {
-      distance,
-      duration,
-      formattedDistance: formatDistance(distance),
-      formattedDurationCar: formatDuration(duration),
-      formattedDurationWalk: formatDuration(duration * 0.2), // Assume walking is 1.5x slower
+      distance: distanceMiles,
+      duration: durationMinutes,
+      formattedDistance: formatDistance(distanceMiles),
+      formattedDurationCar: formatDuration(durationMinutes),
+      // assuming walking ~ 3mph vs 20mph driving → ~6.7x time
+      formattedDurationWalk: formatDuration(durationMinutes * 6.7),
     };
   } catch (error) {
     console.error("Error calculating travel time:", error);
     return null;
   }
 }
+
 
 /**
  * Get device's current location
