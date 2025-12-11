@@ -96,8 +96,9 @@ export default function PredictiveInsights() {
       
       const data = await res.json();
       console.log(data)
-      const average_occupancy = selectedLot.total - data.average_availability;
-      console.log(average_occupancy)
+      let average_occupancy = selectedLot.total - data.average_availability;
+      average_occupancy = Math.max(0, average_occupancy)
+      average_occupancy = Math.min(100, average_occupancy)
           setResult({
       ...data,
       average_occupancy: average_occupancy,
