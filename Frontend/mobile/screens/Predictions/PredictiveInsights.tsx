@@ -1,6 +1,8 @@
 import * as React from "react";
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Modal, StyleSheet, Animated } from "react-native";
 import { ThemeContext } from "../../theme/ThemeProvider";
+import { getApiBaseUrl } from "../../config/env";
+const API_BASE = getApiBaseUrl();
 
 type Lot = {
   id: number;
@@ -88,14 +90,15 @@ export default function PredictiveInsights() {
         params.append("weekday", selectedWeekday.toLowerCase());
       }
 
-      const res = await fetch(`http://localhost:7500/parking/hourly-average?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/parking/hourly-average?${params.toString()}`);
       console.log(res)
       if (!res.ok) throw new Error("Failed to fetch data");
       
       const data = await res.json();
       console.log(data)
-      const average_occupancy = selectedLot.total - data.average_availability;
-      console.log(average_occupancy)
+      let average_occupancy = selectedLot.total - data.average_availability;
+      average_occupancy = Math.max(0, average_occupancy)
+      average_occupancy = Math.min(100, average_occupancy)
           setResult({
       ...data,
       average_occupancy: average_occupancy,
@@ -335,10 +338,7 @@ export default function PredictiveInsights() {
     <View style={{ flex: 1, backgroundColor: "#000" }}>
       <ScrollView style={{ flex: 1 }}>
         {/* Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Parking Insights</Text>
-          <Text style={styles.headerSubtitle}>Real-time availability and trends</Text>
-        </View>
+        
 
         {/* Location Card */}
         <View style={styles.section}>
@@ -444,8 +444,8 @@ export default function PredictiveInsights() {
                     style={[
                       styles.progressBarFill,
                       { 
-                        width: `${result.average_occupancy}%`,
-                        backgroundColor: getOccupancyColor(result.average_occupancy)
+                        width: `${Math.round(Math.min(Math.max(0, result.average_occupancy / selectedLot.total * 100), 100))}%`,
+                        backgroundColor: getOccupancyColor(Math.round(Math.min(Math.max(0, result.average_occupancy / selectedLot.total * 100), 100)))
                       }
                     ]} 
                   />
@@ -453,7 +453,7 @@ export default function PredictiveInsights() {
                 <View style={styles.progressLabels}>
                   <Text style={styles.progressLabel}>0%</Text>
                   <Text style={[styles.progressLabel, { fontWeight: "700" }]}>
-                    {result.average_occupancy}% Full
+                    {Math.round(Math.min(Math.max(0, result.average_occupancy / selectedLot.total * 100), 100))}% Full
                   </Text>
                   <Text style={styles.progressLabel}>100%</Text>
                 </View>

@@ -4,7 +4,6 @@ import { getGoogleMapsApiKey } from '../../config/env';
 
 const StyledGooglePlacesTextInput = () => {
   const GOOGLE_MAPS_API_KEY = getGoogleMapsApiKey();
-  
   const  handlePlaceSelect = async (place: any) => {
     console.log("here")
     console.log(place);

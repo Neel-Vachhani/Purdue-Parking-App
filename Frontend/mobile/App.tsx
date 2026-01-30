@@ -1,32 +1,31 @@
 import * as React from "react";
 import { View, ActivityIndicator } from "react-native";
 import * as Notifications from "expo-notifications";
+import * as Linking from "expo-linking";
 import * as Device from "expo-device";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import {LocationProvider} from './app/utils/LocationContext';
 import { StatusBar } from "expo-status-bar";
 
 import ThemeProvider, { ThemeContext } from "./theme/ThemeProvider";
 import ThemedView from "./components/ThemedView";
 import BottomBar from "./components/BottomBar";
-import SettingsScreen from "./screens/Settings/SettingsScreen";
-import GarageMap from "./screens/GarageMap/GarageMap";
-import Calendar from "./screens/Calender/Calender";
 import AuthScreen from "./screens/Auth/AuthScreen";
-import Insights from "./screens/Insights/Insights";
-import PredictiveInsights from "./screens/Predictions/PredictiveInsights"
 import ParkingWS from "./components/ParkingWS";
-import NavigationScreen from "./screens/Navigation/NavigationScreen";
+import { ActionSheetProvider } from '@expo/react-native-action-sheet';
+import { EmailProvider } from './utils/EmailContext'
 
+import { TAB_CONFIG, TAB_KEYS, TabKey, getTabByKey } from "./components/navigation/tabConfig";
 
-// Tab type
-type TabKey = "garages" | "settings" | "calendar" | "insights" | "predictions" | "navigation";
+const LAST_TAB_STORAGE_KEY = "last-used-tab";
 
 export default function App() {
-  const [tab, setTab] = React.useState<TabKey>("garages");
+  const [tab, setTab] = React.useState<TabKey>(TAB_CONFIG[0].key);
   const [expoPushToken, setExpoPushToken] = React.useState<string | null>(null);
   const [booting, setBooting] = React.useState(true);
   const [isAuthed, setIsAuthed] = React.useState(false);
+  
 
   React.useEffect(() => {
     (async () => {
@@ -47,32 +46,59 @@ export default function App() {
             }
           }
         }
+        const storedTab = await AsyncStorage.getItem(LAST_TAB_STORAGE_KEY);
+        if (storedTab && TAB_KEYS.includes(storedTab as TabKey)) {
+          setTab(storedTab as TabKey);
+        }
       } finally {
         setBooting(false);
       }
     })();
   }, []);
 
+  React.useEffect(() => {
+    AsyncStorage.setItem(LAST_TAB_STORAGE_KEY, tab).catch(() => {});
+  }, [tab]);
+
+  React.useEffect(() => {
+    const handleIncomingLink = (incomingUrl?: string | null) => {
+      if (!incomingUrl) return;
+      const parsed = Linking.parse(incomingUrl);
+      const [firstSegment, secondSegment] = (parsed.path ?? "").split("/");
+      if (firstSegment === "tab" && secondSegment && TAB_KEYS.includes(secondSegment as TabKey)) {
+        setTab(secondSegment as TabKey);
+      }
+    };
+
+    Linking.getInitialURL().then(handleIncomingLink);
+    const subscription = Linking.addEventListener("url", ({ url }) => handleIncomingLink(url));
+    return () => subscription.remove();
+  }, []);
+
   function Tabs() {
     const theme = React.useContext(ThemeContext);
+    const activeTab = getTabByKey(tab);
+    const tabContent = activeTab?.renderContent({
+      onLogout: () => setIsAuthed(false),
+    });
+
     return (
+      <ActionSheetProvider>
       <ThemedView style={{ flex: 1 }}>
         <StatusBar style={theme.mode === "dark" ? "light" : "dark"} />
         <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-          {(tab === "garages") ? <GarageMap></GarageMap> : null}
-          {(tab === "calendar") ? <Calendar /> : null}
-          {(tab === "settings") ? <SettingsScreen onLogout={() => setIsAuthed(false)} /> : null}
-          {(tab === "insights") ? <Insights /> : null}
-          {(tab === "predictions") ? <PredictiveInsights /> : null}
-          {(tab == "navigation") ? <NavigationScreen></NavigationScreen> : null}
+          {tabContent}
         </SafeAreaView>
-        <BottomBar active={tab} onChange={setTab} />
+        <BottomBar tabs={TAB_CONFIG} active={tab} onChange={setTab} />
       </ThemedView>
+      </ActionSheetProvider>
     );
   }
 
   return (
+    <EmailProvider>
     <ThemeProvider>
+      <LocationProvider>
       <SafeAreaProvider>
         {booting ? (
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -87,6 +113,8 @@ export default function App() {
           <AuthScreen pushToken={expoPushToken} onAuthed={() => setIsAuthed(true)} />
         )}
       </SafeAreaProvider>
+      </LocationProvider>
     </ThemeProvider>
+    </EmailProvider>
   );
 }

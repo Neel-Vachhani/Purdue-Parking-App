@@ -2,6 +2,19 @@
 import { Platform } from "react-native";
 import * as Location from "expo-location";
 import { getApiBaseUrl } from "../config/env";
+import axios from "axios";
+
+export interface NearestGarage {
+  id: number;
+  code: string | null;
+  name: string | null;
+  distance_m: number;
+}
+
+export interface NearestGarageResponse {
+  found: boolean;
+  garage?: NearestGarage;
+}
 
 export interface Coordinate {
   latitude: number;
@@ -12,15 +25,58 @@ export interface TravelTimeResult {
   distance: number; // in miles
   duration: number; // in minutes
   formattedDistance: string;
-  formattedDuration: string;
+  formattedDurationCar: string;
+  formattedDurationWalk: string;
   originType?: "saved" | "current"; // Track which origin was used
+}
+
+type GoogleDistanceResult = {
+  distance_meters: number;
+  duration_seconds: number;
+};
+
+async function getGoogleDistance(
+  origin: Coordinate,
+  destination: Coordinate
+): Promise<GoogleDistanceResult | null> {
+  try {
+    const API_BASE = getApiBaseUrl();
+
+    const { data } = await axios.post<GoogleDistanceResult>(
+      `${API_BASE}/distance-matrix/`,
+      {
+        origin: {
+          latitude: origin.latitude,
+          longitude: origin.longitude,
+        },
+        destination: {
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+        },
+      },
+      { timeout: 6000 }
+    );
+
+    if (
+      typeof data.distance_meters === "number" &&
+      typeof data.duration_seconds === "number"
+    ) {
+      return data;
+    }
+
+    console.warn("Distance-matrix response missing fields:", data);
+    return null;
+  } catch (error: any) {
+    console.error("Error calling distance-matrix endpoint:", error?.response || error);
+    return null;
+  }
 }
 
 /**
  * Calculate straight-line distance between two coordinates using the Haversine formula
  * Returns distance in miles
  */
-function calculateDistance(from: Coordinate, to: Coordinate): number {
+function calculateStraightLineDistance(from: Coordinate, to: Coordinate): number {
   const R = 3959; // Earth's radius in miles
   const dLat = ((to.latitude - from.latitude) * Math.PI) / 180;
   const dLon = ((to.longitude - from.longitude) * Math.PI) / 180;
@@ -36,6 +92,50 @@ function calculateDistance(from: Coordinate, to: Coordinate): number {
   const distance = R * c;
   
   return distance;
+}
+
+export async function findNearestGarageFromCoords(
+  coords: Coordinate,
+  radiusM: number = 80
+): Promise<NearestGarageResponse | null> {
+  try {
+    const API_BASE = getApiBaseUrl();
+
+    const { data } = await axios.post<NearestGarageResponse>(
+      `${API_BASE}/nearest-garage/`,
+      {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        radius_m: radiusM,
+      },
+      {
+        timeout: 6000,
+      }
+    );
+
+    return data;
+  } catch (error: any) {
+    console.error("Axios nearest-garage error:", error?.response || error);
+    return null;
+  }
+}
+
+export async function findNearestGarageForAddress(
+  address: string,
+  radiusM: number = 80
+): Promise<NearestGarageResponse | null> {
+  try {
+    const coords = await geocodeAddress(address);
+    if (!coords) {
+      console.warn("Could not geocode address:", address);
+      return null;
+    }
+
+    return await findNearestGarageFromCoords(coords, radiusM);
+  } catch (error) {
+    console.error("Error in findNearestGarageForAddress:", error);
+    return null;
+  }
 }
 
 /**
@@ -90,6 +190,7 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
     const encodedAddress = encodeURIComponent(address.trim());
     
     console.log(`Geocoding via backend: "${address}"`);
+    console.log(encodedAddress)
     const response = await fetch(`${API_BASE}/geocode/?address=${encodedAddress}`);
     
     if (!response.ok) {
@@ -131,7 +232,7 @@ export async function calculateTravelTime(
 ): Promise<TravelTimeResult | null> {
   try {
     let originCoord: Coordinate | null;
-    
+
     // If origin is a string (address), geocode it first
     if (typeof origin === "string") {
       originCoord = await geocodeAddress(origin);
@@ -142,24 +243,37 @@ export async function calculateTravelTime(
     } else {
       originCoord = origin;
     }
-    
-    // Calculate distance
-    const distance = calculateDistance(originCoord, destination);
-    
-    // Estimate travel time
-    const duration = estimateTravelTime(distance);
-    
+
+    // Try Google Distance Matrix first
+    let distanceMiles: number;
+    let durationMinutes: number;
+
+    const googleResult = await getGoogleDistance(originCoord, destination);
+
+    if (googleResult) {
+      distanceMiles = googleResult.distance_meters / 1609.34; // meters -> miles
+      durationMinutes = googleResult.duration_seconds / 60;   // seconds -> minutes
+    } else {
+      // Fallback: straight-line distance + heuristic
+      console.warn("Falling back to Haversine distance + estimated time");
+      distanceMiles = calculateStraightLineDistance(originCoord, destination);
+      durationMinutes = estimateTravelTime(distanceMiles);
+    }
+
     return {
-      distance,
-      duration,
-      formattedDistance: formatDistance(distance),
-      formattedDuration: formatDuration(duration),
+      distance: distanceMiles,
+      duration: durationMinutes,
+      formattedDistance: formatDistance(distanceMiles),
+      formattedDurationCar: formatDuration(durationMinutes),
+      // assuming walking ~ 3mph vs 20mph driving → ~6.7x time
+      formattedDurationWalk: formatDuration(durationMinutes * 6.7),
     };
   } catch (error) {
     console.error("Error calculating travel time:", error);
     return null;
   }
 }
+
 
 /**
  * Get device's current location
@@ -209,48 +323,61 @@ export async function getTravelTimeFromDefaultOrigin(
   userEmail: string
 ): Promise<TravelTimeResult | null> {
   try {
-    // Get API base URL from environment variables
     const API_BASE = getApiBaseUrl();
-    
+
     let origin: string | Coordinate | null = null;
     let originType: "saved" | "current" = "saved";
-    
-    // Try to fetch user's saved starting location
+
+    // 1. Try to fetch user's saved starting location
     try {
-      const response = await fetch(`${API_BASE}/user/origin/?email=${encodeURIComponent(userEmail)}`);
-      
+      const response = await fetch(
+        `${API_BASE}/user/origin/?email=${encodeURIComponent(userEmail)}`
+      );
+
       if (response.ok) {
         const data = await response.json();
         const savedOrigin = data?.default_origin;
-        
+
         if (savedOrigin && savedOrigin.trim() !== "") {
           origin = savedOrigin;
+          originType = "saved";
           console.log(`Using saved starting location: ${savedOrigin}`);
         }
       }
     } catch (error) {
       console.warn("Failed to fetch saved location:", error);
     }
-    
-    // If no saved origin, don't show travel time (User Story #9 - AC4)
+
+    // 2. Fallback to current location if no saved origin
     if (!origin) {
-      console.log("No saved starting location - not displaying travel time (per AC4)");
-        return null;
+      console.log("No saved starting location, using current location instead");
+
+      const currentLocation = await getCurrentLocation();
+      if (currentLocation) {
+        origin = currentLocation;
+        originType = "current";
+      }
     }
-    
-    // Calculate travel time
+
+    // 3. If still no origin, do not show travel time
+    if (!origin) {
+      console.log("No origin available (saved or current) – not displaying travel time");
+      return null;
+    }
+
+    // 4. Calculate travel time
     const result = await calculateTravelTime(origin, destination);
-    
-    if (result) {
-      console.log(`Travel time from ${originType} location: ${result.formattedDuration} (${result.formattedDistance})`);
-      // Add originType to the result
-      return {
-        ...result,
-        originType
-      };
-    }
-    
-    return null;
+
+    if (!result) return null;
+
+    console.log(
+      `Travel time from ${originType} location: ${result.formattedDurationCar} (${result.formattedDistance})`
+    );
+
+    return {
+      ...result,
+      originType,
+    };
   } catch (error) {
     console.error("Error getting travel time:", error);
     return null;

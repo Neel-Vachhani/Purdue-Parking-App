@@ -1,7 +1,8 @@
 // screens/Calender/Calender.tsx
 import React from "react";
 import { View } from "react-native";
+import CalenderView from "../../components/CalenderView";
 
 export default function Calendar() {
-  return <View style={{ flex: 1 }} />;
+  return <CalenderView></CalenderView>
 }

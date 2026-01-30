@@ -22,7 +22,6 @@ type ParkingLot = {
 
 type ApiLot = Pick<ParkingLot, "id" | "name"> &
   Partial<Pick<ParkingLot, "available" | "capacity">>;
-    const theme = React.useContext(ThemeContext);
 
 const INITIAL_PARKING_LOTS: ParkingLot[] = [
   {
@@ -103,6 +102,7 @@ const getApiBaseUrl = (): string => {
 };
 
 export default function ParkingListScreen() {
+  const theme = React.useContext(ThemeContext);
   const [parkingLots, setParkingLots] = useState<ParkingLot[]>(
     INITIAL_PARKING_LOTS
   );
@@ -333,7 +333,7 @@ export default function ParkingListScreen() {
                     color={theme.mode === "dark" ? "#9ca3af" : "#6b7280"} 
                   />
                   <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }}>
-                    {lot.travelTime.formattedDuration} ({lot.travelTime.formattedDistance})
+                    {lot.travelTime.formattedDurationCar} ({lot.travelTime.formattedDistance})
                   </ThemedText>
                 </View>
               )}
@@ -351,10 +351,6 @@ export default function ParkingListScreen() {
           </ThemedView>
         </ThemedView>
       ))}
-
-      <ThemedText style={{ fontSize: 14, color: theme.mode === "dark" ? "#9ca3af" : "#6b7280", textAlign: "center", marginTop: 24 }}>
-        Last Updated: {currentTime}
-      </ThemedText>
     </ThemedView>
   );
 }

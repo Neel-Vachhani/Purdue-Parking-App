@@ -58,9 +58,10 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         style={[
           styles.fab,
           {
-            backgroundColor: theme.mode === "dark" ? "#1f1f1f" : "#FFFFFF",
-            borderWidth: theme.mode === "dark" ? 0 : 1,
-            borderColor: "rgba(0,0,0,0.12)",
+            backgroundColor: theme.surface,
+            borderWidth: 1,
+            borderColor: theme.border,
+            shadowColor: theme.shadow,
           },
         ]}
         onPress={() => mapRef.current?.animateToRegion(INITIAL_REGION, 600)}
@@ -68,23 +69,6 @@ export default function ParkingMap({ children, initialRegion }: ParkingMapProps)
         {/* Purdue gold icon for brand consistency */}
         <MaterialIcons name="my-location" size={22} color={theme.primary} />
       </Pressable>
-      {/*
-      <GooglePlacesTextInput 
-        apiKey="APIKEY"//TODO
-        placeHolderText="Search for a garage"
-        fetchDetails={true}
-        types={["parking"]}
-        detailsFields={['formattedAddress', 'location']}
-        locationRestriction={{
-          rectangle: {
-            low: { latitude: 40.39286, longitude: -86.954622},
-            high: { latitude: 40.466874, longitude: -86.871755 }
-          }
-        }}
-        onPlaceSelect={ handlePlaceSelect }  >
-
-        </GooglePlacesTextInput>     
-        */}
         <StyledGooglePlacesTextInput></StyledGooglePlacesTextInput>
     </View>
   );
@@ -99,12 +83,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#1f1f1f",
-    opacity: 0.9,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,

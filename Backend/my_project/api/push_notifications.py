@@ -10,6 +10,17 @@ import requests
 from requests.exceptions import ConnectionError, HTTPError
 import rollbar
 
+ROLLBAR_TOKEN = os.getenv("ROLLBAR_ACCESS_TOKEN")
+ROLLBAR_ENV = os.getenv("ROLLBAR_ENV", os.getenv("ENVIRONMENT", "development"))
+
+if ROLLBAR_TOKEN:
+    rollbar.init(ROLLBAR_TOKEN, environment=ROLLBAR_ENV)
+
+
+def _report_exc(extra_data=None):
+    if ROLLBAR_TOKEN:
+        rollbar.report_exc_info(extra_data=extra_data)
+
 # Optionally providing an access token within a session if you have enabled push security
 session = requests.Session()
 session.headers.update(
@@ -33,7 +44,7 @@ def send_push_message(token, message, extra=None):
                         data=extra))
     except PushServerError as exc:
         # Encountered some likely formatting/validation error.
-        rollbar.report_exc_info(
+        _report_exc(
             extra_data={
                 'token': token,
                 'message': message,
@@ -45,9 +56,8 @@ def send_push_message(token, message, extra=None):
     except (ConnectionError, HTTPError) as exc:
         # Encountered some Connection or HTTP error - retry a few times in
         # case it is transient.
-        rollbar.report_exc_info(
-            extra_data={'token': token, 'message': message, 'extra': extra})
-        raise self.retry(exc=exc)
+        _report_exc(extra_data={'token': token, 'message': message, 'extra': extra})
+        raise
 
     try:
         # We got a response back, but we don't know whether it's an error yet.
@@ -60,11 +70,11 @@ def send_push_message(token, message, extra=None):
         User.objects.filter(notification_token=token).update(notification_token=None)
     except PushTicketError as exc:
         # Encountered some other per-notification error.
-        rollbar.report_exc_info(
+        _report_exc(
             extra_data={
                 'token': token,
                 'message': message,
                 'extra': extra,
                 'push_response': exc.push_response._asdict(),
             })
-        raise self.retry(exc=exc)
+        raise

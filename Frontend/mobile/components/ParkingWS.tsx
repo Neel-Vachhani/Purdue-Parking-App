@@ -1,28 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { emitParkingUpdate } from '../utils/parkingEvents';
 
 const ParkingWS: React.FC = () => {
   const [counters, setCounters] = useState<Record<string, number>>({});
   const [status, setStatus] = useState<string>('Connecting...');
+  const [lastUpdate, setLastUpdate] = useState<string>('');
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectDelayRef = useRef<number>(1000);
 
   const getWebSocketUrl = (): string => {
-    let host = 'localhost';
+    // if (__DEV__) {
+    //   // Local dev
+    //   let host: string;
 
-    if (Platform.OS === 'android') {
-      host = '10.0.2.2';
-    } else if (Platform.OS === 'ios') {
-      const debuggerHost = Constants.expoConfig?.hostUri;
-      if (debuggerHost) {
-        host = debuggerHost.split(':')[0];
-      }
-    }
+    //   if (Platform.OS === 'android') {
+    //     // Android emulator talking to your laptop
+    //     host = '10.0.2.2';
+    //   } else {
+    //     // iOS simulator OR physical device on same Wi-Fi
+    //     // use your laptop's LAN IP here if the backend is local
+    //     host = '10.165.14.186'; // <- change to your actual local IP
+    //   }
 
-    return `ws://${host}:8000/ws/parking/`;
+    //   return `ws://${host}:8000/ws/parking/`;
+    // }
+
+    // Production (Render)
+    return 'wss://purdue-parking-app.onrender.com/ws/parking/';
   };
+
 
   const connect = () => {
     const wsUrl = getWebSocketUrl();
@@ -44,16 +53,15 @@ const ParkingWS: React.FC = () => {
 
         if (message?.type === 'parking_update' && message.data?.lot) {
           const { lot, count } = message.data;
-          
+          const normalizedLot = typeof lot === 'string' ? lot.toUpperCase() : lot;
+
           setCounters((prev) => ({
             ...prev,
-            [lot]: count,
+            [normalizedLot]: count,
           }));
 
-          Alert.alert(
-            'Parking Update',
-            `${lot}: ${count} spots available`
-          );
+          emitParkingUpdate({ lot: normalizedLot, count });
+          setLastUpdate(new Date().toLocaleTimeString());
         }
       } catch (error) {
         console.error('[WebSocket] Parse error:', error);
@@ -93,6 +101,9 @@ const ParkingWS: React.FC = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.status}>WebSocket: {status}</Text>
+      {!!lastUpdate && (
+        <Text style={styles.status}>Last update: {lastUpdate}</Text>
+      )}
       {Object.entries(counters).map(([lot, count]) => (
         <Text key={lot} style={styles.counter}>
           {lot}: {count}

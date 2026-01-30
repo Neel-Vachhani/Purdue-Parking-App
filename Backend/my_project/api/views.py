@@ -3,6 +3,7 @@ import re
 from statistics import mean
 from typing import List, Dict, Any, Optional
 from django.db import connection
+from django.db.models import Count
 
 
 import bcrypt
@@ -15,16 +16,28 @@ from redis.exceptions import RedisError
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent
-from .serializers import ItemSerializer, UserSerializer, LotEventSerializer, NotificationLogSerializer
+from boiler_park_backend.models import Item, User, LotEvent, NotificationLog, CalendarEvent, ParkingLot, UserPark, GarageIssueReport
+from .serializers import (
+    ItemSerializer,
+    UserSerializer,
+    LotEventSerializer,
+    NotificationLogSerializer,
+    UserParkSerializer,
+    GarageIssueReportSerializer,
+    FavoriteLotAlertPreferenceSerializer,
+)
 from .services import verify_apple_identity, issue_session_token
 from django.utils.timezone import make_aware
+from math import radians, sin, cos, sqrt, atan2
+from rest_framework.permissions import AllowAny
 
 import jwt
 from datetime import datetime, timedelta, time, date
 import icalendar
 from io import BytesIO
 from django.utils.dateparse import parse_datetime
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +186,57 @@ def get_postgres_connection():
         user=config('DB_USERNAME'),
         password=config('DB_PASSWORD')
     )
+
+
+@api_view(['POST'])
+def user_insights(request):
+    """
+    Returns parking insights for a given user.
+    POST body: {"email": "user@example.com"}
+    """
+    email = request.data.get("email")
+
+    if not email:
+        return Response({"success": False, "error": "email is required"}, status=400)
+
+    try:
+        # Check user exists
+        user = User.objects.get(email=email)
+
+        # Total parking sessions
+        total_parks = UserPark.objects.filter(user=user).count()
+
+        # Most visited lots
+        lot_counts = (
+            UserPark.objects.filter(user=user)
+            .values('lot__code', 'lot__name')
+            .annotate(visits=Count('id'))
+            .order_by('-visits')
+        )
+
+        # Visits per day of week
+        day_counts = (
+            UserPark.objects.filter(user=user)
+            .values('day_of_week')
+            .annotate(visits=Count('id'))
+            .order_by('day_of_week')
+        )
+
+        insights = {
+            "total_parks": total_parks,
+            "most_visited_lots": list(lot_counts),
+            "visits_per_day": list(day_counts),
+        }
+
+        return Response({"success": True, "insights": insights})
+
+    except User.DoesNotExist:
+        return Response({"success": False, "error": "User not found"}, status=404)
+
+    except Exception as e:
+        return Response({"success": False, "error": str(e)}, status=500)
+
+
 @api_view(['POST'])
 def upload_ics_events(request):
     """
@@ -191,7 +255,6 @@ def upload_ics_events(request):
     saved_events = []
     event_count = 0
     MAX_EVENTS = 10
-
 
     for component in cal.walk():
         if component.name != "VEVENT":
@@ -234,7 +297,6 @@ def upload_ics_events(request):
         else:
             raise ValueError("Unknown end type")
         dates = [start_date]
-
 
         title = str(component.get('summary', ''))
         description = str(component.get('description', ''))[:200]
@@ -280,7 +342,6 @@ def list_calendar_events(request):
         for e in events
     ]
     return Response({"events": serialized_events})
-
 
 
 @api_view(["GET"])
@@ -339,10 +400,12 @@ def get_postgres_parking_data(request):
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
-
+    print(rows)
     # Format results as list of dicts
     results = [{"id": r[0], "timestamp": r[1], "availability": r[2]}
                for r in rows]
+    print("\nResults")
+    print(results)
     return Response(results)
 
 
@@ -384,7 +447,8 @@ def get_hourly_average_parking(request):
             return Response({"error": "Invalid 'weekday' parameter."}, status=400)
         weekday_index = weekdays_map[weekday_param]
 
-    lot_entry = next((lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
+    lot_entry = next(
+        (lot for lot in PARKING_LOTS if lot["code"].lower() == lot_code.lower()), None)
     if not lot_entry:
         return Response({"error": f"Lot '{lot_code}' not found."}, status=404)
 
@@ -419,7 +483,8 @@ def get_hourly_average_parking(request):
     for ts, avail in rows:
         # Make sure ts is a datetime object
         if isinstance(ts, str):
-            ts = datetime.fromisoformat(ts)  # or use strptime depending on format
+            # or use strptime depending on format
+            ts = datetime.fromisoformat(ts)
 
         if ts.hour == hour and (weekday_index is None or ts.weekday() == weekday_index):
             filtered.append(int(avail))
@@ -435,7 +500,6 @@ def get_hourly_average_parking(request):
         "weekday": weekday_param or "all_days",
         "average_availability": avg_availability
     })
-
 
 
 @api_view(['GET'])
@@ -539,19 +603,304 @@ def apple_sign_in(request):
     )
 
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_sign_in(request):
+    id_token_value = request.data.get("id_token")
+    if not id_token_value:
+        return Response({"detail": "id_token is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        payload = google_id_token.verify_oauth2_token(
+            id_token_value,
+            google_requests.Request(),
+        )
+    except ValueError as exc:
+        return Response({"detail": f"Invalid Google token: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
+
+    email = payload.get("email")
+    if not email:
+        return Response({"detail": "Google token missing email"}, status=status.HTTP_400_BAD_REQUEST)
+
+    full_name = payload.get("name", "")
+    first_name = payload.get("given_name", "")
+    last_name = payload.get("family_name", "")
+
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        user = User(
+            email=email,
+            name=full_name or email,
+            password="abc",
+            parking_pass="a",
+        )
+        user.save()
+    else:
+        updated_fields = []
+        if not getattr(user, "name", None) and full_name:
+            user.name = full_name
+            updated_fields.append("name")
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+
+    push_token = request.data.get("push_token")
+    if push_token:
+        user.notification_token = push_token
+        user.save(update_fields=["notification_token"])
+
+    token = issue_session_token(user)
+
+    return Response(
+        {
+            "token": token if isinstance(token, str) else token.get("access", token),
+            "user": {
+                "id": user.id,
+                "email": getattr(user, "email", None),
+                "first_name": first_name or getattr(user, "first_name", ""),
+                "last_name": last_name or getattr(user, "last_name", ""),
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
 @api_view(['GET'])
 def get_data(request):
-    items = Item.objects.all()
-    serializer = ItemSerializer(items, many=True)
+    users = User.objects.all()
+    serializer = UserSerializer(users, many=True)
     return Response(serializer.data)
 
 
 @api_view(['POST'])
-def add_item(request):
-    serializer = ItemSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-    return Response(serializer.data)
+def get_user(request):
+    email = request.data.get('email')
+    user = User.objects.filter(email=email).first()
+    return (Response(UserSerializer(user).data))
+
+
+LOT_CAPACITY_MAP = {
+    "pgh": 240, "pgg": 240, "pgu": 240, "pgnw": 240, "pgmd": 240, "pgw": 240,
+    "pggh": 240, "pgm": 240, "lot_r": 120, "lot_h": 80, "lot_fb": 100, "kfpc": 100,
+    "lot_a": 120, "crec": 150, "lot_o": 100, "tark_wily": 100, "lot_aa": 100,
+    "lot_bb": 80, "wnd_krach": 100, "shrv_erht_mrdh": 120, "mcut_harr_hill": 100,
+    "duhm": 60, "pierce_st": 100, "smth_bchm": 120, "disc_a": 100, "disc_ab": 100,
+    "disc_abc": 100, "airport": 80,
+}
+
+
+@api_view(['POST'])
+def create_parking_log(request):
+    email = request.data.get("email")
+    lot_code = request.data.get("code")
+    # Get the timestamp from request
+    timestamp_str = request.data.get('timestamp')
+    # Parse the ISO timestamp string to a datetime object
+    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+    print(timestamp)
+    print(email)
+    print(lot_code)
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    print(user)
+    try:
+        lot = ParkingLot.objects.get(code=lot_code)
+    except ParkingLot.DoesNotExist:
+        return Response({"error": "Lot not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    log = UserPark.objects.create(user=user, lot=lot, timestamp=timestamp)
+    log.save()
+
+    return Response({"success": True, "message": "Parking log saved."})
+
+
+@api_view(["GET"])
+def get_parking_comparison(request):
+    """
+    Compare multiple parking lots with detailed metrics.
+    Used by User Story #8 - Compare insights from 2 or more garages.
+
+    Query Parameters:
+        lots (str): Comma-separated list of lot codes (e.g., "pgh,pgg,pgu")
+        period (str): Time period - "day" (24h) or "week" (7 days). Default: "day"
+
+    Returns:
+        {
+            "comparisons": [
+                {
+                    "lot_code": "pgh",
+                    "lot_name": "Harrison Street Parking Garage",
+                    "current_occupancy": 180,
+                    "total_capacity": 240,
+                    "occupancy_percentage": 75.0,
+                    "available_spots": 60,
+                    "hourly_averages": [45, 50, 55, ...],  # 24 values for hourly avg availability
+                    "peak_hour": 14,  # Hour with highest occupancy (0-23)
+                    "average_occupancy": 67.5  # Average occupancy % over period
+                },
+                ...
+            ],
+            "period": "day",
+            "timestamp": "2025-01-20T10:30:00Z"
+        }
+
+    Example:
+        GET /api/parking/comparison?lots=pgh,pgg,pgu&period=day
+    """
+    from statistics import mean
+
+    # Parse query parameters
+    lots_param = request.GET.get("lots", "")
+    period = request.GET.get("period", "day").lower()
+    if not lots_param:
+        return Response(
+            {"error": "Missing 'lots' query parameter. Use comma-separated lot codes (e.g., 'pgh,pgg,pgu')"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if period not in ["day", "week"]:
+        return Response(
+            {"error": "Invalid period. Must be 'day' or 'week'."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Parse lot codes
+    lot_codes = [code.strip().upper() for code in lots_param.split(",")]
+    if len(lot_codes) > 4:
+        return Response(
+            {"error": "Maximum 4 lots can be compared at once."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Validate lot codes and get lot info
+    comparisons = []
+    invalid_lots = []
+
+    for lot_code in lot_codes:
+        lot_entry = next(
+            (lot for lot in PARKING_LOTS if lot["code"].upper() == lot_code),
+            None
+        )
+        if not lot_entry:
+            invalid_lots.append(lot_code)
+            continue
+
+        try:
+            # Get historical data from Postgres
+            conn = get_postgres_connection()
+            cursor = conn.cursor()
+
+            column_name = lot_entry["redis_key"]
+
+            # Determine time interval
+            interval = "1 day" if period == "day" else "7 days"
+
+            query = f"""
+                SELECT timestamp, {column_name}
+                FROM parking_availability_data
+                WHERE timestamp >= NOW() - INTERVAL '{interval}'
+                ORDER BY timestamp ASC;
+            """
+
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            if not rows:
+                logger.warning(f"No data found for lot {lot_code}")
+                continue
+
+            # Get total capacity (you may need to add this to PARKING_LOTS or fetch from DB)
+            # Using default 240 for garages, adjust based on your actual data
+            total_capacity = LOT_CAPACITY_MAP.get(lot_code.lower(), 240)
+
+            # Get current availability from Redis
+            try:
+                redis_client = _redis_connection()
+                current_availability = _parse_int(
+                    redis_client.get(lot_entry["redis_key"])) or 0
+            except RedisError:
+                # Fallback to latest Postgres value
+                current_availability = int(rows[-1][1]) if rows else 0
+
+            current_occupancy = max(total_capacity - current_availability, 0)
+            occupancy_percentage = round(
+                (current_occupancy / total_capacity) * 100, 1)
+
+            # Calculate hourly averages (for 24-hour view)
+            hourly_data = {}  # hour -> list of availability values
+
+            for timestamp, availability in rows:
+                if isinstance(timestamp, str):
+                    timestamp = datetime.fromisoformat(timestamp)
+
+                hour = timestamp.hour
+                if hour not in hourly_data:
+                    hourly_data[hour] = []
+                hourly_data[hour].append(int(availability))
+
+            # Calculate average availability for each hour
+            hourly_averages = []
+            for hour in range(24):
+                if hour in hourly_data:
+                    avg = mean(hourly_data[hour])
+                else:
+                    avg = 0  # No data for this hour
+                hourly_averages.append(round(avg, 1))
+
+            # Calculate hourly occupancy percentages
+            hourly_occupancy = [
+                round(((total_capacity - avg) / total_capacity) * 100, 1)
+                for avg in hourly_averages
+            ]
+
+            # Find peak hour (highest occupancy)
+            peak_hour = hourly_occupancy.index(
+                max(hourly_occupancy)) if hourly_occupancy else 0
+
+            # Calculate average occupancy over the period
+            all_availability = [int(row[1]) for row in rows]
+            avg_availability = mean(all_availability)
+            average_occupancy = round(
+                ((total_capacity - avg_availability) / total_capacity) * 100, 1)
+
+            comparisons.append({
+                "lot_code": lot_code.lower(),
+                "lot_name": lot_entry["name"],
+                "current_occupancy": total_capacity - current_occupancy,
+                "total_capacity": total_capacity,
+                "occupancy_percentage": occupancy_percentage,
+                "available_spots": current_availability,
+                "hourly_averages": hourly_averages,  # Average availability for each hour
+                "hourly_occupancy": hourly_occupancy,  # Average occupancy % for each hour
+                "peak_hour": peak_hour,
+                "average_occupancy": average_occupancy
+            })
+
+        except Exception as e:
+            logger.error(
+                f"Error fetching comparison data for lot {lot_code}: {str(e)}")
+            continue
+
+    if invalid_lots:
+        return Response(
+            {"error": f"Invalid lot codes: {', '.join(invalid_lots)}"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if not comparisons:
+        return Response(
+            {"error": "No data available for the requested lots"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    return Response({
+        "comparisons": comparisons,
+        "period": period,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -633,7 +982,7 @@ def log_in(request):
 def user_origin(request):
     """Get or set the user's default origin address.
 
-    GET:  /user/origin/?email=<email>
+    GET:  /api/user/origin/?email=<email>
     POST: { email, default_origin }
     """
     email = request.data.get(
@@ -652,6 +1001,33 @@ def user_origin(request):
     user.default_origin = default_origin
     user.save(update_fields=["default_origin"])
     return Response({"status": "ok", "default_origin": user.default_origin})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def get_location(request):
+    """Get or set the user's other location address.
+
+    GET:  /api/user/origin/?email=<email>
+    POST: { email, location }
+    """
+    email = request.data.get(
+        "email") if request.method == 'POST' else request.query_params.get("email")
+    if not email:
+        return Response({"detail": "email required"}, status=400)
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        print("here")
+        return Response({"detail": "user not found"}, status=404)
+
+    if request.method == 'GET':
+        return Response({"other_location": getattr(user, "other_location", None)})
+
+    other_location = request.data.get("other_location", "")
+    user.other_location = other_location
+    user.save(update_fields=["other_location"])
+    return Response({"status": "ok", "other_location": user.other_location})
 
 
 @api_view(['POST'])
@@ -869,6 +1245,53 @@ def notify_upcoming_closures(request):
     return Response({"queued": True, "lot": lot, "date": date})
 
 
+@api_view(['POST'])
+def send_user_rating(request):
+    """Send user rating too the backend and then update it"""
+    parking_lot = ParkingLot.objects.get(code=request.data.get("code"))
+    user_rating = float(request.data.get("user_rating"))
+    if parking_lot:
+        total_rating = parking_lot.rating
+        num_of_ratings = int(parking_lot.num_of_ratings)
+        num_of_ratings += 1
+        total_rating += user_rating
+        new_avg_rating = total_rating / num_of_ratings
+        parking_lot.rating = total_rating
+        parking_lot.num_of_ratings = num_of_ratings
+        parking_lot.save(update_fields=["rating", "num_of_ratings"])
+    return (Response({"rating": new_avg_rating}))
+
+
+@api_view(['POST'])
+def get_garage_rating(request):
+    parking_lot = ParkingLot.objects.get(code=request.data.get("code"))
+    total_rating = parking_lot.rating
+    num_of_ratings = parking_lot.num_of_ratings
+    if num_of_ratings != 0:
+        avg_rating = total_rating / num_of_ratings
+        print(avg_rating)
+        return Response({"avg_rating": avg_rating})
+    else:
+        return Response({"avg_rating": 0})
+
+
+@api_view(['POST'])
+def update_specific_rating(request):
+    email = request.data.get(
+        "email") if request.method == 'POST' else request.query_params.get("email")
+    if not email:
+        return Response({"detail": "email required"}, status=400)
+
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response({"detail": "user not found"}, status=404)
+    code = request.data.get("code")
+    user_rating = float(request.data.get("user_rating"))
+    user.lot_ratings['codes'][code] = user_rating
+    user.save()
+    return Response({"status": "Successfully saved"})
+
+
 @api_view(['GET'])
 def notification_history(request):
     """
@@ -993,7 +1416,7 @@ def closure_notifications_toggle(request):
     Get or set user's closure notification preference.
     Used by User Story #11 - Opt-in/opt-out for closure alerts.
 
-    GET:  /closure-notifications/?email=<email>
+    GET:  /api/closure-notifications/?email=<email>
     POST: { email, enabled: true/false }
 
     Returns:
@@ -1022,6 +1445,65 @@ def closure_notifications_toggle(request):
         "status": "ok",
         "closure_notifications_enabled": user.closure_notifications_enabled
     })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def favorite_lot_alert_preferences(request):
+    """Get or update favorite-lot availability alert settings (User Story #4)."""
+
+    if request.method == 'GET':
+        email = request.query_params.get('email')
+        if not email:
+            return Response({"detail": "email required"}, status=400)
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response({"detail": "user not found"}, status=404)
+        return Response({
+            "favoriteLotAlerts": user.favorite_lot_alerts_enabled,
+            "favoriteLotThreshold": user.favorite_lot_threshold,
+            "cooldownMinutes": user.favorite_lot_cooldown_minutes,
+        })
+
+    serializer = FavoriteLotAlertPreferenceSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+
+    email = data['email']
+    user = User.objects.filter(email=email).first()
+    if not user:
+        return Response({"detail": "user not found"}, status=404)
+
+    updated_fields = []
+
+    alerts_enabled = data.get('favoriteLotAlerts')
+    if alerts_enabled is not None and alerts_enabled != user.favorite_lot_alerts_enabled:
+        user.favorite_lot_alerts_enabled = alerts_enabled
+        updated_fields.append('favorite_lot_alerts_enabled')
+
+    new_threshold = data.get('favoriteLotThreshold')
+    if new_threshold is not None and new_threshold != user.favorite_lot_threshold:
+        user.favorite_lot_threshold = new_threshold
+        user.favorite_lot_last_notified = {}
+        updated_fields.extend(
+            ['favorite_lot_threshold', 'favorite_lot_last_notified'])
+
+    new_cooldown = data.get('cooldownMinutes')
+    if new_cooldown is not None and new_cooldown != user.favorite_lot_cooldown_minutes:
+        user.favorite_lot_cooldown_minutes = new_cooldown
+        updated_fields.append('favorite_lot_cooldown_minutes')
+
+    if updated_fields:
+        # Deduplicate while preserving order
+        unique_fields = list(dict.fromkeys(updated_fields))
+        user.save(update_fields=unique_fields)
+
+    return Response({
+        "favoriteLotAlerts": user.favorite_lot_alerts_enabled,
+        "favoriteLotThreshold": user.favorite_lot_threshold,
+        "cooldownMinutes": user.favorite_lot_cooldown_minutes,
+    })
+
 
 def _compute_totals(levels):
     total = sum(l["total"] for l in levels)
@@ -1298,57 +1780,81 @@ def list_shade_cover_indicators(request):
     return Response({"garages": results}, status=status.HTTP_200_OK)
 
 
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def garage_reports(request):
+    """Create or list garage issue reports submitted by users."""
+
+    if request.method == 'POST':
+        serializer = GarageIssueReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        report = serializer.save()
+        return Response(GarageIssueReportSerializer(report).data, status=status.HTTP_201_CREATED)
+
+    limit = min(int(request.query_params.get('limit', 50)), 200)
+    lot_code = request.query_params.get('lot_code')
+
+    reports = GarageIssueReport.objects.all()
+    if lot_code:
+        reports = reports.filter(lot_code__iexact=lot_code)
+
+    reports = reports[:limit]
+    return Response(GarageIssueReportSerializer(reports, many=True).data)
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def geocode_address(request):
     """
     Geocode an address to lat/lng coordinates using Google Maps API.
     This endpoint acts as a secure proxy to keep the API key on the backend.
-    
+
     GET params:
         address: The address to geocode (e.g., "Memorial Union" or "201 Grant St, West Lafayette, IN")
-    
+
     Returns:
         {
             "latitude": float,
             "longitude": float,
             "formatted_address": str
         }
-    
+
     User Story #9 - AC3: Travel time calculation from saved starting location
     """
     address = request.GET.get('address', '').strip()
-    
+
     if not address:
         return Response(
-            {"error": "Address parameter is required"}, 
+            {"error": "Address parameter is required"},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     # Get API key from environment variables (kept secure on backend)
     api_key = config('GOOGLE_MAPS_API_KEY', default='')
+    print(api_key)
     if not api_key:
-        logger.error("GOOGLE_MAPS_API_KEY not configured in backend environment")
+        logger.error(
+            "GOOGLE_MAPS_API_KEY not configured in backend environment")
         return Response(
-            {"error": "Geocoding service not configured"}, 
+            {"error": "Geocoding service not configured"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE
         )
-    
+
     try:
         # Add West Lafayette context for Purdue-area addresses if needed
         search_address = address
         lower_address = address.lower()
-        
+
         # Check if address already has location context
         has_city = ',' in address
         has_state = bool(re.search(r'\b(in|indiana)\b', lower_address))
         has_zip = bool(re.search(r'\b\d{5}\b', address))
-        
+
         # Add context for incomplete addresses
         if not has_city and not has_state and not has_zip and 'lafayette' not in lower_address:
             # For Purdue buildings/landmarks, add university context
             purdue_keywords = [
-                'purdue', 'memorial union', 'lawson', 'krannert', 
+                'purdue', 'memorial union', 'lawson', 'krannert',
                 'stewart center', 'pmucorr', 'recwell', 'corec'
             ]
             if any(keyword in lower_address for keyword in purdue_keywords):
@@ -1359,7 +1865,7 @@ def geocode_address(request):
                 logger.info(f"Geocoding with added context: {search_address}")
         else:
             logger.info(f"Geocoding: {search_address}")
-        
+
         # Call Google Maps Geocoding API
         geocode_url = "https://maps.googleapis.com/maps/api/geocode/json"
         params = {
@@ -1368,16 +1874,17 @@ def geocode_address(request):
             'bounds': '40.39286,-86.954622|40.466874,-86.871755',  # West Lafayette bounds
             'region': 'us'
         }
-        
+
         response = requests.get(geocode_url, params=params, timeout=5)
         data = response.json()
-        
+
         if data['status'] == 'OK' and data.get('results'):
             location = data['results'][0]['geometry']['location']
             formatted_address = data['results'][0]['formatted_address']
-            
-            logger.info(f"✅ Geocoded '{address}' to ({location['lat']}, {location['lng']})")
-            
+
+            logger.info(
+                f"✅ Geocoded '{address}' to ({location['lat']}, {location['lng']})")
+
             return Response({
                 'latitude': location['lat'],
                 'longitude': location['lng'],
@@ -1389,16 +1896,186 @@ def geocode_address(request):
             return Response({
                 'error': f"Could not geocode address: {error_msg}"
             }, status=status.HTTP_404_NOT_FOUND)
-            
+
     except requests.Timeout:
         logger.error(f"Geocoding timeout for address: {address}")
         return Response(
-            {"error": "Geocoding service timeout"}, 
+            {"error": "Geocoding service timeout"},
             status=status.HTTP_504_GATEWAY_TIMEOUT
         )
     except Exception as e:
         logger.error(f"Geocoding error for '{address}': {str(e)}")
         return Response(
-            {"error": "Geocoding service unavailable"}, 
+            {"error": "Geocoding service unavailable"},
             status=status.HTTP_503_SERVICE_UNAVAILABLE
         )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def nearest_garage_from_location(request):
+    """
+    Given a latitude/longitude, return the nearest garage within a given radius.
+
+    Body (JSON):
+      {
+        "latitude": 40.424123,
+        "longitude": -86.914321,
+        "radius_m": 80   # optional, default 80 meters
+      }
+
+    Response if a nearby garage is found:
+      {
+        "found": true,
+        "garage": {
+          "id": 3,
+          "code": "PGU",
+          "name": "University Street Parking Garage",
+          "distance_m": 35.4
+        }
+      }
+
+    Response if none are within radius:
+      {
+        "found": false
+      }
+    """
+    try:
+        lat = request.data.get("latitude")
+        lng = request.data.get("longitude")
+        radius_m = float(request.data.get("radius_m", 80))  # default ~80m
+
+        if lat is None or lng is None:
+            return Response(
+                {"detail": "latitude and longitude are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_lat = float(lat)
+        user_lng = float(lng)
+
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "latitude and longitude must be numeric"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Haversine distance (meters)
+    def _distance_m(lat1, lon1, lat2, lon2):
+        R = 6371000.0  # Earth radius in meters
+        phi1 = radians(lat1)
+        phi2 = radians(lat2)
+        d_phi = radians(lat2 - lat1)
+        d_lambda = radians(lon2 - lon1)
+
+        a = (
+            sin(d_phi / 2) ** 2
+            + cos(phi1) * cos(phi2) * sin(d_lambda / 2) ** 2
+        )
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return R * c
+
+    garages = ParkingLot.objects.all()
+
+    nearest = None
+    nearest_dist = None
+
+    for lot in garages:
+        # Adjust these attribute names if your model is different
+        lot_lat = getattr(lot, "lat", None)
+        lot_lng = getattr(lot, "lon", None)
+
+        if lot_lat is None or lot_lng is None:
+            continue
+
+        try:
+            lot_lat = float(lot_lat)
+            lot_lng = float(lot_lng)
+        except (TypeError, ValueError):
+            continue
+
+        d = _distance_m(user_lat, user_lng, lot_lat, lot_lng)
+
+        if d <= radius_m and (nearest is None or d < nearest_dist):
+            nearest = lot
+            nearest_dist = d
+
+    if not nearest:
+        # No garage within radius
+        return Response({"found": False}, status=status.HTTP_200_OK)
+
+    return Response(
+        {
+            "found": True,
+            "garage": {
+                "id": nearest.id,
+                "code": getattr(nearest, "code", None),
+                "name": getattr(nearest, "name", None),
+                "distance_m": round(nearest_dist, 2),
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def distance_matrix(request):
+  """
+  Request body:
+  {
+    "origin": { "latitude": 40.42, "longitude": -86.92 },
+    "destination": { "latitude": 40.43, "longitude": -86.91 }
+  }
+  """
+  api_key = config('GOOGLE_MAPS_API_KEY', default='')
+  if not api_key:
+    return Response(
+      {"error": "Google Maps API key not configured"},
+      status=status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+  try:
+    origin = request.data.get("origin")
+    destination = request.data.get("destination")
+
+    if not origin or not destination:
+      return Response({"error": "origin and destination required"}, status=400)
+
+    origin_str = f"{origin['latitude']},{origin['longitude']}"
+    dest_str   = f"{destination['latitude']},{destination['longitude']}"
+
+    resp = requests.get(
+      "https://maps.googleapis.com/maps/api/distancematrix/json",
+      params={
+        "origins": origin_str,
+        "destinations": dest_str,
+        "mode": "driving",
+        "units": "imperial",
+        "key": api_key,
+      },
+      timeout=5,
+    )
+    data = resp.json()
+
+    if data.get("status") != "OK":
+      return Response({"error": data.get("error_message", "Google error")}, status=502)
+
+    row = data["rows"][0]["elements"][0]
+    if row.get("status") != "OK":
+      return Response({"error": row.get("status", "No route")}, status=502)
+
+    distance_meters = row["distance"]["value"]
+    duration_seconds = row["duration"]["value"]
+
+    return Response(
+      {
+        "distance_meters": distance_meters,
+        "duration_seconds": duration_seconds,
+      }
+    )
+  except Exception as e:
+    return Response({"error": str(e)}, status=500)
+
+

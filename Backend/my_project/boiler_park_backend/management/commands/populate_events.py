@@ -9,7 +9,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.WARNING('Starting to populate events...'))
-        
+
         # Football games affecting parking
         football_events = [
             {
@@ -25,7 +25,7 @@ class Command(BaseCommand):
                 "end_time": "2025-11-28 23:30:00",
             },
         ]
-        
+
         # Men's Basketball games affecting parking (Nov-Dec 2025)
         # Purdue Men's Basketball home games at Mackey Arena
         basketball_events = [
@@ -72,7 +72,7 @@ class Command(BaseCommand):
                 "end_time": "2025-12-30 01:00:00",
             },
         ]
-        
+
         # Lots affected by football games (based on Purdue parking website)
         football_lots = [
             "PGU",    # University Street Garage
@@ -80,26 +80,27 @@ class Command(BaseCommand):
             "LOT_A",  # Lot A (North of Cary Quad)
             "LOT_R",  # Lot R (North of Ross-Ade)
             "LOT_H",  # Lot H (North of Football Practice Field)
-            "LOT_FB", # Lot FB (East of Football Practice Field)
+            "LOT_FB",  # Lot FB (East of Football Practice Field)
             "LOT_O",  # Lot O (East of Rankin Track)
-            "LOT_AA", # Lot AA (6th & Russell)
-            "LOT_BB", # Lot BB (6th & Waldron)
+            "LOT_AA",  # Lot AA (6th & Russell)
+            "LOT_BB",  # Lot BB (6th & Waldron)
         ]
-        
+
         # Lots affected by basketball games (primarily Northwestern Ave Garage)
         basketball_lots = [
             "PGNW",   # Northwestern Avenue Garage (main impact)
         ]
-        
+
         created_count = 0
         skipped_count = 0
-        
+
         # Process football events
         for event in football_events:
             for lot_code in football_lots:
                 obj, created = LotEvent.objects.get_or_create(
                     lot_code=lot_code,
-                    start_time=timezone.make_aware(datetime.fromisoformat(event["start_time"])),
+                    start_time=timezone.make_aware(
+                        datetime.fromisoformat(event["start_time"])),
                     defaults={
                         'title': event['title'],
                         'description': event['description'],
@@ -113,13 +114,14 @@ class Command(BaseCommand):
                     )
                 else:
                     skipped_count += 1
-        
+
         # Process basketball events
         for event in basketball_events:
             for lot_code in basketball_lots:
                 obj, created = LotEvent.objects.get_or_create(
                     lot_code=lot_code,
-                    start_time=timezone.make_aware(datetime.fromisoformat(event["start_time"])),
+                    start_time=timezone.make_aware(
+                        datetime.fromisoformat(event["start_time"])),
                     defaults={
                         'title': event['title'],
                         'description': event['description'],
@@ -133,11 +135,10 @@ class Command(BaseCommand):
                     )
                 else:
                     skipped_count += 1
-        
+
         self.stdout.write(self.style.SUCCESS(
             f'\nDone! Created {created_count} new events, skipped {skipped_count} duplicates.'
         ))
         self.stdout.write(self.style.SUCCESS(
             f'Total events in database: {LotEvent.objects.count()}'
         ))
-

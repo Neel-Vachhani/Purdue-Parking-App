@@ -25,9 +25,11 @@ const COLOR_MAP: Record<Category | "default", string> = {
 
 // Sample general events
 const SAMPLE: AppEvent[] = [
-  { id: "1", title: "Team Sync", time: "09:30 - 10:00", date: "2025-11-07", category: "meeting" },
-  { id: "2", title: "Work Session", time: "10:30 - 12:00", date: "2025-11-07", category: "personal" },
-  { id: "3", title: "Project Demo", time: "14:00 - 15:00", date: "2025-11-08", category: "deadline" },
+  { id: "1", title: "Team Sync", time: "09:30 - 10:00", date: "2025-12-11", category: "meeting" },
+  { id: "2", title: "Work Session", time: "10:30 - 12:00", date: "2025-12-11", category: "personal" },
+  { id: "3", title: "Project Demo", time: "14:00 - 15:00", date: "2025-12-11", category: "deadline" },
+  { id: "4", title: "Work Session", time: "10:30 - 12:00", date: "2025-12-16", category: "personal" },
+  { id: "5", title: "Project Demo", time: "14:00 - 15:00", date: "2025-12-10", category: "deadline" },
 ];
 
 export default function CalendarEvents(): React.JSX.Element {

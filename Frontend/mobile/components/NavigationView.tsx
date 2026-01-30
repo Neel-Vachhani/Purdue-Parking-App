@@ -1,36 +1,39 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, Button, Linking } from 'react-native'
 import GooglePlacesTextInput from 'react-native-google-places-textinput';
+import { ThemeContext } from '../theme/ThemeProvider';
+import { GOOGLE_MAPS_API_KEY } from '../config/env';
 
 const NavigationView = () => {
   const [places, setPlaces] = React.useState<any[]>([]);
+  const theme = React.useContext(ThemeContext);
 
-  const customStyles = {
+  const customStyles = React.useMemo(() => ({
     container: {
       marginHorizontal: 16,
       marginVertical: 8,
     },
     input: {
-      backgroundColor: '#fff',
-      borderColor: '#ccc',
+      backgroundColor: theme.surface,
+      borderColor: theme.border,
       borderWidth: 1,
       borderRadius: 10,
       height: 48,
       fontSize: 16,
-      color: '#000',
+      color: theme.text,
       paddingHorizontal: 12,
       elevation: 2,
-      shadowColor: '#000',
+      shadowColor: theme.shadow,
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.1,
       shadowRadius: 2,
     },
     suggestionsContainer: {
-      backgroundColor: '#fff',
+      backgroundColor: theme.surface,
       borderRadius: 10,
       marginTop: 4,
       elevation: 3,
-      shadowColor: '#000',
+      shadowColor: theme.shadow,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.15,
       shadowRadius: 4,
@@ -38,29 +41,68 @@ const NavigationView = () => {
     suggestionItem: {
       paddingVertical: 10,
       paddingHorizontal: 12,
-      borderBottomColor: '#eee',
+      borderBottomColor: theme.borderMuted,
       borderBottomWidth: 1,
     },
     suggestionText: {
       main: {
         fontSize: 15,
-        color: '#222',
+        color: theme.text,
       },
       secondary: {
         fontSize: 13,
-        color: '#777',
+        color: theme.textMuted,
       },
     },
     loadingIndicator: {
-      color: '#999',
+      color: theme.textMuted,
     },
     placeholder: {
-      color: '#888',
+      color: theme.textMuted,
     },
     text: {
-      color: '#000',
+      color: theme.text,
     },
-  };
+  }), [theme]);
+
+  const styles = React.useMemo(
+    () =>
+      StyleSheet.create({
+        outerContainer: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+        },
+        leftContainer: {
+          flex: 1,
+          flexGrow: 6,
+        },
+        rightContainer: {
+          flex: 2,
+        },
+        baseText: {
+          fontWeight: 'bold',
+        },
+        innerText: {
+          color: theme.text,
+          fontSize: 20,
+        },
+        address: {
+          color: theme.textMuted,
+          fontSize: 16,
+        },
+        button: {
+          color: theme.primary,
+          textAlign: 'center',
+          alignItems: 'center',
+        },
+        divider: {
+          borderBottomColor: theme.borderMuted,
+          borderBottomWidth: 2,
+          alignSelf: 'stretch',
+        },
+      }),
+    [theme]
+  );
   
 
   const  handlePlaceSelect = async (place: any) => {
@@ -69,7 +111,7 @@ const NavigationView = () => {
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/json',
-              'X-Goog-Api-Key': 'APIKEY',
+              'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
               'X-Goog-FieldMask': 'places.displayName,places.name,places.googleMapsUri,places.formattedAddress'
             },
             body: JSON.stringify({
@@ -109,15 +151,13 @@ const NavigationView = () => {
               <Text style = {styles.address}>{item.formattedAddress}</Text>
             </View>
             <View style={styles.rightContainer}>
-              <Button title='Directions' onPress={ () => Linking.openURL(item.googleMapsUri) } color="#ceb888"></Button>
+              <Button
+                title='Directions'
+                onPress={() => Linking.openURL(item.googleMapsUri)}
+                color={theme.primary}
+              />
             </View>
-            <View
-              style={{
-                borderBottomColor: 'white',
-                borderBottomWidth: 2,
-                alignSelf: 'stretch'
-              }}
-            ></View>
+            <View style={styles.divider}></View>
           </View>
         )}
         keyExtractor={(item) => item.googleMapsUri}
@@ -127,43 +167,10 @@ const NavigationView = () => {
     </View>
   )}
 
-  const styles = StyleSheet.create({
-    outerContainer: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-    },
-    leftContainer: {
-      flex: 1,
-      flexGrow: 6,
-    },
-    rightContainer: {
-      flex: 2
-    },
-    baseText: {
-      fontWeight: 'bold',
-    },
-    innerText: {
-      color: 'white',
-      fontSize: 20
-    },
-    address: {
-      color: '#888',
-      fontSize: 16
-    },
-    button: {
-      color: 'red',
-      textAlign: 'center',
-      alignItems: 'center',
-    }
-  });
-
-
-
-
   return (
     <View>
         <GooglePlacesTextInput
-        apiKey="APIKEY"
+        apiKey={GOOGLE_MAPS_API_KEY}
         placeHolderText="Search for a place"
         onPlaceSelect={handlePlaceSelect}
         fetchDetails={true}
