@@ -361,7 +361,7 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
                   </Text>
                   {location.travelTime && (
                     <Text style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
-                      {location.travelTime.formattedDuration} ({location.travelTime.formattedDistance})
+                      {location.travelTime.formattedDurationCar} ({location.travelTime.formattedDistance})
                     </Text>
                   )}
                 </View>

@@ -10,8 +10,8 @@ import { useActionSheet } from '@expo/react-native-action-sheet';
 import StarRating from 'react-native-star-rating-widget';
 import axios from "axios";
 import { API_BASE_URL } from "../config/env";
-
-
+import { useEffect, useMemo } from "react";
+import { subscribeToParkingUpdates } from "../utils/parkingEvents"; // add this util (below)
 
 export type Amenity =
   | "covered"
@@ -328,11 +328,41 @@ export default function GarageDetail({
   const pctStr = `${Math.round(p * 100)}%`;
   const { showActionSheetWithOptions } = useActionSheet();
 
-  const [reliability, setReliability] = React.useState<number>(() => Math.floor(Math.random() * 101));
+
+  const OFFLINE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes: 100% -> 0%
+
+  const [lastUpdateMsByLot, setLastUpdateMsByLot] = React.useState<Record<string, number>>({});
+  const [nowMs, setNowMs] = React.useState<number>(Date.now());
 
   React.useEffect(() => {
-    setReliability(Math.floor(Math.random() * 101));
-  }, [garage.id]);
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  React.useEffect(() => {
+    const unsubscribe = subscribeToParkingUpdates(({ lot }) => {
+      if (!lot) return;
+      const normalizedLot = String(lot).toUpperCase();
+      setLastUpdateMsByLot((prev) => ({ ...prev, [normalizedLot]: Date.now() }));
+    });
+    return unsubscribe;
+  }, []);
+
+  const reliability = React.useMemo(() => {
+    const code = (garage.code ?? "").toUpperCase();
+
+    const fromWs = lastUpdateMsByLot[code];
+    const fromBackend = garage.lastUpdatedIso ? new Date(garage.lastUpdatedIso).getTime() : undefined;
+
+    const lastMs = fromWs ?? fromBackend;
+    if (!lastMs || Number.isNaN(lastMs)) return 0;
+
+    const ageMs = Math.max(0, nowMs - lastMs);
+    const pct = 100 * (1 - ageMs / OFFLINE_WINDOW_MS);
+    return Math.max(0, Math.min(100, Math.round(pct)));
+  }, [garage.code, garage.lastUpdatedIso, lastUpdateMsByLot, nowMs]);
+
+  
 
   
 
