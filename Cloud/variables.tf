@@ -19,5 +19,5 @@ variable instance_name {
 variable app_ports {
   description = "Ports to remain open for access to the API endpoints"
   type = list(string)
-  default = ["7500", "22"]
+  default = ["80", "443"]
 }
