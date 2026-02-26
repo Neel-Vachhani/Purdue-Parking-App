@@ -38,7 +38,16 @@ ALLOWED_HOSTS = [
 ]
 
 if DEBUG:
-  ALLOWED_HOSTS = ['*']
+  ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '10.0.2.2',
+    '10.1.125.44',
+    '10.1.125.52',
+    '10.184.38.63',
+    '.10.',
+    '35.193.66.238.nip.io'
+]
 
 REDIS_URL = config("REDIS_URL")
 CHANNEL_LAYERS = {
