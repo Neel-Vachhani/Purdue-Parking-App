@@ -1,0 +1,15 @@
+node_modules
+.git
+.expo
+dist
+build
+coverage
+npm-debug.log*
+yarn-error.log*
+ios/build
+android/build
+.ipa
+.apk
+.aab
+.zip
+.DS_Store

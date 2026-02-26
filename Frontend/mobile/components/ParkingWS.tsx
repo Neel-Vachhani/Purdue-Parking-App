@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import Constants from 'expo-constants';
 import { emitParkingUpdate } from '../utils/parkingEvents';
 
 const ParkingWS: React.FC = () => {
@@ -11,26 +10,27 @@ const ParkingWS: React.FC = () => {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectDelayRef = useRef<number>(1000);
 
-  const getWebSocketUrl = (): string => {
-    // if (__DEV__) {
-    //   // Local dev
-    //   let host: string;
+const getWebSocketUrl = (): string => {
+  // if (__DEV__) {
+  //   // Local dev
+  //   let host: string;
 
-    //   if (Platform.OS === 'android') {
-    //     // Android emulator talking to your laptop
-    //     host = '10.0.2.2';
-    //   } else {
-    //     // iOS simulator OR physical device on same Wi-Fi
-    //     // use your laptop's LAN IP here if the backend is local
-    //     host = '10.165.14.186'; // <- change to your actual local IP
-    //   }
+  //   if (Platform.OS === 'android') {
+  //     // Android emulator talking to your laptop
+  //     host = '10.0.2.2';
+  //   } else {
+  //     // iOS simulator OR physical device on same Wi-Fi
+  //     // use your laptop's LAN IP here if the backend is local
+  //     host = '10.165.14.186'; // <- change to your actual local IP
+  //   }
 
-    //   return `ws://${host}:8000/ws/parking/`;
-    // }
+  //   return `ws://${host}:8000/ws/parking/`;
+  // }
 
-    // Production (Render)
-    return 'wss://purdue-parking-app.onrender.com/ws/parking/';
-  };
+  // Production (Render)
+  return 'wss://35.193.66.238.nip.io/ws/parking';
+  //return 'wss://purdue-parking-app.onrender.com/ws/parking/';
+};
 
 
   const connect = () => {
