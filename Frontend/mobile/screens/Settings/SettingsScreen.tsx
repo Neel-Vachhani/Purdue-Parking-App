@@ -18,6 +18,7 @@ import { getApiBaseUrl } from "../../config/env";
 import { geocodeAddress, Coordinate, findNearestGarageForAddress } from "../../utils/travelTime";
 import SettingsSectionCard from "../../components/SettingsSectionCard";
 import TravelPreferences from "../../components/TravelPreferences";
+import { sendLocalNotification } from "../../app/utils/notifications";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -693,20 +694,68 @@ export default function SettingsScreen({ onLogout }: Props) {
           onToggle={toggleSection}
         >
           <View style={{ gap: 12 }}>
-            <Row label="Garage Full Alerts">
-              <Switch value={prefs.garageFull} onValueChange={(v) => setToggle("garageFull", v)} />
-            </Row>
             <Row label="Permit Expiring Reminders">
-              <Switch value={prefs.permitExpiring} onValueChange={(v) => setToggle("permitExpiring", v)} />
+              <Switch
+                value={prefs.permitExpiring}
+                onValueChange={async (v) => {
+                  setToggle("permitExpiring", v);
+
+                  if (v) {
+                    await sendLocalNotification(
+                      "Permit Reminders Enabled",
+                      "We will notify you before your parking permit expires."
+                    );
+                  }
+                }}
+              />
             </Row>
+
             <Row label="Event Day Closures">
-              <Switch value={prefs.eventClosures} onValueChange={handleEventClosuresToggle} />
+              <Switch
+                value={prefs.eventClosures}
+                onValueChange={async (v) => {
+                  handleEventClosuresToggle(v);
+
+                  if (v) {
+                    await sendLocalNotification(
+                      "Event Day Closures Enabled",
+                      "You will receive notifications about parking changes on event days."
+                    );
+                  }
+                }}
+              />
             </Row>
+
             <Row label="Price Drop Notifications">
-              <Switch value={prefs.priceDrop} onValueChange={(v) => setToggle("priceDrop", v)} />
+              <Switch
+                value={prefs.priceDrop}
+                onValueChange={async (v) => {
+                  setToggle("priceDrop", v);
+
+                  if (v) {
+                    await sendLocalNotification(
+                      "Price Drop Alerts Enabled",
+                      "We will notify you when parking prices decrease."
+                    );
+                  }
+                }}
+              />
             </Row>
+
             <Row label="Parking Pass Sale Notifications">
-              <Switch value={prefs.passOnSale} onValueChange={handlePassOnSaleToggle} />
+              <Switch
+                value={prefs.passOnSale}
+                onValueChange={async (v) => {
+                  handlePassOnSaleToggle(v);
+
+                  if (v) {
+                    await sendLocalNotification(
+                      "Pass Sale Alerts Enabled",
+                      "You will be notified when parking passes go on sale."
+                    );
+                  }
+                }}
+              />
             </Row>
 
             <View
