@@ -6,7 +6,7 @@ import ThemedText from './ThemedText';
 
 
   type SectionId = typeof SECTION_IDS[number];
-  const SECTION_IDS = ["account", "travel", "notifications", "about"] as const;
+  const SECTION_IDS = ["account", "travel", "notifications", "about", "calendar"] as const;
   
 
 
