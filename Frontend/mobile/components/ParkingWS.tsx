@@ -29,7 +29,7 @@ const ParkingWS: React.FC = () => {
     // }
 
     // Production (Render)
-    return 'wss://purdue-parking-app.onrender.com/ws/parking/';
+    return 'wss://35.193.66.238.nip.io/ws/parking';
   };
 
 
