@@ -32,7 +32,7 @@ export const PASS_PRICING: PassPricing[] = [
     passType: "SG",
     label: "SG Permit (Garage Access)",
     previousPrice: 300,
-    currentPrice: 280,   
+    currentPrice: 300,   
     onSale: false,
   },
   {
