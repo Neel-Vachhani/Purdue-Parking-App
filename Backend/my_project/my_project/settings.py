@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     'localhost',
@@ -33,11 +33,21 @@ ALLOWED_HOSTS = [
     '10.1.125.44',
     '10.1.125.52',
     '10.184.38.63',
-    '.10.'
+    '.10.',
+    '35.193.66.238.nip.io'
 ]
 
 if DEBUG:
-  ALLOWED_HOSTS = ['*']
+  ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '10.0.2.2',
+    '10.1.125.44',
+    '10.1.125.52',
+    '10.184.38.63',
+    '.10.',
+    '35.193.66.238.nip.io'
+]
 
 REDIS_URL = config("REDIS_URL")
 CHANNEL_LAYERS = {
