@@ -114,13 +114,21 @@ ASGI_APPLICATION = "my_project.asgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
+    #'default': {
+    #    'ENGINE': 'django.db.backends.postgresql',
+    #    'NAME': config('DB_NAME', default='postgres'),
+    #    'USER': config('DB_USERNAME', default='postgres'),
+    #    'PASSWORD': config('DB_PASSWORD', default=''),
+    #    'HOST': config('DB_HOST', default='127.0.0.1'),
+    #    'PORT': config('DB_PORT', default='5432')
+    #}
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='postgres'),
-        'USER': config('DB_USERNAME', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default=''),
-        'HOST': config('DB_HOST', default='127.0.0.1'),
-        'PORT': config('DB_PORT', default='5432')
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'postgres',
+        'USER': 'postgres.fbrnehbhztosbgbhxzlg',
+        'PASSWORD': 'bOAQiXTsuAWL4ico',
+        'HOST': 'aws-1-us-east-2.pooler.supabase.com',
+        'PORT': '6543'
     }
 }
 
