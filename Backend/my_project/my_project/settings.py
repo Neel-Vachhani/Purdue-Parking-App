@@ -34,6 +34,7 @@ ALLOWED_HOSTS = [
     '10.1.125.52',
     '10.184.38.63',
     '.10.',
+    '35.193.66.238',
     '35.193.66.238.nip.io'
 ]
 
@@ -46,6 +47,7 @@ if DEBUG:
     '10.1.125.52',
     '10.184.38.63',
     '.10.',
+    '35.193.66.238',
     '35.193.66.238.nip.io'
 ]
 
@@ -113,12 +115,12 @@ ASGI_APPLICATION = "my_project.asgi.application"
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'postgres',
-        'USER': 'postgres.fbrnehbhztosbgbhxzlg',
-        'PASSWORD': 'bOAQiXTsuAWL4ico',
-        'HOST': 'aws-1-us-east-2.pooler.supabase.com',
-        'PORT': '6543'
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('DB_NAME', default='postgres'),
+        'USER': config('DB_USERNAME', default='postgres'),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default='127.0.0.1'),
+        'PORT': config('DB_PORT', default='5432')
     }
 }
 
