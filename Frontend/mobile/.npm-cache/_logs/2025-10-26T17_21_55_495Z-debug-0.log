@@ -1,0 +1,100 @@
+0 verbose cli /opt/homebrew/Cellar/node/24.7.0/bin/node /opt/homebrew/bin/npm
+1 info using npm@11.5.1
+2 info using node@v24.7.0
+3 silly config load:file:/opt/homebrew/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/anthonymccrovitz/Purdue-Parking-App/Frontend/mobile/.npmrc
+5 silly config load:file:/Users/anthonymccrovitz/.npmrc
+6 silly config load:file:/opt/homebrew/etc/npmrc
+7 verbose title npm install
+8 verbose argv "install" "--cache" "./.npm-cache" "--prefer-offline"
+9 verbose logfile logs-max:10 dir:/Users/anthonymccrovitz/Purdue-Parking-App/Frontend/mobile/.npm-cache/_logs/2025-10-26T17_21_55_495Z-
+10 verbose logfile /Users/anthonymccrovitz/Purdue-Parking-App/Frontend/mobile/.npm-cache/_logs/2025-10-26T17_21_55_495Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4496293888 maxSize:1124073472 maxEntrySize:562036736
+13 silly idealTree buildDeps
+14 silly fetch manifest react@^19.2.0
+15 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+16 http fetch GET 200 https://registry.npmjs.org/npm 402ms
+17 http fetch GET 200 https://registry.npmjs.org/react 342ms (cache miss)
+18 silly packumentCache full:https://registry.npmjs.org/react set size:undefined disposed:false
+19 verbose stack Error: could not resolve
+19 verbose stack     at PlaceDep.failPeerConflict (/opt/homebrew/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/place-dep.js:503:25)
+19 verbose stack     at new PlaceDep (/opt/homebrew/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/place-dep.js:157:21)
+19 verbose stack     at #buildDepStep (/opt/homebrew/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/build-ideal-tree.js:933:18)
+19 verbose stack     at async Arborist.buildIdealTree (/opt/homebrew/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/build-ideal-tree.js:182:7)
+19 verbose stack     at async Promise.all (index 1)
+19 verbose stack     at async Arborist.reify (/opt/homebrew/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:126:5)
+19 verbose stack     at async Install.exec (/opt/homebrew/lib/node_modules/npm/lib/commands/install.js:150:5)
+19 verbose stack     at async Npm.exec (/opt/homebrew/lib/node_modules/npm/lib/npm.js:208:9)
+19 verbose stack     at async module.exports (/opt/homebrew/lib/node_modules/npm/lib/cli/entry.js:67:5)
+20 error code ERESOLVE
+21 error ERESOLVE could not resolve
+22 error
+23 error While resolving: react-dom@19.2.0
+23 error Found: react@19.1.0
+23 error node_modules/react
+23 error   react@"19.1.0" from the root project
+23 error   peerOptional react@"*" from @expo/devtools@0.1.7
+23 error   node_modules/@expo/devtools
+23 error     @expo/devtools@"0.1.7" from expo@54.0.13
+23 error     node_modules/expo
+23 error       expo@"^54.0.0" from the root project
+23 error       20 more (@expo/metro-config, @expo/metro-runtime, ...)
+23 error   57 more (@expo/metro-runtime, @expo/vector-icons, ...)
+23 error
+23 error Could not resolve dependency:
+23 error peer react@"^19.2.0" from react-dom@19.2.0
+23 error node_modules/react-dom
+23 error   peerOptional react-dom@"*" from @expo/metro-runtime@6.1.2
+23 error   node_modules/@expo/metro-runtime
+23 error     peerOptional @expo/metro-runtime@"*" from expo@54.0.13
+23 error     node_modules/expo
+23 error       expo@"^54.0.0" from the root project
+23 error       20 more (@expo/metro-config, @expo/metro-runtime, ...)
+23 error     1 more (expo-router)
+23 error   peerOptional react-dom@"*" from expo-router@6.0.12
+23 error   node_modules/expo-router
+23 error     expo-router@"^6.0.11" from the root project
+23 error     1 more (@expo/cli)
+23 error   12 more (@radix-ui/react-collection, ...)
+23 error
+23 error Conflicting peer dependency: react@19.2.0
+23 error node_modules/react
+23 error   peer react@"^19.2.0" from react-dom@19.2.0
+23 error   node_modules/react-dom
+23 error     peerOptional react-dom@"*" from @expo/metro-runtime@6.1.2
+23 error     node_modules/@expo/metro-runtime
+23 error       peerOptional @expo/metro-runtime@"*" from expo@54.0.13
+23 error       node_modules/expo
+23 error         expo@"^54.0.0" from the root project
+23 error         20 more (@expo/metro-config, @expo/metro-runtime, ...)
+23 error       1 more (expo-router)
+23 error     peerOptional react-dom@"*" from expo-router@6.0.12
+23 error     node_modules/expo-router
+23 error       expo-router@"^6.0.11" from the root project
+23 error       1 more (@expo/cli)
+23 error     12 more (@radix-ui/react-collection, ...)
+23 error
+23 error Fix the upstream dependency conflict, or retry
+23 error this command with --force or --legacy-peer-deps
+23 error to accept an incorrect (and potentially broken) dependency resolution.
+24 error
+24 error
+24 error For a full report see:
+24 error /Users/anthonymccrovitz/Purdue-Parking-App/Frontend/mobile/.npm-cache/_logs/2025-10-26T17_21_55_495Z-eresolve-report.txt
+25 silly unfinished npm timer reify 1761499315822
+26 silly unfinished npm timer reify:loadTrees 1761499315823
+27 silly unfinished npm timer idealTree:buildDeps 1761499315971
+28 silly unfinished npm timer idealTree:node_modules/react-dom 1761499315971
+29 verbose cwd /Users/anthonymccrovitz/Purdue-Parking-App/Frontend/mobile
+30 verbose os Darwin 25.0.0
+31 verbose node v24.7.0
+32 verbose npm  v11.5.1
+33 notice
+33 notice New minor version of npm available! 11.5.1 -> 11.6.2
+33 notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.2
+33 notice To update run: npm install -g npm@11.6.2
+33 notice  { force: true, Symbol(proc-log.meta): true }
+34 verbose exit 1
+35 verbose code 1
+36 error A complete log of this run can be found in: /Users/anthonymccrovitz/Purdue-Parking-App/Frontend/mobile/.npm-cache/_logs/2025-10-26T17_21_55_495Z-debug-0.log

@@ -1,7 +1,7 @@
 // This file contains functions to interact with the backend API
 
 // Django backend URL
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "http://127.0.0.1:7500";
 
 // Function to create a user account (when they press "sign up" button)
 export async function createUserAccount(email: string, password: string) {

@@ -16,5 +16,5 @@
     "theme",
     "global.d.ts"
   ],
-  "extends": "expo/tsconfig.base"
+  "extends": "expo/tsconfig.base.json"
 }
