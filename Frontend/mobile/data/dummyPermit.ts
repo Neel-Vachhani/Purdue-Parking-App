@@ -9,6 +9,6 @@ export type UserPermit = {
 
 export const USER_PERMIT: UserPermit = {
   type: "A",
-  expirationDate: "2026-02-27",  //
+  expirationDate: "2026-02-26",  //
   purchaseDate: "2025-08-15"
 };

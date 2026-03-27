@@ -34,7 +34,7 @@ type Frequency = "realtime" | "daily" | "weekly";
 type NotifPrefs = {
   garageFull: boolean;
   permitExpiring: boolean;
-  eventClosures: boolean;
+  //eventClosures: boolean;
   priceDrop: boolean;
   //passOnSale: boolean;
   //favoriteLotAlerts: boolean;
@@ -46,7 +46,7 @@ type NotifPrefs = {
 const DEFAULT_PREFS: NotifPrefs = {
   garageFull: true,
   permitExpiring: true,
-  eventClosures: true,
+  //eventClosures: true,
   priceDrop: true,
   //passOnSale: false,
  /* favoriteLotAlerts: false,
@@ -148,7 +148,7 @@ export default function SettingsScreen({ onLogout }: Props) {
         });
         
         const enabled = res?.data?.closure_notifications_enabled ?? true;
-        setPrefs(p => ({ ...p, eventClosures: enabled }));
+        //setPrefs(p => ({ ...p, eventClosures: enabled }));
         //console.log(`Loaded closure notification preference: ${enabled}`);
       } catch (error) {
         //console.error("Failed to load closure notification preference:", error);
@@ -193,7 +193,7 @@ export default function SettingsScreen({ onLogout }: Props) {
   type BooleanPrefKey =
     | "garageFull"
     | "permitExpiring"
-    | "eventClosures"
+    //| "eventClosures"
     | "priceDrop"
     //| "passOnSale"
     //| "favoriteLotAlerts"
@@ -202,7 +202,7 @@ export default function SettingsScreen({ onLogout }: Props) {
   const BOOLEAN_PREF_KEYS: BooleanPrefKey[] = [
     "garageFull",
     "permitExpiring",
-    "eventClosures",
+    //"eventClosures",
     "priceDrop",
     //"passOnSale",
     //"favoriteLotAlerts",
@@ -227,7 +227,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       const allDisabled =
         !prefs.garageFull &&
         !prefs.permitExpiring &&
-        !prefs.eventClosures &&
+        //!prefs.eventClosures &&
         !prefs.priceDrop &&
         //!prefs.passOnSale &&
         //!prefs.favoriteLotAlerts;
@@ -311,7 +311,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       });*/
       
       // Update local state
-      setToggle("eventClosures", enabled);
+      //setToggle("eventClosures", enabled);
       
       /*console.log(`Closure notifications ${enabled ? 'enabled' : 'disabled'} for ${email}`);
     } catch (error) {
@@ -795,9 +795,9 @@ const pickCalendar = async () => {
             <Row label="Permit Expiring Reminders">
               <Switch value={prefs.permitExpiring} onValueChange={(v) => setToggle("permitExpiring", v)} />
             </Row>
-            <Row label="Event Day Closures">
+            {/*<Row label="Event Day Closures">
               <Switch value={prefs.eventClosures} onValueChange={handleEventClosuresToggle} />
-            </Row>
+            </Row>*/}
             <Row label="Price Drop Notifications">
               <Switch value={prefs.priceDrop} onValueChange={(v) => setToggle("priceDrop", v)} />
             </Row>
