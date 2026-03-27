@@ -10,9 +10,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='user',
-            name='events',
-            field=models.CharField(max_length=10, null=True),
-        ),
+        # No-op: `events` is already added in
+        # 0017_user_events_user_favorite_lots_user_lot_ratings.
+        # Keeping this migration preserves the dependency chain (0022 depends on 0021)
+        # without attempting to add a duplicate DB column.
     ]
