@@ -43,3 +43,9 @@ venv/
 .expo/
 .expo-shared/
 node_modules
+
+# Terraform
+.terraform
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup

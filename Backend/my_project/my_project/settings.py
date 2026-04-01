@@ -33,11 +33,23 @@ ALLOWED_HOSTS = [
     '10.1.125.44',
     '10.1.125.52',
     '10.184.38.63',
-    '.10.'
+    '.10.',
+    '35.193.66.238',
+    '35.193.66.238.nip.io'
 ]
 
 if DEBUG:
-  ALLOWED_HOSTS = ['*']
+  ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '10.0.2.2',
+    '10.1.125.44',
+    '10.1.125.52',
+    '10.184.38.63',
+    '.10.',
+    '35.193.66.238',
+    '35.193.66.238.nip.io'
+]
 
 REDIS_URL = config("REDIS_URL")
 CHANNEL_LAYERS = {
@@ -102,6 +114,14 @@ ASGI_APPLICATION = "my_project.asgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
+    #'default': {
+    #    'ENGINE': 'django.db.backends.postgresql',
+    #    'NAME': config('DB_NAME', default='postgres'),
+    #    'USER': config('DB_USERNAME', default='postgres'),
+    #    'PASSWORD': config('DB_PASSWORD', default=''),
+    #    'HOST': config('DB_HOST', default='127.0.0.1'),
+    #    'PORT': config('DB_PORT', default='5432')
+    #}
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'postgres',

@@ -26,7 +26,7 @@ const getTestAvailabilityForCode = (
     case "PGG":
       return { current: 3, total: 650 };
     case "PGU":
-      return { current: 1, total: 820 };
+      return { current: 3, total: 820 };
     default:
       return { current: 150, total: 400 };
   }

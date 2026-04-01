@@ -7,8 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {LocationProvider} from './app/utils/LocationContext';
 import { StatusBar } from "expo-status-bar";
-import { Platform } from "react-native";
-import {configureNotifications} from './app/utils/notifications'
+import {setupNotificationHandler, runAllNotificationChecks,} from "./notificationTest";
 
 import ThemeProvider, { ThemeContext } from "./theme/ThemeProvider";
 import ThemedView from "./components/ThemedView";
@@ -22,14 +21,7 @@ import { TAB_CONFIG, TAB_KEYS, TabKey, getTabByKey } from "./components/navigati
 
 const LAST_TAB_STORAGE_KEY = "last-used-tab";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+setupNotificationHandler();
 
 export default function App() {
   const [tab, setTab] = React.useState<TabKey>(TAB_CONFIG[0].key);
@@ -37,6 +29,14 @@ export default function App() {
   const [booting, setBooting] = React.useState(true);
   const [isAuthed, setIsAuthed] = React.useState(false);
   
+  //notification trigger checks
+  React.useEffect(() => {
+    if (isAuthed) {
+      setTimeout(() => {
+      runAllNotificationChecks();},
+      3000);
+    } 
+  }, [isAuthed]);
 
 React.useEffect(() => {
   (async () => {

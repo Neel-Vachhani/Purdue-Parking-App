@@ -14,6 +14,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, Linking } from "react-native";
 import { Marker, Callout } from "react-native-maps";
+import ParkingPin from "../../components/map/ParkingPin";
 import * as SecureStore from "expo-secure-store";
 import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
@@ -65,6 +66,8 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<ParkingLocationWithTravel | null>(null);
+  // Tracks which pin is highlighted (callout visible). Cleared when the detail modal closes.
+  const [selectedPinCode, setSelectedPinCode] = useState<string | null>(null);
 
   const theme = useContext(ThemeContext);
   const lastMarkerPressRef = useRef<{ code: string; timestamp: number } | null>(null);
@@ -120,6 +123,9 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
       const now = Date.now();
       const previous = lastMarkerPressRef.current;
 
+      // Always highlight the tapped pin immediately
+      setSelectedPinCode(location.code);
+
       if (
         previous &&
         previous.code === location.code &&
@@ -144,6 +150,7 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
 
   const handleCloseDetail = useCallback(() => {
     setSelectedLocation(null);
+    setSelectedPinCode(null);
   }, []);
 
   const handleToggleFavorite = useCallback((id: string, next: boolean) => {
@@ -324,50 +331,64 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
     <ThemedView style={styles.screen}>
       <View style={styles.mapWrapper}>
         <ParkingMap initialRegion={INITIAL_REGION}>
-          {filteredLocations.map((location) => (
-            <Marker
-              key={location.id}
-              coordinate={location.coordinate}
-              onPress={() => handleMarkerPress(location)}
-            >
-              <Callout tooltip={false} onPress={() => handleCalloutPress(location)}>
-                <View style={{ padding: 6, maxWidth: 220 }}>
-                  <Text style={{ fontWeight: "600" }}>{location.title}</Text>
-                  <Text style={{ marginTop: 4 }}>
-                    {(() => {
-                      const available =
-                        typeof location.available === "number"
-                          ? location.available
-                          : undefined;
-                      const capacity =
-                        typeof location.capacity === "number"
-                          ? location.capacity
-                          : undefined;
-
-                      if (available !== undefined && capacity !== undefined) {
-                        return `Available: ${available} / ${capacity}`;
-                      }
-
-                      if (available !== undefined) {
-                        return `Available: ${available}`;
-                      }
-
-                      if (capacity !== undefined) {
-                        return `Capacity: ${capacity}`;
-                      }
-
-                      return "Occupancy data unavailable";
-                    })()}
-                  </Text>
-                  {location.travelTime && (
-                    <Text style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
-                      {location.travelTime.formattedDurationCar} ({location.travelTime.formattedDistance})
+          {filteredLocations.map((location) => {
+            const isSelected = selectedPinCode === location.code;
+            return (
+              <Marker
+                key={location.id}
+                coordinate={location.coordinate}
+                onPress={() => handleMarkerPress(location)}
+                // Re-render the native marker view only when its selected state
+                // changes. This avoids unnecessary GPU work on every parent render.
+                tracksViewChanges={isSelected}
+              >
+                <ParkingPin
+                  isSelected={isSelected}
+                  available={location.available}
+                  capacity={location.capacity}
+                  isDark={theme.mode === "dark"}
+                />
+                <Callout tooltip={false} onPress={() => handleCalloutPress(location)}>
+                  <View style={styles.callout}>
+                    <Text style={[styles.calloutTitle, { color: theme.text }]}>
+                      {location.title}
                     </Text>
-                  )}
-                </View>
-              </Callout>
-            </Marker>
-          ))}
+                    <Text style={[styles.calloutBody, { color: theme.textMuted }]}>
+                      {(() => {
+                        const available =
+                          typeof location.available === "number"
+                            ? location.available
+                            : undefined;
+                        const capacity =
+                          typeof location.capacity === "number"
+                            ? location.capacity
+                            : undefined;
+
+                        if (available !== undefined && capacity !== undefined) {
+                          return `Available: ${available} / ${capacity}`;
+                        }
+                        if (available !== undefined) {
+                          return `Available: ${available}`;
+                        }
+                        if (capacity !== undefined) {
+                          return `Capacity: ${capacity}`;
+                        }
+                        return "Occupancy data unavailable";
+                      })()}
+                    </Text>
+                    {location.travelTime && (
+                      <Text style={styles.calloutTravel}>
+                        {location.travelTime.formattedDurationCar} ({location.travelTime.formattedDistance})
+                      </Text>
+                    )}
+                    <Text style={[styles.calloutHint, { color: theme.primary }]}>
+                      Tap again for details →
+                    </Text>
+                  </View>
+                </Callout>
+              </Marker>
+            );
+          })}
         </ParkingMap>
 
         <View pointerEvents="box-none" style={styles.overlayContainer}>
@@ -636,5 +657,29 @@ const styles = StyleSheet.create({
   emptyState: {
     marginTop: 12,
     fontSize: 12,
+  },
+  // Callout bubble styles
+  callout: {
+    padding: 8,
+    maxWidth: 220,
+    minWidth: 140,
+  },
+  calloutTitle: {
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  calloutBody: {
+    marginTop: 4,
+    fontSize: 12,
+  },
+  calloutTravel: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#6b7280",
+  },
+  calloutHint: {
+    marginTop: 6,
+    fontSize: 11,
+    fontWeight: "600",
   },
 });
