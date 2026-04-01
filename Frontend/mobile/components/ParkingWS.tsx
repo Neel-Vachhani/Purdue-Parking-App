@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import Constants from 'expo-constants';
 import { emitParkingUpdate } from '../utils/parkingEvents';
 
 const ParkingWS: React.FC = () => {

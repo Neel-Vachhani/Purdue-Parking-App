@@ -49,5 +49,11 @@
     "typescript": "~5.9.2"
   },
   "private": true,
-  "overrides": {}
+  "overrides": {},
+  "name": "mobile",
+  "version": "1.0.0",
+  "scripts": {
+    "android": "expo run:android",
+    "ios": "expo run:ios"
+  }
 }
