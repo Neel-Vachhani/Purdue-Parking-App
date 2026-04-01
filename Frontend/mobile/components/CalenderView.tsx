@@ -1,6 +1,7 @@
 // components/CalendarEvents.tsx
 import * as React from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Pressable, Alert, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
 import { ThemeContext } from "../theme/ThemeProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -364,140 +365,195 @@ export default function CalendarEvents(): React.JSX.Element {
   if (selectedEvent) {
     const isDeviceEvent = selectedEvent.id.startsWith("device-");
     const isSampleEvent = !selectedEvent.id.startsWith("ics-") && !isDeviceEvent;
-    const borderColor = COLOR_MAP[selectedEvent.category ?? "default"];
+    const categoryColor = COLOR_MAP[selectedEvent.category ?? "default"];
+
+    const formatDisplayDate = (dateStr: string): string => {
+      try {
+        const [year, month, day] = dateStr.split("-").map(Number);
+        const d = new Date(year, month - 1, day);
+        return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const parseTimeRange = (timeStr: string): string => {
+      try {
+        const parts = timeStr.split(" - ");
+        const fmt = (t: string) => {
+          const [h, m] = t.trim().split(":").map(Number);
+          const ampm = h >= 12 ? "PM" : "AM";
+          const h12 = h % 12 || 12;
+          return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+        };
+        return parts.length === 2 ? `${fmt(parts[0])} – ${fmt(parts[1])}` : timeStr;
+      } catch {
+        return timeStr;
+      }
+    };
+
+    const isAllDay = selectedEvent.time === "00:00 - 00:00" || selectedEvent.time === "";
 
     return (
-      <ScrollView style={[styles.container, { backgroundColor: theme.bg, padding: 24 }]}
-                  contentContainerStyle={{ paddingBottom: 40 }}>
-        <TouchableOpacity onPress={() => setSelectedEvent(null)} style={styles.backBtn}>
-          <Text style={[styles.backText, { color: COLOR_MAP.meeting }]}>← Back</Text>
-        </TouchableOpacity>
-
-        <View style={[styles.detailCard, { borderColor, backgroundColor: theme.mode === "dark" ? "#202225" : "#fff" }]}>
-          <Text style={[styles.detailTitle, { color: theme.text }]}>{selectedEvent.title}</Text>
-
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>Date</Text>
-            <Text style={[styles.detailValue, { color: theme.text }]}>{selectedEvent.date}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>Time</Text>
-            <Text style={[styles.detailValue, { color: theme.text }]}>{selectedEvent.time}</Text>
-          </View>
-
-          {selectedEvent.location && (
-            <View style={styles.detailRow}>
-              <Text style={[styles.detailLabel, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>Location</Text>
-              <Text style={[styles.detailValue, { color: theme.text }]}>{selectedEvent.location}</Text>
-            </View>
-          )}
-
-          {selectedEvent.category && (
-            <View style={styles.detailRow}>
-              <Text style={[styles.detailLabel, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>Category</Text>
-              <Text style={[styles.detailValue, { color: theme.text }]}>{selectedEvent.category}</Text>
-            </View>
-          )}
+      <SafeAreaView style={[detailStyles.root, { backgroundColor: theme.bg }]} edges={["top"]}>
+        {/* Header */}
+        <View style={detailStyles.header}>
+          <Pressable style={detailStyles.headerBtn} onPress={() => setSelectedEvent(null)}>
+            <Ionicons name="chevron-back" size={24} color={theme.text} />
+          </Pressable>
+          <Text style={[detailStyles.headerTitle, { color: theme.text }]} numberOfLines={1}>
+            Event Details
+          </Text>
+          <View style={detailStyles.headerBtn} />
         </View>
 
-        <View style={[styles.reminderSection, { backgroundColor: theme.mode === "dark" ? "#202225" : "#fff", borderColor: theme.mode === "dark" ? "#374151" : "#e5e7eb" }]}>
-          <View style={styles.reminderHeader}>
-            <Ionicons name="notifications-outline" size={20} color={theme.text} />
-            <Text style={[styles.reminderTitle, { color: theme.text }]}>Reminders</Text>
+        <ScrollView contentContainerStyle={detailStyles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Summary card */}
+          <View style={[detailStyles.card, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+            {/* Category badge */}
+            {selectedEvent.category && (
+              <View style={[detailStyles.categoryBadge, { borderColor: categoryColor }]}>
+                <Text style={[detailStyles.categoryText, { color: categoryColor }]}>
+                  {selectedEvent.category.charAt(0).toUpperCase() + selectedEvent.category.slice(1)}
+                </Text>
+              </View>
+            )}
+
+            <Text style={[detailStyles.eventTitle, { color: theme.text }]}>{selectedEvent.title}</Text>
+
+            {/* Date row */}
+            <View style={detailStyles.infoRow}>
+              <Ionicons name="calendar-outline" size={16} color={theme.textMuted} style={detailStyles.infoIcon} />
+              <Text style={[detailStyles.infoText, { color: theme.text }]}>
+                {formatDisplayDate(selectedEvent.date)}
+              </Text>
+            </View>
+
+            {/* Time row */}
+            <View style={detailStyles.infoRow}>
+              <Ionicons name="time-outline" size={16} color={theme.textMuted} style={detailStyles.infoIcon} />
+              <Text style={[detailStyles.infoText, { color: theme.text }]}>
+                {isAllDay ? "All day" : parseTimeRange(selectedEvent.time)}
+              </Text>
+            </View>
+
+            {/* Location row */}
+            {selectedEvent.location && (
+              <View style={detailStyles.infoRow}>
+                <Ionicons name="location-outline" size={16} color={theme.textMuted} style={detailStyles.infoIcon} />
+                <Text style={[detailStyles.infoText, { color: theme.text }]}>{selectedEvent.location}</Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles.reminderGrid}>
-            {REMINDER_OPTIONS.map((option) => {
-              const key = getReminderKey(selectedEvent.id, option.minutes);
-              const isActive = !!activeReminders[key];
-              const isValid = isReminderValid(selectedEvent, option.minutes);
+          {/* Reminders card */}
+          <View style={[detailStyles.card, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+            <View style={detailStyles.sectionHeader}>
+              <Ionicons name="notifications-outline" size={18} color={theme.text} />
+              <Text style={[detailStyles.sectionTitle, { color: theme.text }]}>Reminders</Text>
+            </View>
 
-              return (
-                <TouchableOpacity
-                  key={option.minutes}
-                  onPress={() => toggleReminder(selectedEvent, option.minutes)}
-                  disabled={!isValid && !isActive}
-                  style={[
-                    styles.reminderChip,
-                    {
-                      borderColor: isActive ? "#22c55e" : (theme.mode === "dark" ? "#374151" : "#d1d5db"),
-                      backgroundColor: isActive
-                        ? (theme.mode === "dark" ? "rgba(34, 197, 94, 0.15)" : "rgba(34, 197, 94, 0.1)")
-                        : "transparent",
-                      opacity: (!isValid && !isActive) ? 0.35 : 1,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={isActive ? "notifications" : "notifications-outline"}
-                    size={14}
-                    color={isActive ? "#22c55e" : (theme.mode === "dark" ? "#9ca3af" : "#6b7280")}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text
+            <View style={detailStyles.chipGrid}>
+              {REMINDER_OPTIONS.map((option) => {
+                const key = getReminderKey(selectedEvent.id, option.minutes);
+                const isActive = !!activeReminders[key];
+                const isValid = isReminderValid(selectedEvent, option.minutes);
+
+                return (
+                  <TouchableOpacity
+                    key={option.minutes}
+                    onPress={() => toggleReminder(selectedEvent, option.minutes)}
+                    disabled={!isValid && !isActive}
                     style={[
-                      styles.reminderChipText,
+                      detailStyles.chip,
                       {
-                        color: isActive ? "#22c55e" : (theme.mode === "dark" ? "#d1d5db" : "#374151"),
-                        fontWeight: isActive ? "700" : "500",
+                        borderColor: isActive ? theme.success : theme.border,
+                        backgroundColor: isActive ? `${theme.success}1A` : "transparent",
+                        opacity: !isValid && !isActive ? 0.35 : 1,
                       },
                     ]}
                   >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {REMINDER_OPTIONS.some((o) => !!activeReminders[getReminderKey(selectedEvent.id, o.minutes)]) && (
-            <View style={styles.activeRemindersSummary}>
-              <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
-              <Text style={[styles.activeRemindersText, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
-                {REMINDER_OPTIONS
-                  .filter((o) => !!activeReminders[getReminderKey(selectedEvent.id, o.minutes)])
-                  .map((o) => o.label)
-                  .join(", ")}{" "}
-                before
-              </Text>
+                    <Ionicons
+                      name={isActive ? "notifications" : "notifications-outline"}
+                      size={13}
+                      color={isActive ? theme.success : theme.textMuted}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={[detailStyles.chipText, { color: isActive ? theme.success : theme.text, fontWeight: isActive ? "700" : "500" }]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          )}
-        </View>
 
-        {isDeviceEvent ? (
-          <Text style={[styles.hint, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
-            Event can only be deleted from device calendar.
-          </Text>
-        ) : isSampleEvent ? null : (
-          <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteEvent(selectedEvent)}>
-            <Text style={styles.deleteBtnText}>Delete Event</Text>
-          </TouchableOpacity>
-        )}
-
-        <View style={[styles.garageCard, { backgroundColor: theme.mode === "dark" ? "#202225" : "#f3f4f6" }]}>
-          <Text style={[styles.garageTitle, { color: theme.text }]}>Nearby Garages</Text>
-          {!selectedEvent.location ? (
-            <Text style={[styles.garageText, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
-              No location set for this event
-            </Text>
-          ) : garageResults.length > 0 ? (
-            garageResults.map((g) => (
-              <View key={g.code} style={{ marginBottom: 10 }}>
-                <Text style={[styles.garageName, { color: theme.text }]}>{g.name}</Text>
-                <Text style={[styles.garageText, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
-                  {g.distance_m ? `${g.distance_m}m away · ` : ""}{g.available} spots available
+            {REMINDER_OPTIONS.some((o) => !!activeReminders[getReminderKey(selectedEvent.id, o.minutes)]) && (
+              <View style={[detailStyles.reminderSummary, { borderTopColor: theme.border }]}>
+                <Ionicons name="checkmark-circle" size={14} color={theme.success} />
+                <Text style={[detailStyles.reminderSummaryText, { color: theme.textMuted }]}>
+                  {REMINDER_OPTIONS
+                    .filter((o) => !!activeReminders[getReminderKey(selectedEvent.id, o.minutes)])
+                    .map((o) => o.label)
+                    .join(", ")}{" "}
+                  before
                 </Text>
               </View>
-            ))
-          ) : (
-            <Text style={[styles.garageText, { color: "#f87171" }]}>
-              No garages available
+            )}
+          </View>
+
+          {/* Nearby parking card */}
+          <View style={[detailStyles.card, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+            <View style={detailStyles.sectionHeader}>
+              <Ionicons name="car-outline" size={18} color={theme.text} />
+              <Text style={[detailStyles.sectionTitle, { color: theme.text }]}>Nearby Parking</Text>
+            </View>
+
+            {!selectedEvent.location ? (
+              <Text style={[detailStyles.mutedText, { color: theme.textMuted }]}>
+                No location set for this event
+              </Text>
+            ) : garageResults.length > 0 ? (
+              garageResults.map((g, idx) => (
+                <View key={g.code}>
+                  {idx > 0 && <View style={[detailStyles.divider, { backgroundColor: theme.border }]} />}
+                  <View style={detailStyles.garageRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[detailStyles.garageName, { color: theme.text }]}>{g.name}</Text>
+                      {g.distance_m != null && (
+                        <Text style={[detailStyles.mutedText, { color: theme.textMuted }]}>{g.distance_m}m away</Text>
+                      )}
+                    </View>
+                    <View style={[detailStyles.availBadge, { backgroundColor: g.available > 0 ? `${theme.success}22` : `${theme.danger}22` }]}>
+                      <Text style={[detailStyles.availText, { color: g.available > 0 ? theme.success : theme.danger }]}>
+                        {g.available} open
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={[detailStyles.mutedText, { color: theme.danger }]}>No garages available</Text>
+            )}
+          </View>
+
+          {/* Delete / hint */}
+          {isDeviceEvent ? (
+            <Text style={[detailStyles.hint, { color: theme.textMuted }]}>
+              Event can only be deleted from your device calendar.
             </Text>
-          )}
-        </View>
-        
-      </ScrollView>
+          ) : !isSampleEvent ? (
+            <TouchableOpacity
+              style={[detailStyles.deleteBtn, { borderColor: theme.danger }]}
+              onPress={() => deleteEvent(selectedEvent)}
+            >
+              <Ionicons name="trash-outline" size={16} color={theme.danger} style={{ marginRight: 6 }} />
+              <Text style={[detailStyles.deleteBtnText, { color: theme.danger }]}>Delete Event</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      </SafeAreaView>
     );
   }
   
@@ -595,78 +651,83 @@ const styles = StyleSheet.create({
   location: { marginTop: 2 },
   empty: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: { fontSize: 16 },
-  backBtn: { marginBottom: 16 },
-  backText: { fontSize: 18, fontWeight: "600" },
-  detailCard: {
-    padding: 20,
-    borderRadius: 14,
-    borderWidth: 2,
-    marginBottom: 16,
-  },
-  detailTitle: { fontSize: 26, fontWeight: "700", marginBottom: 20 },
-  detailRow: { marginBottom: 14 },
-  detailLabel: { fontSize: 14, marginBottom: 2 },
-  detailValue: { fontSize: 18 },
-  deleteBtn: {
-    marginTop: 16,
-    backgroundColor: "#f87171",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  deleteBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  hint: { marginTop: 16, fontSize: 14, textAlign: "center" },
+});
 
-  reminderSection: {
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  reminderHeader: {
+const detailStyles = StyleSheet.create({
+  root: { flex: 1 },
+  header: {
+    height: 56,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+  },
+  headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700" },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 },
+
+  card: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 12,
   },
-  reminderTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+  categoryBadge: {
+    alignSelf: "flex-start",
+    borderWidth: 1.5,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginBottom: 10,
   },
-  reminderGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  reminderChip: {
+  categoryText: { fontSize: 12, fontWeight: "700" },
+  eventTitle: { fontSize: 22, fontWeight: "800", marginBottom: 14 },
+
+  infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  infoIcon: { marginRight: 10 },
+  infoText: { fontSize: 15, flex: 1 },
+
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: "700" },
+
+  chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 999,
     borderWidth: 1.5,
   },
-  reminderChipText: {
-    fontSize: 13,
-  },
-  activeRemindersSummary: {
+  chipText: { fontSize: 13 },
+
+  reminderSummary: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 12,
     paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(128, 128, 128, 0.2)",
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  activeRemindersText: {
-    fontSize: 13,
-  },
-  garageCard: {
-    marginTop: 24,
-    padding: 16,
+  reminderSummaryText: { fontSize: 13 },
+
+  garageRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
+  garageName: { fontSize: 15, fontWeight: "600", marginBottom: 2 },
+  mutedText: { fontSize: 13 },
+  availBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  availText: { fontSize: 13, fontWeight: "700" },
+  divider: { height: StyleSheet.hairlineWidth },
+
+  deleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
     borderRadius: 12,
+    padding: 14,
+    marginTop: 4,
+    marginBottom: 8,
   },
-  garageTitle: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
-  garageName: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  garageText: { fontSize: 14 },
+  deleteBtnText: { fontSize: 15, fontWeight: "700" },
+  hint: { fontSize: 13, textAlign: "center", marginTop: 8, marginBottom: 8 },
 });
