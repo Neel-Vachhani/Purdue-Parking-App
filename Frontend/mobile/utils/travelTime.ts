@@ -1,7 +1,7 @@
 // utils/travelTime.ts
 import { Platform } from "react-native";
 import * as Location from "expo-location";
-import { getApiBaseUrl } from "../config/env";
+import { getApiBaseUrl, getGoogleMapsApiKey } from "../config/env";
 import axios from "axios";
 
 export interface NearestGarage {
@@ -173,6 +173,45 @@ function formatDuration(minutes: number): string {
   }
 }
 
+async function geocodeAddressDirect(address: string): Promise<Coordinate | null> {
+  const apiKey = getGoogleMapsApiKey();
+  if (!apiKey) {
+    return null;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      address: address.trim(),
+      key: apiKey,
+      bounds: "40.39286,-86.954622|40.466874,-86.871755",
+      region: "us",
+    });
+
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    if (data?.status === "OK" && Array.isArray(data.results) && data.results.length > 0) {
+      const location = data.results[0]?.geometry?.location;
+      if (typeof location?.lat === "number" && typeof location?.lng === "number") {
+        return {
+          latitude: location.lat,
+          longitude: location.lng,
+        };
+      }
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Geocode an address to coordinates using backend API proxy
  * The backend securely handles the Google Maps API key
@@ -195,6 +234,10 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
     
     if (!response.ok) {
       console.error(`Backend geocoding failed: ${response.status}`);
+      const directCoords = await geocodeAddressDirect(address);
+      if (directCoords) {
+        return directCoords;
+      }
       if (response.status === 503) {
         console.error("⚠️  Geocoding service not configured on backend. Check GOOGLE_MAPS_API_KEY in backend .env");
       }
@@ -219,6 +262,10 @@ export async function geocodeAddress(address: string): Promise<Coordinate | null
     return null;
   } catch (error) {
     console.error("❌ Geocoding network error:", error);
+    const directCoords = await geocodeAddressDirect(address);
+    if (directCoords) {
+      return directCoords;
+    }
     return null;
   }
 }
