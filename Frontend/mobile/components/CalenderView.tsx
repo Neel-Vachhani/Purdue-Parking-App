@@ -1,13 +1,16 @@
 // components/CalendarEvents.tsx
 import * as React from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ScrollView, Linking, ActivityIndicator, Platform } from "react-native";
 import { Calendar } from "react-native-calendars";
 import { ThemeContext } from "../theme/ThemeProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ExpoCalendar from "expo-calendar";
 import * as Notifications from "expo-notifications";
+import * as SecureStore from "expo-secure-store";
 import { Ionicons } from "@expo/vector-icons";
 import { INITIAL_GARAGES } from "../data/initialGarageAvailability";
+import { GARAGE_DEFINITIONS, GarageDefinition } from "../data/garageDefinitions";
+import { geocodeAddress, getCurrentLocation, Coordinate } from "../utils/travelTime";
 
 type Category = "meeting" | "deadline" | "personal" | "other";
 
@@ -19,6 +22,23 @@ interface AppEvent {
   location?: string;
   category?: Category;
 }
+
+//suggested parking
+interface ParkingResult {
+  code: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  paid: boolean;
+  rating: number;
+  available: number | null; //numbers from initial garage file
+  capacity: number | null;
+  walkToEvent_m: number;    
+  driveFromUser_m: number | null; 
+}
+
+type SortMode = "distance" | "availability";  
 
 const COLOR_MAP: Record<Category | "default", string> = {
   meeting: "#4aa3ff",
@@ -58,6 +78,15 @@ function getEventStartDate(event: AppEvent): Date | null {
 
 function getReminderKey(eventId: string, minutes: number): string {
   return `reminder_${eventId}_${minutes}`;
+}
+
+function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)}m`;
+  return `${(meters / 1000).toFixed(1)}km`;
+}
+
+function estimateWalkMinutes(meters: number): number {
+  return Math.max(1, Math.round(meters / 80));
 }
 
 // Sample general events
@@ -104,13 +133,227 @@ const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const findLocationCoords = (location: string): { lat: number; lng: number } | null => {
+const findLocationCoordsLocal = (location: string): { lat: number; lng: number } | null => {
   const lower = location.toLowerCase();
   for (const [key, coords] of Object.entries(KNOWN_LOCATIONS)) {
     if (lower.includes(key)) return coords;
   }
   return null;
 };
+
+const findLocationCoords = async (location: string): Promise<{ lat: number; lng: number } | null> => {
+  const local = findLocationCoordsLocal(location);
+  if (local) return local;
+
+  //geocode
+  try {
+    const geocoded = await geocodeAddress(location);
+    if (geocoded) {
+      return { lat: geocoded.latitude, lng: geocoded.longitude };
+    }
+  } catch (e) {
+    console.warn("Geocoding fallback failed for:", location, e);
+  }
+
+  return null;
+};
+
+function buildParkingResults(
+  eventCoords: { lat: number; lng: number },
+  userCoords: { lat: number; lng: number } | null,
+): ParkingResult[] {
+  //availability
+  const availabilityMap = new Map<string, { current: number; capacity: number }>();
+  for (const g of INITIAL_GARAGES) {
+    availabilityMap.set(g.code, { current: g.current, capacity:g.total ?? g.current });
+  }
+
+  const results: ParkingResult[] = GARAGE_DEFINITIONS.map((def) => {
+    const avail = availabilityMap.get(def.code);
+    return {
+      code: def.code,
+      name: def.name,
+      address: def.address,
+      lat: def.lat,
+      lng: def.lng,
+      paid: !!def.paid,
+      rating: def.rating,
+      available: avail?.current ?? null,
+      capacity: avail?.capacity ?? null,
+      walkToEvent_m: Math.round(haversine(def.lat, def.lng, eventCoords.lat, eventCoords.lng)),
+      driveFromUser_m: userCoords
+        ? Math.round(haversine(userCoords.lat, userCoords.lng, def.lat, def.lng))
+        : null,
+    };
+  });
+
+  //sort by closest
+  results.sort((a, b) => a.walkToEvent_m - b.walkToEvent_m);
+
+  return results.slice(0, 5); //top 5 results
+}
+
+//open directions in external app
+function openDirections(
+  destLat: number,
+  destLng: number,
+  originLat?: number,
+  originLng?: number,
+): void {
+  const destination = `${destLat},${destLng}`;
+  const origin =
+    originLat != null && originLng != null
+      ? `${originLat},${originLng}`
+      : "current+location";
+  const googleUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
+
+  if (Platform.OS === "ios") {
+    const appleUrl = `http://maps.apple.com/?daddr=${destLat},${destLng}&dirflg=d`;
+    Linking.canOpenURL(appleUrl).then((supported) => {
+      Linking.openURL(supported ? appleUrl : googleUrl);
+    });
+  } else {
+    const geoUrl = `google.navigation:q=${destLat},${destLng}`;
+    Linking.canOpenURL(geoUrl).then((supported) => {
+      Linking.openURL(supported ? geoUrl : googleUrl);
+    });
+  }
+}
+
+//finding starting location
+async function resolveUserOrigin(): Promise<{
+  coords: { lat: number; lng: number };
+  type: "saved" | "current";
+} | null> {
+  //try saved origin point
+  try {
+    const userJson = await SecureStore.getItemAsync("user");
+    const user = userJson ? JSON.parse(userJson) : null;
+    const email = user?.email;
+
+    if (email) {
+      const { getApiBaseUrl } = require("../config/env");
+      const API_BASE = getApiBaseUrl();
+      const response = await fetch(
+        `${API_BASE}/user/origin/?email=${encodeURIComponent(email)}`,
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const savedOrigin = data?.default_origin;
+        if (savedOrigin && savedOrigin.trim() !== "") {
+          const geocoded = await geocodeAddress(savedOrigin);
+          if (geocoded) {
+            return {
+              coords: { lat: geocoded.latitude, lng: geocoded.longitude },
+              type: "saved",
+            };
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to load saved origin:", e);
+  }
+
+  //use device location
+  try {
+    const loc = await getCurrentLocation();
+    if (loc) {
+      return {
+        coords: { lat: loc.latitude, lng: loc.longitude },
+        type: "current",
+      };
+    }
+  } catch (e) {
+    console.warn("Fallback GPS failed:", e);
+  }
+
+  return null;
+}
+
+//Parking and Navigation Component
+
+function ParkingCard({
+  parking,
+  theme,
+  isExpanded,
+  onToggleExpand,
+}: {
+  parking: ParkingResult;
+  theme: any;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}) {
+  const isDark = theme.mode === "dark";
+  const subColor = isDark ? "#9ca3af" : "#6b7280";
+
+  const availColor =
+    parking.available === null
+      ? subColor
+      : parking.available === 0
+      ? "#ef4444"
+      : parking.available < 20
+      ? "#f59e0b"
+      : "#22c55e";
+
+  return (
+    <View
+      style={[
+        styles.parkingItemCard,
+        {
+          backgroundColor: isDark ? "#2a2d31" : "#fff",
+          borderColor: isExpanded ? COLOR_MAP.meeting : isDark ? "#374151" : "#e5e7eb",
+        },
+      ]}
+    >
+      <TouchableOpacity onPress={onToggleExpand} activeOpacity={0.7}>
+        <View style={styles.parkingItemHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.parkingName, { color: theme.text }]}>{parking.name}</Text>
+            {parking.address ? (
+              <Text style={[styles.parkingAddress, { color: subColor }]} numberOfLines={1}>
+                {parking.address}
+              </Text>
+            ) : null}
+          </View>
+
+          {parking.available != null && (
+            <View style={[styles.availBadge, { backgroundColor: availColor + "22" }]}>
+              <View style={[styles.availDot, { backgroundColor: availColor }]} />
+              <Text style={[styles.availText, { color: availColor }]}>
+                {parking.available > 0 ? `${parking.available}` : "Full"}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.chevronRow}>
+          <Text style={[styles.chevronHint, { color: subColor }]}>
+            {isExpanded ? "Hide directions" : "Tap for directions"}
+          </Text>
+          <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={subColor} />
+        </View>
+      </TouchableOpacity>
+
+      {isExpanded && (
+        <View style={styles.directionsContainer}>
+          <View style={[styles.directionsDivider, { borderColor: isDark ? "#374151" : "#e5e7eb" }]} />
+          <TouchableOpacity
+            style={[styles.directionBtn, { backgroundColor: COLOR_MAP.meeting + "18" }]}
+            onPress={() => openDirections(parking.lat, parking.lng)}
+          >
+            <Ionicons name="navigate-outline" size={20} color={COLOR_MAP.meeting} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.dirBtnTitle, { color: theme.text }]}>Navigate to Parking</Text>
+              <Text style={[styles.dirBtnSub, { color: subColor }]}>Opens in Maps app</Text>
+            </View>
+            <Ionicons name="open-outline" size={16} color={subColor} />
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
 
 export default function CalendarEvents(): React.JSX.Element {
   const theme = React.useContext(ThemeContext);
@@ -125,10 +368,16 @@ export default function CalendarEvents(): React.JSX.Element {
 
   const [importedEvents, setImportedEvents] = React.useState<AppEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = React.useState<AppEvent | null>(null);
-  //const [nearestGarage, setNearestGarage] = React.useState<any>(null);
-  const [garageResults, setGarageResults] = React.useState<any[]>([]);
-  
   const [activeReminders, setActiveReminders] = React.useState<Record<string, string>>({});
+
+  const [parkingResults, setParkingResults] = React.useState<ParkingResult[]>([]);
+  const [sortMode, setSortMode] = React.useState<SortMode>("distance");
+  const [expandedCode, setExpandedCode] = React.useState<string | null>(null);
+  const [userCoords, setUserCoords] = React.useState<{ lat: number; lng: number } | null>(null);
+  const [originType, setOriginType] = React.useState<"saved" | "current" | null>(null);
+  const [locationError, setLocationError] = React.useState<string | null>(null);
+  const [loadingParking, setLoadingParking] = React.useState(false);
+
 
   //load reminders
   React.useEffect(() => {
@@ -194,30 +443,98 @@ export default function CalendarEvents(): React.JSX.Element {
   loadAllEvents();
   }, []);
 
+  //updated parking location (sprint 2)
   React.useEffect(() => {
-  if (!selectedEvent?.location) {
-    setGarageResults([]);
-    return;
-  }
+    if (!selectedEvent?.location) {
+      setParkingResults([]);
+      return;
+    }
 
-  const coords = findLocationCoords(selectedEvent.location);
-  const targetCodes = ["PGU", "PGG"];
 
-  const results = INITIAL_GARAGES
-    .filter((g) => targetCodes.includes(g.code) && g.current > 0)
-    .map((g) => ({
-      name: g.name,
-      code: g.code,
-      available: g.current,
-      distance_m: coords ? Math.round(haversine(coords.lat, coords.lng, g.lat, g.lng)) : null,
-    })).sort((a, b) => (a.code === "PGU" ? -1 : 1));;
+    let cancelled = false;
+    setLoadingParking(true);
+    setLocationError(null);
+    setExpandedCode(null);
 
-  setGarageResults(results);
-}, [selectedEvent]);
+    (async () => {
+      // Resolve event location (known locations first, then geocode fallback)
+      const evtCoords = await findLocationCoords(selectedEvent.location!);
+      if (!evtCoords || cancelled) {
+        if (!cancelled) {
+          setParkingResults([]);
+          setLoadingParking(false);
+        }
+        return;
+      }
+      //use set origin or expo location gps
+      let resolvedUserCoords: { lat: number; lng: number } | null = null;
+      const originResult = await resolveUserOrigin();
 
+      if (originResult) {
+        resolvedUserCoords = originResult.coords;
+        if (!cancelled) {
+          setUserCoords(resolvedUserCoords);
+          setOriginType(originResult.type);
+        }
+      } else {
+        if (!cancelled) {
+          setLocationError(
+            "No saved starting location and device location unavailable. " +
+            "Set a starting location in Settings → Travel Preferences for distance info."
+          );
+        }
+      }
+
+      const results = buildParkingResults(evtCoords, resolvedUserCoords);
+
+      if (!cancelled) {
+        setParkingResults(results);
+        setLoadingParking(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedEvent?.id]);
+
+  //sorting parking locations
+  const sortedParking = React.useMemo(() => {
+    const copy = [...parkingResults];
+    if (sortMode === "distance") {
+      //sort by promximity
+      copy.sort((a, b) => a.walkToEvent_m - b.walkToEvent_m);
+    } else {
+      //
+      copy.sort((a, b) => {
+        const aAvail = a.available ?? -1;
+        const bAvail = b.available ?? -1;
+        if (bAvail !== aAvail) return bAvail - aAvail;
+        return a.walkToEvent_m - b.walkToEvent_m;
+      });
+    }
+    return copy;
+  }, [parkingResults, sortMode]);
+  
 
   const allEvents = [...SAMPLE, ...importedEvents];
   const eventsForDate = allEvents.filter((e) => e.date === selectedDate);
+  //const eventCoords = selectedEvent?.location ? findLocationCoords(selectedEvent.location) : null;
+  
+  const [eventCoords, setEventCoords] = React.useState<{ lat: number; lng: number } | null>(null);
+
+  //update event coordinates when location changes
+  React.useEffect(() => {
+    if (!selectedEvent?.location) {
+      setEventCoords(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const coords = await findLocationCoords(selectedEvent.location!);
+      if (!cancelled) setEventCoords(coords);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedEvent?.id]);
+
 
   const markedDates = allEvents .reduce<Record<string, any>>((acc, ev) => {
     acc[ev.date] = {
@@ -365,11 +682,13 @@ export default function CalendarEvents(): React.JSX.Element {
     const isDeviceEvent = selectedEvent.id.startsWith("device-");
     const isSampleEvent = !selectedEvent.id.startsWith("ics-") && !isDeviceEvent;
     const borderColor = COLOR_MAP[selectedEvent.category ?? "default"];
+    const isDark = theme.mode === "dark";
+    const subColor = isDark ? "#9ca3af" : "#6b7280";
 
     return (
       <ScrollView style={[styles.container, { backgroundColor: theme.bg, padding: 24 }]}
                   contentContainerStyle={{ paddingBottom: 40 }}>
-        <TouchableOpacity onPress={() => setSelectedEvent(null)} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => { setSelectedEvent(null); setExpandedCode(null); setLocationError(null); }} style={styles.backBtn}>
           <Text style={[styles.backText, { color: COLOR_MAP.meeting }]}>← Back</Text>
         </TouchableOpacity>
 
@@ -475,28 +794,60 @@ export default function CalendarEvents(): React.JSX.Element {
           </TouchableOpacity>
         )}
 
-        <View style={[styles.garageCard, { backgroundColor: theme.mode === "dark" ? "#202225" : "#f3f4f6" }]}>
-          <Text style={[styles.garageTitle, { color: theme.text }]}>Nearby Garages</Text>
+        <View style={[styles.parkingSection, { backgroundColor: isDark ? "#202225" : "#fff", borderColor: isDark ? "#374151" : "#e5e7eb" }]}>
+          <View style={styles.parkingHeader}>
+            <Ionicons name="car-outline" size={22} color={theme.text} />
+            <Text style={[styles.parkingSectionTitle, { color: theme.text }]}>Parking & Directions</Text>
+          </View>
+
+          {/* Edge case: no location on event */}
           {!selectedEvent.location ? (
-            <Text style={[styles.garageText, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
-              No location set for this event
-            </Text>
-          ) : garageResults.length > 0 ? (
-            garageResults.map((g) => (
-              <View key={g.code} style={{ marginBottom: 10 }}>
-                <Text style={[styles.garageName, { color: theme.text }]}>{g.name}</Text>
-                <Text style={[styles.garageText, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
-                  {g.distance_m ? `${g.distance_m}m away · ` : ""}{g.available} spots available
-                </Text>
-              </View>
-            ))
+            <View style={styles.edgeCaseBox}>
+              <Ionicons name="location-outline" size={28} color={subColor} />
+              <Text style={[styles.edgeCaseText, { color: subColor }]}>
+                No location set for this event.{"\n"}Add a location to see nearby parking.
+              </Text>
+            </View>
+
+          /* Edge case: location not recognized */
+          ) : !eventCoords ? (
+            <View style={styles.edgeCaseBox}>
+              <Ionicons name="alert-circle-outline" size={28} color="#f59e0b" />
+              <Text style={[styles.edgeCaseText, { color: subColor }]}>
+                Could not resolve "{selectedEvent.location}" to a known location.{"\n"}Try a recognized building name (e.g. "Lawson", "WALC", "Stewart").
+              </Text>
+            </View>
           ) : (
-            <Text style={[styles.garageText, { color: "#f87171" }]}>
-              No garages available
-            </Text>
+            <>
+              {loadingParking ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator size="small" color={COLOR_MAP.meeting} />
+                  <Text style={[styles.loadingText, { color: subColor }]}>Loading parking info…</Text>
+                </View>
+              ) : (
+                <>
+                  {/* Parking list */}
+                  {sortedParking.length > 0 ? (
+                    sortedParking.map((p) => (
+                      <ParkingCard
+                        key={p.code}
+                        parking={p}
+                        theme={theme}
+                        isExpanded={expandedCode === p.code}
+                        onToggleExpand={() => setExpandedCode(expandedCode === p.code ? null : p.code)}
+                      />
+                    ))
+                  ) : (
+                    <View style={styles.edgeCaseBox}>
+                      <Ionicons name="alert-circle-outline" size={28} color="#ef4444" />
+                      <Text style={[styles.edgeCaseText, { color: "#ef4444" }]}>No parking locations available.</Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </>
           )}
         </View>
-        
       </ScrollView>
     );
   }
@@ -661,12 +1012,41 @@ const styles = StyleSheet.create({
   activeRemindersText: {
     fontSize: 13,
   },
-  garageCard: {
-    marginTop: 24,
-    padding: 16,
-    borderRadius: 12,
-  },
-  garageTitle: { fontSize: 18, fontWeight: "700", marginBottom: 8 },
-  garageName: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  garageText: { fontSize: 14 },
+  parkingSection: { marginTop: 24, padding: 16, borderRadius: 14, borderWidth: 1 },
+  parkingHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
+  parkingSectionTitle: { fontSize: 18, fontWeight: "700" },
+  sortRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" },
+  sortLabel: { fontSize: 13, fontWeight: "500" },
+  sortChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1.5 },
+  sortChipText: { fontSize: 13, fontWeight: "600" },
+
+  parkingItemCard: { borderRadius: 12, borderWidth: 1.5, padding: 14, marginBottom: 10 },
+  parkingItemHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  parkingName: { fontSize: 16, fontWeight: "600", marginBottom: 2 },
+  parkingAddress: { fontSize: 13, marginBottom: 4 },
+  parkingMetaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 6 },
+  parkingMetaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
+  parkingMetaText: { fontSize: 13 },
+  availBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999 },
+  availDot: { width: 7, height: 7, borderRadius: 4 },
+  availText: { fontSize: 12, fontWeight: "700" },
+  chevronRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 8 },
+  chevronHint: { fontSize: 12 },
+  directionsContainer: { marginTop: 4 },
+  directionsDivider: { borderTopWidth: 1, marginBottom: 12 },
+  directionBtn: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, marginBottom: 8 },
+  dirBtnTitle: { fontSize: 15, fontWeight: "600" },
+  dirBtnSub: { fontSize: 12, marginTop: 2 },
+
+  edgeCaseBox: { alignItems: "center", justifyContent: "center", paddingVertical: 24, gap: 10 },
+  edgeCaseText: { fontSize: 14, textAlign: "center", lineHeight: 20 },
+  locationWarning: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 8, marginBottom: 12 },
+  locationWarningText: { fontSize: 12, flex: 1 },
+  originInfoRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 8, marginBottom: 12 },
+  originInfoText: { fontSize: 12, flex: 1 },
+  loadingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12, paddingVertical: 16, justifyContent: "center" },
+  loadingText: { fontSize: 13 },
+  navigateToEventBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, marginTop: 8, borderTopWidth: 1 },
+  navigateToEventText: { fontSize: 15, fontWeight: "600" },
+
 });

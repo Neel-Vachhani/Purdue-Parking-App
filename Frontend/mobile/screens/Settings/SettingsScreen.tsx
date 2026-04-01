@@ -66,17 +66,22 @@ async function getPrefs(): Promise<NotifPrefs> {
 
 const API_BASE = `${getApiBaseUrl().replace(/\/$/, "")}`;
 
-const SECTION_STATE_KEY = "settings_section_state_v1";
-const SECTION_IDS = ["account", "travel", "notifications", "about", "calendar"] as const;
+const SECTION_STATE_KEY = "settings_section_state_v2";
+//const SECTION_IDS = ["account", "travel", "notifications", "about", "calendar"] as const;
+const SECTION_IDS = ["preferences", "authentication", "information"] as const;
+
 type SectionId = typeof SECTION_IDS[number];
 type SummaryTone = "neutral" | "success" | "warning";
 
 const DEFAULT_SECTION_STATE: Record<SectionId, boolean> = {
-  account: true,
-  travel: true,
-  notifications: true,
-  about: false,
-  calendar: false,
+  //account: true,
+  preferences: true,
+  authentication: true,
+  information: false,
+  //travel: true,
+  //notifications: true,
+  //about: false,
+  //calendar: false,
 };
 
 
@@ -614,7 +619,18 @@ const pickCalendar = async () => {
       </View>
     );
   };
-  
+
+  const Divider = () => (
+    <View
+      style={{
+        height: 1,
+        backgroundColor: isDark
+          ? "rgba(255,255,255,0.08)"
+          : "rgba(0,0,0,0.08)",
+        marginVertical: 4,
+      }}
+    />
+  );
 
   // Old code kept just in case it is needed.
   // <View style={{
@@ -725,6 +741,225 @@ const pickCalendar = async () => {
         contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
         showsVerticalScrollIndicator
       >
+        {/* header */}
+        <View>
+          <ThemedText style={{ fontSize: 24, fontWeight: "700" }}>
+            Settings
+          </ThemedText>
+        </View>
+
+        {/* summary chips */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {summaryItems.map((item, idx) => (
+            <View key={idx} style={{ flex: 1, minWidth: "45%" }}>
+              <SummaryChip
+                label={item.label}
+                value={item.value}
+                tone={item.tone}
+              />
+            </View>
+          ))}
+        </View>
+
+        {/* preferences section */}
+        <SettingsSectionCard
+          id="preferences"
+          title="Preferences"
+          icon="options-outline"
+          expanded={expandedSections.preferences}
+          onToggle={toggleSection}
+        >
+          <View style={{ gap: 12 }}>
+            {/* display */}
+            <ThemedText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                opacity: 0.5,
+              }}
+            >
+              Display
+            </ThemedText>
+
+            <Row label="Dark Mode">
+              <Switch
+                value={isDark}
+                onValueChange={theme.toggle}
+                trackColor={{ false: "#9CA3AF", true: theme.primary }}
+                thumbColor={isDark ? "#111827" : "#FFFFFF"}
+              />
+            </Row>
+
+            <Divider />
+
+            {/* travel */}
+            <ThemedText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                opacity: 0.5,
+              }}
+            >
+              Travel
+            </ThemedText>
+
+            <TravelPreferences
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+              savedOrigin={savedOrigin}
+              setSavedOrigin={setSavedOrigin}
+              inline
+            />
+
+            <Divider />
+
+            {/* -- Notifications -- */}
+            <ThemedText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                opacity: 0.5,
+              }}
+            >
+              Notifications
+            </ThemedText>
+
+            <Row label="Garage Full Alerts">
+              <Switch
+                value={prefs.garageFull}
+                onValueChange={(v) => setToggle("garageFull", v)}
+              />
+            </Row>
+            <Row label="Favorite Lot Closed">
+              <Switch
+                value={prefs.favoriteLotClosed}
+                onValueChange={(v) => setToggle("favoriteLotClosed", v)}
+              />
+            </Row>
+            <Row label="Permit Expiring Reminders">
+              <Switch
+                value={prefs.permitExpiring}
+                onValueChange={(v) => setToggle("permitExpiring", v)}
+              />
+            </Row>
+            <Row label="Price Drop Notifications">
+              <Switch
+                value={prefs.priceDrop}
+                onValueChange={(v) => setToggle("priceDrop", v)}
+              />
+            </Row>
+
+            <Button
+              title={saving ? "Saving..." : "Save Preferences"}
+              onPress={savePrefs}
+              disabled={saving}
+            />
+
+            <Divider />
+
+            {/* calendars*/}
+            <ThemedText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                opacity: 0.5,
+              }}
+            >
+              Calendars
+            </ThemedText>
+
+            <Button title="Upload calendar (.ics)" onPress={pickCalendar} />
+            <Button
+              title="Import device calendar"
+              onPress={toggleDeviceCalendar}
+            />
+          </View>
+        </SettingsSectionCard>
+
+        {/* authentication section */}
+        <SettingsSectionCard
+          id="authentication"
+          title="Authentication"
+          icon="lock-closed-outline"
+          expanded={expandedSections.authentication}
+          onToggle={toggleSection}
+        >
+          <View style={{ gap: 12 }}>
+            {userEmail ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: 10,
+                  borderRadius: 10,
+                  backgroundColor: theme.sectionBgMuted,
+                }}
+              >
+                <Ionicons name="mail" size={16} color={theme.primaryText} />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={{ fontSize: 11, opacity: 0.6 }}>
+                    Signed in as
+                  </ThemedText>
+                  <ThemedText
+                    numberOfLines={1}
+                    ellipsizeMode="middle"
+                    style={{ fontSize: 13, fontWeight: "600", marginTop: 2 }}
+                  >
+                    {userEmail}
+                  </ThemedText>
+                </View>
+              </View>
+            ) : (
+              <ThemedText style={{ fontSize: 14, opacity: 0.6 }}>
+                Not signed in
+              </ThemedText>
+            )}
+
+            <Button
+              title="Log Out"
+              color="#e53935"
+              onPress={handleLogout}
+            />
+          </View>
+        </SettingsSectionCard>
+
+        {/* information section */}
+        <SettingsSectionCard
+          id="information"
+          title="Information"
+          icon="information-circle-outline"
+          expanded={expandedSections.information}
+          onToggle={toggleSection}
+        >
+          <View style={{ gap: 12 }}>
+            <Row label="App Version">
+              <ThemedText style={{ fontSize: 14, opacity: 0.7 }}>
+                {appVersion}
+              </ThemedText>
+            </Row>
+          </View>
+        </SettingsSectionCard>
+      </ScrollView>
+    </ThemedView>
+  );
+}
+
+  /*return (
+    <ThemedView style={{ flex: 1 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+        showsVerticalScrollIndicator
+      >
         <View>
           <ThemedText style={{ fontSize: 24, fontWeight: "700" }}>Settings</ThemedText>
         </View>
@@ -797,15 +1032,15 @@ const pickCalendar = async () => {
             </Row>
             <Row label="Event Day Closures">
               <Switch value={prefs.eventClosures} onValueChange={handleEventClosuresToggle} />
-            </Row>
-            <Row label="Price Drop Notifications">
+            </Row>*/
+            /*<Row label="Price Drop Notifications">
               <Switch value={prefs.priceDrop} onValueChange={(v) => setToggle("priceDrop", v)} />
             </Row>
             {/*<Row label="Parking Pass Sale Notifications">
               <Switch value={prefs.passOnSale} onValueChange={handlePassOnSaleToggle} />
-            </Row>*/}
+            </Row>*/
 
-            {/*<View
+            /*<View
               style={{
                 paddingVertical: 12,
                 borderTopWidth: 1,
@@ -861,9 +1096,9 @@ const pickCalendar = async () => {
                   <Pill label="Daily" active={prefs.frequency === "daily"} onPress={() => setFrequency("daily")} />
                   <Pill label="Weekly" active={prefs.frequency === "weekly"} onPress={() => setFrequency("weekly")} />
                 </View>
-              </View>*/}
+              </View>*/
 
-              <Button title={saving ? "Saving..." : "Save Preferences"} onPress={savePrefs} disabled={saving} />
+              /*<Button title={saving ? "Saving..." : "Save Preferences"} onPress={savePrefs} disabled={saving} />
             </View>
           </SettingsSectionCard>
           
@@ -896,5 +1131,4 @@ const pickCalendar = async () => {
           </SettingsSectionCard>
         </ScrollView>
       </ThemedView>
-    );
-}
+    );*/

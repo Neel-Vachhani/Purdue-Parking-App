@@ -1,5 +1,5 @@
-import React, { useContext, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking, Modal, TextInput, Alert } from "react-native";
+import React, { useContext, useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking, Modal, TextInput, Alert, AppState } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
@@ -10,7 +10,18 @@ import { useActionSheet } from '@expo/react-native-action-sheet';
 import StarRating from 'react-native-star-rating-widget';
 import axios from "axios";
 import { API_BASE_URL } from "../config/env";
+import * as Notifications from 'expo-notifications';
 
+//timed parking notifs - sprint 2
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 
 export type Amenity =
@@ -38,6 +49,16 @@ export interface LotEvent {
   start_time: string;
   end_time: string;
 }
+
+export interface ParkingSession {
+  garageId: string;
+  durationMinutes: number;
+  startedAtIso: string;    // ISO-8601
+  expiresAtIso: string;    // ISO-8601
+  notificationId?: string; 
+}
+/* custom duration */
+const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 240] as const;
 
 export interface Garage {
   id: string;
@@ -108,6 +129,79 @@ function formatEventDate(iso: string) {
     return iso;
   }
 }
+
+function formatCountdown(totalSeconds: number): string {
+  if (totalSeconds <= 0) return "0m 00s";
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
+  return `${m}m ${pad(s)}s`;
+}
+
+/** SecureStore key for persisting active parking session */
+const SESSION_STORE_KEY = "active_parking_session";
+
+async function saveSession(session: ParkingSession | null) {
+  if (session) {
+    await SecureStore.setItemAsync(SESSION_STORE_KEY, JSON.stringify(session));
+  } else {
+    await SecureStore.deleteItemAsync(SESSION_STORE_KEY);
+  }
+}
+
+async function loadSession(): Promise<ParkingSession | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(SESSION_STORE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as ParkingSession;
+  } catch {
+    return null;
+  }
+}
+
+/** Request notification permissions (idempotent) */
+async function ensureNotificationPermissions(): Promise<boolean> {
+  const { status: existing } = await Notifications.getPermissionsAsync();
+  if (existing === "granted") return true;
+  const { status } = await Notifications.requestPermissionsAsync();
+  return status === "granted";
+}
+
+/** Schedule a local notification `secondsBefore` seconds before `expiresAt` */
+async function scheduleExpiryNotification(
+  garageName: string,
+  expiresAt: Date,
+  secondsBefore: number = 300, // default: 5 minutes warning
+): Promise<string | null> {
+  const hasPermission = await ensureNotificationPermissions();
+  if (!hasPermission) return null;
+
+  const triggerDate = new Date(expiresAt.getTime() - secondsBefore * 1000);
+  // If the trigger is in the past, fire immediately
+  const secondsUntilTrigger = Math.max(1, Math.round((triggerDate.getTime() - Date.now()) / 1000));
+
+  const id = await Notifications.scheduleNotificationAsync({
+    content: {
+      title: "Parking Expiring Soon",
+      body: `Your parking at ${garageName} expires in ${Math.round(secondsBefore / 60)} minutes. Move your vehicle to avoid a citation.`,
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: secondsUntilTrigger,
+    },
+  });
+  return id;
+}
+
+async function cancelScheduledNotification(notifId?: string) {
+  if (notifId) {
+    await Notifications.cancelScheduledNotificationAsync(notifId);
+  }
+}
+
 
 const makeStyles = (theme: AppTheme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.bg },
@@ -278,6 +372,157 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
     gap: 8,           // if using RN 0.71+ or use marginBottom on children
     zIndex: 20,
   },
+
+  timedParkingCard: {
+    marginTop: 12,
+    backgroundColor: theme.bg,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.border,
+  },
+  // (Duration chip styles below replace old permit option styles)
+  startTimerBtn: {
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: theme.primary,
+    marginTop: 4,
+  },
+  startTimerBtnDisabled: {
+    opacity: 0.45,
+  },
+  startTimerBtnText: {
+    color: theme.mode === "dark" ? "#0f172a" : "#0b0b0c",
+    fontWeight: "800",
+    fontSize: 16,
+  },
+
+  // Active timer display
+  timerContainer: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  timerCountdown: {
+    fontSize: 36,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+    color: theme.text,
+    letterSpacing: 1,
+  },
+  timerCountdownExpired: {
+    color: "#ef4444",
+  },
+  timerPermitLabel: {
+    color: theme.text,
+    opacity: 0.7,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  timerMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.border,
+  },
+  timerMetaBlock: { alignItems: "center", flex: 1 },
+  timerMetaLabel: { color: theme.text, opacity: 0.5, fontSize: 11, fontWeight: "600", marginBottom: 2 },
+  timerMetaValue: { color: theme.text, fontSize: 13, fontWeight: "700" },
+  timerProgressOuter: {
+    width: "100%",
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+    overflow: "hidden",
+    marginTop: 14,
+  },
+  timerProgressFill: {
+    height: 8,
+    borderRadius: 999,
+  },
+  endSessionBtn: {
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderColor: "#ef4444",
+    backgroundColor: theme.mode === "dark" ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.06)",
+  },
+  endSessionBtnText: {
+    color: "#ef4444",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  notifToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  notifToggleLabel: {
+    color: theme.text,
+    fontSize: 13,
+    fontWeight: "600",
+    flex: 1,
+    marginLeft: 8,
+  },
+
+  // Duration picker chips
+  durationChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    minWidth: 56,
+    alignItems: "center",
+  },
+  durationChipDefault: {
+    borderColor: theme.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+    backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+  },
+  durationChipSelected: {
+    borderColor: theme.primary,
+    backgroundColor: theme.mode === "dark" ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.08)",
+  },
+  durationChipText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: theme.text,
+  },
+  durationChipTextSelected: {
+    color: theme.primary,
+  },
+  customDurationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  customDurationInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: theme.mode === "dark" ? "rgba(148,163,184,0.35)" : "rgba(107,114,128,0.35)",
+    color: theme.text,
+    backgroundColor: theme.mode === "dark" ? "rgba(17,24,39,0.6)" : "rgba(255,255,255,0.95)",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
 
 const Pill = ({ children }: { children: React.ReactNode }) => {
@@ -352,11 +597,155 @@ export default function GarageDetail({
   const [navMenuOpen, setNavMenuOpen] = useState(false);
   const fakeAccuracyStats = React.useMemo(() => ({ averageRating: 4.6, sampleSize: 46 }), []);
 
+  //state for timed parking
+  const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
+  const [activeSession, setActiveSession] = useState<ParkingSession | null>(null);
+  const [secondsRemaining, setSecondsRemaining] = useState<number>(0);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(true);
+  const [customMinutes, setCustomMinutes] = useState<string>("");
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
   //State for origin/location
   const [origin, setOrigin] = React.useState("");
   const [location, setLocation] = React.useState("");
 
-  const API_BASE = API_BASE_URL
+  const API_BASE = API_BASE_URL;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const stored = await loadSession();
+      if (cancelled) return;
+      if (stored && stored.garageId === garage.id) {
+        const remaining = Math.max(0, Math.round((new Date(stored.expiresAtIso).getTime() - Date.now()) / 1000));
+        setActiveSession(stored);
+        setSecondsRemaining(remaining);
+      } else {
+        setActiveSession(null);
+        setSecondsRemaining(0);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [garage.id]);
+
+  // ── Tick the countdown every second while a session is active ─────────
+  useEffect(() => {
+    if (!activeSession) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
+
+    // Recalculate on each tick to survive app backgrounding
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((new Date(activeSession.expiresAtIso).getTime() - Date.now()) / 1000));
+      setSecondsRemaining(remaining);
+    };
+
+    tick(); // immediate
+    timerRef.current = setInterval(tick, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [activeSession]);
+
+  // ── Recalculate remaining time when app comes to foreground ───────────
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active" && activeSession) {
+        const remaining = Math.max(0, Math.round((new Date(activeSession.expiresAtIso).getTime() - Date.now()) / 1000));
+        setSecondsRemaining(remaining);
+      }
+    });
+    return () => sub.remove();
+  }, [activeSession]);
+
+  // ── Start a parking session ───────────────────────────────────────────
+  const handleStartTimer = useCallback(async () => {
+    // Determine the duration: either a preset or custom entry
+    let durationMins = selectedDuration;
+    if (!durationMins) {
+      const parsed = parseInt(customMinutes, 10);
+      if (!parsed || parsed <= 0) return;
+      durationMins = parsed;
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + durationMins * 60 * 1000);
+
+    let notificationId: string | null = null;
+    if (notificationsEnabled) {
+      // Schedule 5-minute warning (or at start if duration <= 5 min)
+      const warningSeconds = Math.min(300, durationMins * 60 - 1);
+      notificationId = await scheduleExpiryNotification(garage.name, expiresAt, warningSeconds);
+    }
+
+    const session: ParkingSession = {
+      garageId: garage.id,
+      durationMinutes: durationMins,
+      startedAtIso: now.toISOString(),
+      expiresAtIso: expiresAt.toISOString(),
+      notificationId: notificationId ?? undefined,
+    };
+
+    await saveSession(session);
+    setActiveSession(session);
+    setSecondsRemaining(durationMins * 60);
+
+    // Also record on the backend
+    try {
+      const userJson = await SecureStore.getItemAsync("user");
+      const email = userJson ? JSON.parse(userJson).email : null;
+      if (email) {
+        await axios.post(`${API_BASE}/confirm_parking/`, {
+          code: garage.code,
+          email,
+          duration_minutes: durationMins,
+          timestamp: now.toISOString(),
+        });
+      }
+    } catch (err) {
+      console.error("Failed to record timed parking on server:", err);
+    }
+  }, [selectedDuration, customMinutes, garage, notificationsEnabled]);
+
+  // ── End session early ─────────────────────────────────────────────────
+  const handleEndSession = useCallback(async () => {
+    Alert.alert(
+      "End Parking Session",
+      "Are you sure you want to stop the timer?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "End Session",
+          style: "destructive",
+          onPress: async () => {
+            if (activeSession?.notificationId) {
+              await cancelScheduledNotification(activeSession.notificationId);
+            }
+            await saveSession(null);
+            setActiveSession(null);
+            setSecondsRemaining(0);
+            setSelectedDuration(null);
+            setCustomMinutes("");
+          },
+        },
+      ],
+    );
+  }, [activeSession]);
+
+  // Timer progress (0 → 1, where 1 = fully elapsed)
+  const timerProgress = useMemo(() => {
+    if (!activeSession) return 0;
+    const totalSecs = activeSession.durationMinutes * 60;
+    return Math.min(1, Math.max(0, 1 - secondsRemaining / totalSecs));
+  }, [activeSession, secondsRemaining]);
+
+  const timerProgressColor = useMemo(() => {
+    if (secondsRemaining <= 0) return "#ef4444";
+    if (timerProgress > 0.85) return "#f59e0b";
+    return "#22c55e";
+  }, [timerProgress, secondsRemaining]);
 
   const RatingWidget = () => {
     
@@ -845,6 +1234,255 @@ const handleConfirmParking = async () => {
           </View>
         </View>
 
+                {(garage.name.toLowerCase().includes("grant") ||
+          garage.name.toLowerCase().includes("harrison")) && (
+          <View style={styles.card}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <Ionicons name="ticket-outline" size={18} color={theme.primary} />
+              <Text style={styles.sectionTitle}>Visitor Pass – Timed Parking</Text>
+            </View>
+            <Text
+              style={{
+                color: theme.text,
+                opacity: 0.7,
+                fontSize: 13,
+                marginBottom: 12,
+                lineHeight: 18,
+              }}
+            >
+              Visitor passes at {garage.name} are subject to timed parking rates.
+            </Text>
+            <View
+              style={{
+                backgroundColor:
+                  theme.mode === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.02)",
+                borderRadius: 12,
+                padding: 12,
+                gap: 0,
+              }}
+            >
+              {[
+                { label: "0 – 30 Minutes", amount: "$1.00" },
+                { label: "30 – 60 Minutes", amount: "$3.00" },
+                { label: "Each Additional Hour", amount: "$1.00" },
+                { label: "Maximum (24 hr period)", amount: "$10.00" },
+              ].map((row, i, arr) => (
+                <View
+                  key={row.label}
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    paddingVertical: 10,
+                    borderBottomWidth: i < arr.length - 1 ? StyleSheet.hairlineWidth : 0,
+                    borderBottomColor: theme.border,
+                  }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: "500" }}>
+                    {row.label}
+                  </Text>
+                  <Text style={{ color: theme.primary, fontSize: 14, fontWeight: "700" }}>
+                    {row.amount}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.timedParkingCard}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Ionicons name="timer-outline" size={18} color={theme.primary} />
+            <Text style={styles.sectionTitle}>Parking Timer</Text>
+          </View>
+
+          {/* ── Active session: show countdown ─────────────────────────── */}
+          {activeSession ? (
+            <View style={styles.timerContainer}>
+              <Text style={styles.timerPermitLabel}>
+                {activeSession.durationMinutes >= 60
+                  ? `${Math.floor(activeSession.durationMinutes / 60)}h${activeSession.durationMinutes % 60 > 0 ? ` ${activeSession.durationMinutes % 60}m` : ""}`
+                  : `${activeSession.durationMinutes}m`}{" "}
+                session
+              </Text>
+
+              <Text
+                style={[
+                  styles.timerCountdown,
+                  secondsRemaining <= 0 && styles.timerCountdownExpired,
+                ]}
+              >
+                {secondsRemaining <= 0 ? "EXPIRED" : formatCountdown(secondsRemaining)}
+              </Text>
+
+              {/* Progress bar */}
+              <View style={styles.timerProgressOuter}>
+                <View
+                  style={[
+                    styles.timerProgressFill,
+                    {
+                      width: `${Math.round(timerProgress * 100)}%`,
+                      backgroundColor: timerProgressColor,
+                    },
+                  ]}
+                />
+              </View>
+
+              {/* Start / Expires times */}
+              <View style={styles.timerMeta}>
+                <View style={styles.timerMetaBlock}>
+                  <Text style={styles.timerMetaLabel}>STARTED</Text>
+                  <Text style={styles.timerMetaValue}>
+                    {formatTime(activeSession.startedAtIso) ?? "—"}
+                  </Text>
+                </View>
+                <View style={styles.timerMetaBlock}>
+                  <Text style={styles.timerMetaLabel}>EXPIRES</Text>
+                  <Text style={styles.timerMetaValue}>
+                    {formatTime(activeSession.expiresAtIso) ?? "—"}
+                  </Text>
+                </View>
+                <View style={styles.timerMetaBlock}>
+                  <Text style={styles.timerMetaLabel}>DURATION</Text>
+                  <Text style={styles.timerMetaValue}>
+                    {activeSession.durationMinutes} min
+                  </Text>
+                </View>
+              </View>
+
+              {/* End session button */}
+              <Pressable style={styles.endSessionBtn} onPress={handleEndSession}>
+                <Ionicons name="stop-circle-outline" size={18} color="#ef4444" />
+                <Text style={styles.endSessionBtnText}>End Session</Text>
+              </Pressable>
+            </View>
+          ) : (
+            /* ── No active session: duration picker + start button ────── */
+            <>
+              <Text
+                style={{
+                  color: theme.text,
+                  opacity: 0.7,
+                  fontSize: 13,
+                  marginBottom: 12,
+                  lineHeight: 18,
+                }}
+              >
+                Pick how long you'll be parked and start a timer. You'll get a notification before your time runs out.
+              </Text>
+
+              {/* Duration chips */}
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                {DURATION_OPTIONS.map((mins) => {
+                  const selected = selectedDuration === mins;
+                  const label =
+                    mins >= 60
+                      ? mins % 60 === 0
+                        ? `${mins / 60}h`
+                        : `${Math.floor(mins / 60)}h ${mins % 60}m`
+                      : `${mins}m`;
+                  return (
+                    <Pressable
+                      key={mins}
+                      onPress={() => {
+                        setSelectedDuration(selected ? null : mins);
+                        setCustomMinutes("");
+                      }}
+                      style={[
+                        styles.durationChip,
+                        selected ? styles.durationChipSelected : styles.durationChipDefault,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.durationChipText,
+                          selected && styles.durationChipTextSelected,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Custom duration input */}
+              <View style={styles.customDurationRow}>
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: "600" }}>
+                  Or enter minutes:
+                </Text>
+                <TextInput
+                  value={customMinutes}
+                  onChangeText={(t) => {
+                    // Only allow digits
+                    const cleaned = t.replace(/[^0-9]/g, "");
+                    setCustomMinutes(cleaned);
+                    if (cleaned) setSelectedDuration(null); // deselect chip
+                  }}
+                  placeholder="e.g. 75"
+                  placeholderTextColor={theme.mode === "dark" ? "#9CA3AF" : "#6B7280"}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  style={styles.customDurationInput}
+                />
+              </View>
+
+              {/* Notification toggle */}
+              <View style={styles.notifToggleRow}>
+                <Ionicons
+                  name={notificationsEnabled ? "notifications" : "notifications-off-outline"}
+                  size={18}
+                  color={notificationsEnabled ? theme.primary : theme.text}
+                />
+                <Text style={styles.notifToggleLabel}>Notify me 5 min before expiry</Text>
+                <Pressable
+                  onPress={() => setNotificationsEnabled((v) => !v)}
+                  hitSlop={10}
+                  style={{
+                    width: 48,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: notificationsEnabled ? theme.primary : theme.border,
+                    justifyContent: "center",
+                    paddingHorizontal: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      backgroundColor: "#fff",
+                      alignSelf: notificationsEnabled ? "flex-end" : "flex-start",
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 2,
+                      elevation: 2,
+                    }}
+                  />
+                </Pressable>
+              </View>
+
+              {/* Start timer button */}
+              <Pressable
+                style={[
+                  styles.startTimerBtn,
+                  !selectedDuration && !customMinutes && styles.startTimerBtnDisabled,
+                ]}
+                onPress={handleStartTimer}
+                disabled={!selectedDuration && !customMinutes}
+              >
+                <Ionicons
+                  name="timer-outline"
+                  size={18}
+                  color={theme.mode === "dark" ? "#0f172a" : "#0b0b0c"}
+                />
+                <Text style={styles.startTimerBtnText}>Start Parking Timer</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
 
         {/* Ratings */}
         <View style={styles.card}>
