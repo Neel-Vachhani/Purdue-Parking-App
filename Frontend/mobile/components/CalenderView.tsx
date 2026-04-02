@@ -1,6 +1,18 @@
 // components/CalendarEvents.tsx
 import * as React from "react";
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, ScrollView, Linking, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  Linking,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
 import { ThemeContext } from "../theme/ThemeProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -9,21 +21,20 @@ import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Ionicons } from "@expo/vector-icons";
 import { INITIAL_GARAGES } from "../data/initialGarageAvailability";
-import { GARAGE_DEFINITIONS, GarageDefinition } from "../data/garageDefinitions";
-import { geocodeAddress, getCurrentLocation, Coordinate } from "../utils/travelTime";
+import { GARAGE_DEFINITIONS } from "../data/garageDefinitions";
+import { geocodeAddress, getCurrentLocation } from "../utils/travelTime";
 
 type Category = "meeting" | "deadline" | "personal" | "other";
 
 interface AppEvent {
   id: string;
   title: string;
-  time: string;       // "09:00 - 10:00"
-  date: string;       // "YYYY-MM-DD"
+  time: string; // "09:00 - 10:00"
+  date: string; // "YYYY-MM-DD"
   location?: string;
   category?: Category;
 }
 
-//suggested parking
 interface ParkingResult {
   code: string;
   name: string;
@@ -32,13 +43,13 @@ interface ParkingResult {
   lng: number;
   paid: boolean;
   rating: number;
-  available: number | null; //numbers from initial garage file
+  available: number | null;
   capacity: number | null;
-  walkToEvent_m: number;    
-  driveFromUser_m: number | null; 
+  walkToEvent_m: number;
+  driveFromUser_m: number | null;
 }
 
-type SortMode = "distance" | "availability";  
+type SortMode = "distance" | "availability";
 
 const COLOR_MAP: Record<Category | "default", string> = {
   meeting: "#4aa3ff",
@@ -65,7 +76,7 @@ const REMINDER_OPTIONS: ReminderOption[] = [
 
 function getEventStartDate(event: AppEvent): Date | null {
   try {
-    const startTime = event.time.split(" - ")[0].trim(); // "09:00"
+    const startTime = event.time.split(" - ")[0].trim();
     const [hours, mins] = startTime.split(":").map(Number);
     const [year, month, day] = event.date.split("-").map(Number);
     const date = new Date(year, month - 1, day);
@@ -89,7 +100,6 @@ function estimateWalkMinutes(meters: number): number {
   return Math.max(1, Math.round(meters / 80));
 }
 
-// Sample general events
 const SAMPLE: AppEvent[] = [
   { id: "1", title: "Team Sync", time: "09:30 - 10:00", date: "2025-12-11", category: "meeting" },
   { id: "2", title: "Work Session", time: "10:30 - 12:00", date: "2025-12-11", category: "personal" },
@@ -99,27 +109,27 @@ const SAMPLE: AppEvent[] = [
 ];
 
 const KNOWN_LOCATIONS: Record<string, { lat: number; lng: number }> = {
-  "lawson": { lat: 40.4278, lng: -86.9169 },
-  "walc": { lat: 40.4274, lng: -86.9126 },
-  "pmucorr": { lat: 40.4250, lng: -86.9108 },
-  "corec": { lat: 40.4219, lng: -86.9197 },
-  "elliott": { lat: 40.4271, lng: -86.9029 },
-  "ellt": { lat: 40.4271, lng: -86.9029 },
-  "stewart": { lat: 40.4246, lng: -86.9128 },
-  "stew": { lat: 40.4246, lng: -86.9128 },
-  "krannert": { lat: 40.4233, lng: -86.9108 },
-  "rawls": { lat: 40.4233, lng: -86.9108 },
-  "ee": { lat: 40.4284, lng: -86.9112 },
-  "msee": { lat: 40.4284, lng: -86.9112 },
-  "phys": { lat: 40.4280, lng: -86.9152 },
-  "bhee": { lat: 40.4241, lng: -86.9142 },
-  "me": { lat: 40.4281, lng: -86.9133 },
-  "cl50": { lat: 40.4243, lng: -86.9164 },
-  "lily": { lat: 40.4228, lng: -86.9192 },
-  "hamp": { lat: 40.4262, lng: -86.9082 },
-  "knoy": { lat: 40.4267, lng: -86.9110 },
-  "smith": { lat: 40.4275, lng: -86.9167 },
-  "memorial union": { lat: 40.4250, lng: -86.9108 },
+  lawson: { lat: 40.4278, lng: -86.9169 },
+  walc: { lat: 40.4274, lng: -86.9126 },
+  pmucorr: { lat: 40.425, lng: -86.9108 },
+  corec: { lat: 40.4219, lng: -86.9197 },
+  elliott: { lat: 40.4271, lng: -86.9029 },
+  ellt: { lat: 40.4271, lng: -86.9029 },
+  stewart: { lat: 40.4246, lng: -86.9128 },
+  stew: { lat: 40.4246, lng: -86.9128 },
+  krannert: { lat: 40.4233, lng: -86.9108 },
+  rawls: { lat: 40.4233, lng: -86.9108 },
+  ee: { lat: 40.4284, lng: -86.9112 },
+  msee: { lat: 40.4284, lng: -86.9112 },
+  phys: { lat: 40.428, lng: -86.9152 },
+  bhee: { lat: 40.4241, lng: -86.9142 },
+  me: { lat: 40.4281, lng: -86.9133 },
+  cl50: { lat: 40.4243, lng: -86.9164 },
+  lily: { lat: 40.4228, lng: -86.9192 },
+  hamp: { lat: 40.4262, lng: -86.9082 },
+  knoy: { lat: 40.4267, lng: -86.911 },
+  smith: { lat: 40.4275, lng: -86.9167 },
+  "memorial union": { lat: 40.425, lng: -86.9108 },
 };
 
 const haversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -141,11 +151,12 @@ const findLocationCoordsLocal = (location: string): { lat: number; lng: number }
   return null;
 };
 
-const findLocationCoords = async (location: string): Promise<{ lat: number; lng: number } | null> => {
+const findLocationCoords = async (
+  location: string
+): Promise<{ lat: number; lng: number } | null> => {
   const local = findLocationCoordsLocal(location);
   if (local) return local;
 
-  //geocode
   try {
     const geocoded = await geocodeAddress(location);
     if (geocoded) {
@@ -160,12 +171,11 @@ const findLocationCoords = async (location: string): Promise<{ lat: number; lng:
 
 function buildParkingResults(
   eventCoords: { lat: number; lng: number },
-  userCoords: { lat: number; lng: number } | null,
+  userCoords: { lat: number; lng: number } | null
 ): ParkingResult[] {
-  //availability
   const availabilityMap = new Map<string, { current: number; capacity: number }>();
   for (const g of INITIAL_GARAGES) {
-    availabilityMap.set(g.code, { current: g.current, capacity:g.total ?? g.current });
+    availabilityMap.set(g.code, { current: g.current, capacity: g.total ?? g.current });
   }
 
   const results: ParkingResult[] = GARAGE_DEFINITIONS.map((def) => {
@@ -187,24 +197,19 @@ function buildParkingResults(
     };
   });
 
-  //sort by closest
   results.sort((a, b) => a.walkToEvent_m - b.walkToEvent_m);
-
-  return results.slice(0, 5); //top 5 results
+  return results.slice(0, 5);
 }
 
-//open directions in external app
 function openDirections(
   destLat: number,
   destLng: number,
   originLat?: number,
-  originLng?: number,
+  originLng?: number
 ): void {
   const destination = `${destLat},${destLng}`;
   const origin =
-    originLat != null && originLng != null
-      ? `${originLat},${originLng}`
-      : "current+location";
+    originLat != null && originLng != null ? `${originLat},${originLng}` : "current+location";
   const googleUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=driving`;
 
   if (Platform.OS === "ios") {
@@ -220,12 +225,10 @@ function openDirections(
   }
 }
 
-//finding starting location
 async function resolveUserOrigin(): Promise<{
   coords: { lat: number; lng: number };
   type: "saved" | "current";
 } | null> {
-  //try saved origin point
   try {
     const userJson = await SecureStore.getItemAsync("user");
     const user = userJson ? JSON.parse(userJson) : null;
@@ -234,9 +237,7 @@ async function resolveUserOrigin(): Promise<{
     if (email) {
       const { getApiBaseUrl } = require("../config/env");
       const API_BASE = getApiBaseUrl();
-      const response = await fetch(
-        `${API_BASE}/user/origin/?email=${encodeURIComponent(email)}`,
-      );
+      const response = await fetch(`${API_BASE}/user/origin/?email=${encodeURIComponent(email)}`);
       if (response.ok) {
         const data = await response.json();
         const savedOrigin = data?.default_origin;
@@ -255,7 +256,6 @@ async function resolveUserOrigin(): Promise<{
     console.warn("Failed to load saved origin:", e);
   }
 
-  //use device location
   try {
     const loc = await getCurrentLocation();
     if (loc) {
@@ -271,21 +271,21 @@ async function resolveUserOrigin(): Promise<{
   return null;
 }
 
-//Parking and Navigation Component
-
 function ParkingCard({
   parking,
   theme,
   isExpanded,
   onToggleExpand,
+  userCoords,
 }: {
   parking: ParkingResult;
   theme: any;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  userCoords: { lat: number; lng: number } | null;
 }) {
   const isDark = theme.mode === "dark";
-  const subColor = isDark ? "#9ca3af" : "#6b7280";
+  const subColor = theme.textMuted ?? (isDark ? "#9ca3af" : "#6b7280");
 
   const availColor =
     parking.available === null
@@ -299,7 +299,7 @@ function ParkingCard({
   return (
     <View
       style={[
-        styles.parkingItemCard,
+        detailStyles.parkingItemCard,
         {
           backgroundColor: isDark ? "#2a2d31" : "#fff",
           borderColor: isExpanded ? COLOR_MAP.meeting : isDark ? "#374151" : "#e5e7eb",
@@ -307,45 +307,87 @@ function ParkingCard({
       ]}
     >
       <TouchableOpacity onPress={onToggleExpand} activeOpacity={0.7}>
-        <View style={styles.parkingItemHeader}>
+        <View style={detailStyles.parkingItemHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.parkingName, { color: theme.text }]}>{parking.name}</Text>
+            <Text style={[detailStyles.parkingName, { color: theme.text }]}>{parking.name}</Text>
             {parking.address ? (
-              <Text style={[styles.parkingAddress, { color: subColor }]} numberOfLines={1}>
+              <Text
+                style={[detailStyles.parkingAddress, { color: subColor }]}
+                numberOfLines={1}
+              >
                 {parking.address}
               </Text>
             ) : null}
           </View>
 
           {parking.available != null && (
-            <View style={[styles.availBadge, { backgroundColor: availColor + "22" }]}>
-              <View style={[styles.availDot, { backgroundColor: availColor }]} />
-              <Text style={[styles.availText, { color: availColor }]}>
+            <View style={[detailStyles.availBadge, { backgroundColor: `${availColor}22` }]}>
+              <View style={[detailStyles.availDot, { backgroundColor: availColor }]} />
+              <Text style={[detailStyles.availText, { color: availColor }]}>
                 {parking.available > 0 ? `${parking.available}` : "Full"}
               </Text>
             </View>
           )}
         </View>
 
-        <View style={styles.chevronRow}>
-          <Text style={[styles.chevronHint, { color: subColor }]}>
+        <View style={detailStyles.parkingMetaRow}>
+          <View style={detailStyles.parkingMetaChip}>
+            <Ionicons name="walk-outline" size={14} color={subColor} />
+            <Text style={[detailStyles.parkingMetaText, { color: subColor }]}>
+              {formatDistance(parking.walkToEvent_m)} • {estimateWalkMinutes(parking.walkToEvent_m)} min walk
+            </Text>
+          </View>
+
+          {parking.driveFromUser_m != null && (
+            <View style={detailStyles.parkingMetaChip}>
+              <Ionicons name="car-outline" size={14} color={subColor} />
+              <Text style={[detailStyles.parkingMetaText, { color: subColor }]}>
+                {formatDistance(parking.driveFromUser_m)} from start
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={detailStyles.chevronRow}>
+          <Text style={[detailStyles.chevronHint, { color: subColor }]}>
             {isExpanded ? "Hide directions" : "Tap for directions"}
           </Text>
-          <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={subColor} />
+          <Ionicons
+            name={isExpanded ? "chevron-up" : "chevron-down"}
+            size={16}
+            color={subColor}
+          />
         </View>
       </TouchableOpacity>
 
       {isExpanded && (
-        <View style={styles.directionsContainer}>
-          <View style={[styles.directionsDivider, { borderColor: isDark ? "#374151" : "#e5e7eb" }]} />
+        <View style={detailStyles.directionsContainer}>
+          <View
+            style={[
+              detailStyles.directionsDivider,
+              { borderColor: isDark ? "#374151" : "#e5e7eb" },
+            ]}
+          />
+
           <TouchableOpacity
-            style={[styles.directionBtn, { backgroundColor: COLOR_MAP.meeting + "18" }]}
-            onPress={() => openDirections(parking.lat, parking.lng)}
+            style={[detailStyles.directionBtn, { backgroundColor: `${COLOR_MAP.meeting}18` }]}
+            onPress={() =>
+              openDirections(
+                parking.lat,
+                parking.lng,
+                userCoords?.lat,
+                userCoords?.lng
+              )
+            }
           >
             <Ionicons name="navigate-outline" size={20} color={COLOR_MAP.meeting} />
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={[styles.dirBtnTitle, { color: theme.text }]}>Navigate to Parking</Text>
-              <Text style={[styles.dirBtnSub, { color: subColor }]}>Opens in Maps app</Text>
+              <Text style={[detailStyles.dirBtnTitle, { color: theme.text }]}>
+                Navigate to Parking
+              </Text>
+              <Text style={[detailStyles.dirBtnSub, { color: subColor }]}>
+                Opens in Maps app
+              </Text>
             </View>
             <Ionicons name="open-outline" size={16} color={subColor} />
           </TouchableOpacity>
@@ -357,19 +399,18 @@ function ParkingCard({
 
 export default function CalendarEvents(): React.JSX.Element {
   const theme = React.useContext(ThemeContext);
-  const [selectedDate, setSelectedDate] = React.useState<string>(() => { 
-    //new Date().toISOString().slice(0, 10)
+
+  const [selectedDate, setSelectedDate] = React.useState<string>(() => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const day = String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
-});
+  });
 
   const [importedEvents, setImportedEvents] = React.useState<AppEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = React.useState<AppEvent | null>(null);
   const [activeReminders, setActiveReminders] = React.useState<Record<string, string>>({});
-
   const [parkingResults, setParkingResults] = React.useState<ParkingResult[]>([]);
   const [sortMode, setSortMode] = React.useState<SortMode>("distance");
   const [expandedCode, setExpandedCode] = React.useState<string | null>(null);
@@ -377,9 +418,8 @@ export default function CalendarEvents(): React.JSX.Element {
   const [originType, setOriginType] = React.useState<"saved" | "current" | null>(null);
   const [locationError, setLocationError] = React.useState<string | null>(null);
   const [loadingParking, setLoadingParking] = React.useState(false);
+  const [eventCoords, setEventCoords] = React.useState<{ lat: number; lng: number } | null>(null);
 
-
-  //load reminders
   React.useEffect(() => {
     (async () => {
       try {
@@ -388,68 +428,81 @@ export default function CalendarEvents(): React.JSX.Element {
       } catch {}
     })();
   }, []);
-  
+
   React.useEffect(() => {
-  const loadAllEvents = async () => {
-    //ics events
-    let icsEvents: AppEvent[] = [];
-    try {
-      const stored = await AsyncStorage.getItem("calendar_events");
-      if (stored) icsEvents = JSON.parse(stored);
-    } catch (e) {
-      console.log("ics event loading failed:", e);
-    }
-
-    //import device calendar    
-    let deviceEvents: AppEvent[] = [];
-    try {
-      const { status } = await ExpoCalendar.requestCalendarPermissionsAsync();
-      if (status === "granted") {
-        const calendars = await ExpoCalendar.getCalendarsAsync(ExpoCalendar.EntityTypes.EVENT);
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setMonth(endDate.getMonth() + 3);
-
-        const events = await ExpoCalendar.getEventsAsync(
-          calendars.map((c) => c.id),
-          startDate,
-          endDate
-        );
-
-        deviceEvents = events.map((ev, i) => {
-          const start = new Date(ev.startDate);
-          const end = new Date(ev.endDate);
-          const year = start.getFullYear();
-          const month = String(start.getMonth() + 1).padStart(2, "0");
-          const day = String(start.getDate()).padStart(2, "0");
-
-          return {
-          id: `device-${i}`,
-          title: ev.title || "Untitled",
-          date: `${year}-${month}-${day}`,
-          time: `${start.toTimeString().slice(0, 5)} - ${end.toTimeString().slice(0, 5)}`,
-          location: ev.location || undefined,
-          category: "other" as Category,
-          }
-        });
+    const loadAllEvents = async () => {
+      let icsEvents: AppEvent[] = [];
+      try {
+        const stored = await AsyncStorage.getItem("calendar_events");
+        if (stored) icsEvents = JSON.parse(stored);
+      } catch (e) {
+        console.log("ics event loading failed:", e);
       }
-    } catch (e) {
-      console.log("device events loading failed:", e);
-    }
 
-    setImportedEvents([...icsEvents, ...deviceEvents]);
-  };
+      let deviceEvents: AppEvent[] = [];
+      try {
+        const { status } = await ExpoCalendar.requestCalendarPermissionsAsync();
+        if (status === "granted") {
+          const calendars = await ExpoCalendar.getCalendarsAsync(ExpoCalendar.EntityTypes.EVENT);
+          const startDate = new Date();
+          const endDate = new Date();
+          endDate.setMonth(endDate.getMonth() + 3);
 
-  loadAllEvents();
+          const events = await ExpoCalendar.getEventsAsync(
+            calendars.map((c) => c.id),
+            startDate,
+            endDate
+          );
+
+          deviceEvents = events.map((ev, i) => {
+            const start = new Date(ev.startDate);
+            const end = new Date(ev.endDate);
+            const year = start.getFullYear();
+            const month = String(start.getMonth() + 1).padStart(2, "0");
+            const day = String(start.getDate()).padStart(2, "0");
+
+            return {
+              id: `device-${i}`,
+              title: ev.title || "Untitled",
+              date: `${year}-${month}-${day}`,
+              time: `${start.toTimeString().slice(0, 5)} - ${end.toTimeString().slice(0, 5)}`,
+              location: ev.location || undefined,
+              category: "other" as Category,
+            };
+          });
+        }
+      } catch (e) {
+        console.log("device events loading failed:", e);
+      }
+
+      setImportedEvents([...icsEvents, ...deviceEvents]);
+    };
+
+    loadAllEvents();
   }, []);
 
-  //updated parking location (sprint 2)
+  React.useEffect(() => {
+    if (!selectedEvent?.location) {
+      setEventCoords(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const coords = await findLocationCoords(selectedEvent.location!);
+      if (!cancelled) setEventCoords(coords);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEvent?.id, selectedEvent?.location]);
+
   React.useEffect(() => {
     if (!selectedEvent?.location) {
       setParkingResults([]);
       return;
     }
-
 
     let cancelled = false;
     setLoadingParking(true);
@@ -457,8 +510,8 @@ export default function CalendarEvents(): React.JSX.Element {
     setExpandedCode(null);
 
     (async () => {
-      // Resolve event location (known locations first, then geocode fallback)
       const evtCoords = await findLocationCoords(selectedEvent.location!);
+
       if (!evtCoords || cancelled) {
         if (!cancelled) {
           setParkingResults([]);
@@ -466,7 +519,7 @@ export default function CalendarEvents(): React.JSX.Element {
         }
         return;
       }
-      //use set origin or expo location gps
+
       let resolvedUserCoords: { lat: number; lng: number } | null = null;
       const originResult = await resolveUserOrigin();
 
@@ -478,9 +531,10 @@ export default function CalendarEvents(): React.JSX.Element {
         }
       } else {
         if (!cancelled) {
+          setUserCoords(null);
+          setOriginType(null);
           setLocationError(
-            "No saved starting location and device location unavailable. " +
-            "Set a starting location in Settings → Travel Preferences for distance info."
+            "No saved starting location and device location unavailable. Set a starting location in Settings → Travel Preferences for distance info."
           );
         }
       }
@@ -493,17 +547,16 @@ export default function CalendarEvents(): React.JSX.Element {
       }
     })();
 
-    return () => { cancelled = true; };
-  }, [selectedEvent?.id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEvent?.id, selectedEvent?.location]);
 
-  //sorting parking locations
   const sortedParking = React.useMemo(() => {
     const copy = [...parkingResults];
     if (sortMode === "distance") {
-      //sort by promximity
       copy.sort((a, b) => a.walkToEvent_m - b.walkToEvent_m);
     } else {
-      //
       copy.sort((a, b) => {
         const aAvail = a.available ?? -1;
         const bAvail = b.available ?? -1;
@@ -513,30 +566,11 @@ export default function CalendarEvents(): React.JSX.Element {
     }
     return copy;
   }, [parkingResults, sortMode]);
-  
 
   const allEvents = [...SAMPLE, ...importedEvents];
   const eventsForDate = allEvents.filter((e) => e.date === selectedDate);
-  //const eventCoords = selectedEvent?.location ? findLocationCoords(selectedEvent.location) : null;
-  
-  const [eventCoords, setEventCoords] = React.useState<{ lat: number; lng: number } | null>(null);
 
-  //update event coordinates when location changes
-  React.useEffect(() => {
-    if (!selectedEvent?.location) {
-      setEventCoords(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const coords = await findLocationCoords(selectedEvent.location!);
-      if (!cancelled) setEventCoords(coords);
-    })();
-    return () => { cancelled = true; };
-  }, [selectedEvent?.id]);
-
-
-  const markedDates = allEvents .reduce<Record<string, any>>((acc, ev) => {
+  const markedDates = allEvents.reduce<Record<string, any>>((acc, ev) => {
     acc[ev.date] = {
       marked: true,
       dotColor: COLOR_MAP[ev.category ?? "default"],
@@ -557,12 +591,18 @@ export default function CalendarEvents(): React.JSX.Element {
 
     const reminderTime = new Date(eventStart.getTime() - minutesBefore * 60 * 1000);
     const now = new Date();
-    const secondsUntilReminder = Math.floor((reminderTime.getTime() - now.getTime()) / 1000);
+    const secondsUntilReminder = Math.floor(
+      (reminderTime.getTime() - now.getTime()) / 1000
+    );
 
     if (secondsUntilReminder <= 0) {
       Alert.alert(
         "Too Late",
-        `This reminder time has already passed. The event ${minutesBefore >= 60 ? `starts in less than ${minutesBefore / 60} hour(s)` : `starts in less than ${minutesBefore} minutes`}.`
+        `This reminder time has already passed. The event ${
+          minutesBefore >= 60
+            ? `starts in less than ${minutesBefore / 60} hour(s)`
+            : `starts in less than ${minutesBefore} minutes`
+        }.`
       );
       return;
     }
@@ -574,7 +614,8 @@ export default function CalendarEvents(): React.JSX.Element {
         return;
       }
 
-      const label = minutesBefore >= 60 ? `${minutesBefore / 60} hour(s)` : `${minutesBefore} min`;
+      const label =
+        minutesBefore >= 60 ? `${minutesBefore / 60} hour(s)` : `${minutesBefore} min`;
 
       const notifId = await Notifications.scheduleNotificationAsync({
         content: {
@@ -596,12 +637,6 @@ export default function CalendarEvents(): React.JSX.Element {
       const updated = { ...activeReminders, [key]: notifId };
       setActiveReminders(updated);
       await AsyncStorage.setItem("active_reminders", JSON.stringify(updated));
-
-      //TODO reminder
-      /*Alert.alert(
-        "Reminder Set",
-        `You'll be notified ${label} before "${event.title}".`
-      );*/
     } catch (e: any) {
       console.error("Failed to schedule notification:", e);
       Alert.alert("Error", e?.message || "Failed to schedule notification.");
@@ -643,7 +678,6 @@ export default function CalendarEvents(): React.JSX.Element {
     return reminderTime.getTime() > Date.now();
   };
 
-
   const deleteEvent = async (event: AppEvent) => {
     Alert.alert("Delete Event", `Remove "${event.title}" from your calendar?`, [
       { text: "Cancel", style: "cancel" },
@@ -652,7 +686,6 @@ export default function CalendarEvents(): React.JSX.Element {
         style: "destructive",
         onPress: async () => {
           try {
-
             for (const option of REMINDER_OPTIONS) {
               const key = getReminderKey(event.id, option.minutes);
               if (activeReminders[key]) {
@@ -669,6 +702,7 @@ export default function CalendarEvents(): React.JSX.Element {
                 setImportedEvents((prev) => prev.filter((e) => e.id !== event.id));
               }
             }
+
             setSelectedEvent(null);
           } catch (e) {
             console.log("Delete failed:", e);
@@ -681,177 +715,398 @@ export default function CalendarEvents(): React.JSX.Element {
   if (selectedEvent) {
     const isDeviceEvent = selectedEvent.id.startsWith("device-");
     const isSampleEvent = !selectedEvent.id.startsWith("ics-") && !isDeviceEvent;
-    const borderColor = COLOR_MAP[selectedEvent.category ?? "default"];
+    const categoryColor = COLOR_MAP[selectedEvent.category ?? "default"];
     const isDark = theme.mode === "dark";
-    const subColor = isDark ? "#9ca3af" : "#6b7280";
+    const textMuted = theme.textMuted ?? (isDark ? "#9ca3af" : "#6b7280");
+    const borderTone = theme.border ?? (isDark ? "#374151" : "#e5e7eb");
+    const successTone = theme.success ?? "#22c55e";
+    const dangerTone = theme.danger ?? "#ef4444";
+
+    const formatDisplayDate = (dateStr: string): string => {
+      try {
+        const [year, month, day] = dateStr.split("-").map(Number);
+        const d = new Date(year, month - 1, day);
+        return d.toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const parseTimeRange = (timeStr: string): string => {
+      try {
+        const parts = timeStr.split(" - ");
+        const fmt = (t: string) => {
+          const [h, m] = t.trim().split(":").map(Number);
+          const ampm = h >= 12 ? "PM" : "AM";
+          const h12 = h % 12 || 12;
+          return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+        };
+        return parts.length === 2 ? `${fmt(parts[0])} – ${fmt(parts[1])}` : timeStr;
+      } catch {
+        return timeStr;
+      }
+    };
+
+    const isAllDay = selectedEvent.time === "00:00 - 00:00" || selectedEvent.time === "";
 
     return (
-      <ScrollView style={[styles.container, { backgroundColor: theme.bg, padding: 24 }]}
-                  contentContainerStyle={{ paddingBottom: 40 }}>
-        <TouchableOpacity onPress={() => { setSelectedEvent(null); setExpandedCode(null); setLocationError(null); }} style={styles.backBtn}>
-          <Text style={[styles.backText, { color: COLOR_MAP.meeting }]}>← Back</Text>
-        </TouchableOpacity>
+      <SafeAreaView style={[detailStyles.root, { backgroundColor: theme.bg }]} edges={["top"]}>
+        <View style={detailStyles.header}>
+          <TouchableOpacity
+            style={detailStyles.headerBtn}
+            onPress={() => {
+              setSelectedEvent(null);
+              setExpandedCode(null);
+              setLocationError(null);
+            }}
+          >
+            <Ionicons name="chevron-back" size={24} color={theme.text} />
+          </TouchableOpacity>
 
-        <View style={[styles.detailCard, { borderColor, backgroundColor: theme.mode === "dark" ? "#202225" : "#fff" }]}>
-          <Text style={[styles.detailTitle, { color: theme.text }]}>{selectedEvent.title}</Text>
+          <Text style={[detailStyles.headerTitle, { color: theme.text }]} numberOfLines={1}>
+            Event Details
+          </Text>
 
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>Date</Text>
-            <Text style={[styles.detailValue, { color: theme.text }]}>{selectedEvent.date}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>Time</Text>
-            <Text style={[styles.detailValue, { color: theme.text }]}>{selectedEvent.time}</Text>
-          </View>
-
-          {selectedEvent.location && (
-            <View style={styles.detailRow}>
-              <Text style={[styles.detailLabel, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>Location</Text>
-              <Text style={[styles.detailValue, { color: theme.text }]}>{selectedEvent.location}</Text>
-            </View>
-          )}
-
-          {selectedEvent.category && (
-            <View style={styles.detailRow}>
-              <Text style={[styles.detailLabel, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>Category</Text>
-              <Text style={[styles.detailValue, { color: theme.text }]}>{selectedEvent.category}</Text>
-            </View>
-          )}
+          <View style={detailStyles.headerBtn} />
         </View>
 
-        <View style={[styles.reminderSection, { backgroundColor: theme.mode === "dark" ? "#202225" : "#fff", borderColor: theme.mode === "dark" ? "#374151" : "#e5e7eb" }]}>
-          <View style={styles.reminderHeader}>
-            <Ionicons name="notifications-outline" size={20} color={theme.text} />
-            <Text style={[styles.reminderTitle, { color: theme.text }]}>Reminders</Text>
+        <ScrollView contentContainerStyle={detailStyles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={[detailStyles.card, { backgroundColor: theme.bg, borderColor: borderTone }]}>
+            {selectedEvent.category && (
+              <View style={[detailStyles.categoryBadge, { borderColor: categoryColor }]}>
+                <Text style={[detailStyles.categoryText, { color: categoryColor }]}>
+                  {selectedEvent.category.charAt(0).toUpperCase() + selectedEvent.category.slice(1)}
+                </Text>
+              </View>
+            )}
+
+            <Text style={[detailStyles.eventTitle, { color: theme.text }]}>
+              {selectedEvent.title}
+            </Text>
+
+            <View style={detailStyles.infoRow}>
+              <Ionicons
+                name="calendar-outline"
+                size={16}
+                color={textMuted}
+                style={detailStyles.infoIcon}
+              />
+              <Text style={[detailStyles.infoText, { color: theme.text }]}>
+                {formatDisplayDate(selectedEvent.date)}
+              </Text>
+            </View>
+
+            <View style={detailStyles.infoRow}>
+              <Ionicons
+                name="time-outline"
+                size={16}
+                color={textMuted}
+                style={detailStyles.infoIcon}
+              />
+              <Text style={[detailStyles.infoText, { color: theme.text }]}>
+                {isAllDay ? "All day" : parseTimeRange(selectedEvent.time)}
+              </Text>
+            </View>
+
+            {selectedEvent.location && (
+              <View style={detailStyles.infoRow}>
+                <Ionicons
+                  name="location-outline"
+                  size={16}
+                  color={textMuted}
+                  style={detailStyles.infoIcon}
+                />
+                <Text style={[detailStyles.infoText, { color: theme.text }]}>
+                  {selectedEvent.location}
+                </Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles.reminderGrid}>
-            {REMINDER_OPTIONS.map((option) => {
-              const key = getReminderKey(selectedEvent.id, option.minutes);
-              const isActive = !!activeReminders[key];
-              const isValid = isReminderValid(selectedEvent, option.minutes);
+          <View style={[detailStyles.card, { backgroundColor: theme.bg, borderColor: borderTone }]}>
+            <View style={detailStyles.sectionHeader}>
+              <Ionicons name="notifications-outline" size={18} color={theme.text} />
+              <Text style={[detailStyles.sectionTitle, { color: theme.text }]}>Reminders</Text>
+            </View>
 
-              return (
-                <TouchableOpacity
-                  key={option.minutes}
-                  onPress={() => toggleReminder(selectedEvent, option.minutes)}
-                  disabled={!isValid && !isActive}
-                  style={[
-                    styles.reminderChip,
-                    {
-                      borderColor: isActive ? "#22c55e" : (theme.mode === "dark" ? "#374151" : "#d1d5db"),
-                      backgroundColor: isActive
-                        ? (theme.mode === "dark" ? "rgba(34, 197, 94, 0.15)" : "rgba(34, 197, 94, 0.1)")
-                        : "transparent",
-                      opacity: (!isValid && !isActive) ? 0.35 : 1,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={isActive ? "notifications" : "notifications-outline"}
-                    size={14}
-                    color={isActive ? "#22c55e" : (theme.mode === "dark" ? "#9ca3af" : "#6b7280")}
-                    style={{ marginRight: 4 }}
-                  />
-                  <Text
+            <View style={detailStyles.chipGrid}>
+              {REMINDER_OPTIONS.map((option) => {
+                const key = getReminderKey(selectedEvent.id, option.minutes);
+                const isActive = !!activeReminders[key];
+                const isValid = isReminderValid(selectedEvent, option.minutes);
+
+                return (
+                  <TouchableOpacity
+                    key={option.minutes}
+                    onPress={() => toggleReminder(selectedEvent, option.minutes)}
+                    disabled={!isValid && !isActive}
                     style={[
-                      styles.reminderChipText,
+                      detailStyles.chip,
                       {
-                        color: isActive ? "#22c55e" : (theme.mode === "dark" ? "#d1d5db" : "#374151"),
-                        fontWeight: isActive ? "700" : "500",
+                        borderColor: isActive ? successTone : borderTone,
+                        backgroundColor: isActive ? `${successTone}1A` : "transparent",
+                        opacity: !isValid && !isActive ? 0.35 : 1,
                       },
                     ]}
                   >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+                    <Ionicons
+                      name={isActive ? "notifications" : "notifications-outline"}
+                      size={13}
+                      color={isActive ? successTone : textMuted}
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text
+                      style={[
+                        detailStyles.chipText,
+                        {
+                          color: isActive ? successTone : theme.text,
+                          fontWeight: isActive ? "700" : "500",
+                        },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {REMINDER_OPTIONS.some(
+              (o) => !!activeReminders[getReminderKey(selectedEvent.id, o.minutes)]
+            ) && (
+              <View style={[detailStyles.reminderSummary, { borderTopColor: borderTone }]}>
+                <Ionicons name="checkmark-circle" size={14} color={successTone} />
+                <Text style={[detailStyles.reminderSummaryText, { color: textMuted }]}>
+                  {REMINDER_OPTIONS.filter(
+                    (o) => !!activeReminders[getReminderKey(selectedEvent.id, o.minutes)]
+                  )
+                    .map((o) => o.label)
+                    .join(", ")}{" "}
+                  before
+                </Text>
+              </View>
+            )}
           </View>
 
-          {REMINDER_OPTIONS.some((o) => !!activeReminders[getReminderKey(selectedEvent.id, o.minutes)]) && (
-            <View style={styles.activeRemindersSummary}>
-              <Ionicons name="checkmark-circle" size={14} color="#22c55e" />
-              <Text style={[styles.activeRemindersText, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
-                {REMINDER_OPTIONS
-                  .filter((o) => !!activeReminders[getReminderKey(selectedEvent.id, o.minutes)])
-                  .map((o) => o.label)
-                  .join(", ")}{" "}
-                before
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {isDeviceEvent ? (
-          <Text style={[styles.hint, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
-            Event can only be deleted from device calendar.
-          </Text>
-        ) : isSampleEvent ? null : (
-          <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteEvent(selectedEvent)}>
-            <Text style={styles.deleteBtnText}>Delete Event</Text>
-          </TouchableOpacity>
-        )}
-
-        <View style={[styles.parkingSection, { backgroundColor: isDark ? "#202225" : "#fff", borderColor: isDark ? "#374151" : "#e5e7eb" }]}>
-          <View style={styles.parkingHeader}>
-            <Ionicons name="car-outline" size={22} color={theme.text} />
-            <Text style={[styles.parkingSectionTitle, { color: theme.text }]}>Parking & Directions</Text>
-          </View>
-
-          {/* Edge case: no location on event */}
-          {!selectedEvent.location ? (
-            <View style={styles.edgeCaseBox}>
-              <Ionicons name="location-outline" size={28} color={subColor} />
-              <Text style={[styles.edgeCaseText, { color: subColor }]}>
-                No location set for this event.{"\n"}Add a location to see nearby parking.
+          <View style={[detailStyles.card, { backgroundColor: theme.bg, borderColor: borderTone }]}>
+            <View style={detailStyles.sectionHeader}>
+              <Ionicons name="car-outline" size={18} color={theme.text} />
+              <Text style={[detailStyles.sectionTitle, { color: theme.text }]}>
+                Parking & Directions
               </Text>
             </View>
 
-          /* Edge case: location not recognized */
-          ) : !eventCoords ? (
-            <View style={styles.edgeCaseBox}>
-              <Ionicons name="alert-circle-outline" size={28} color="#f59e0b" />
-              <Text style={[styles.edgeCaseText, { color: subColor }]}>
-                Could not resolve "{selectedEvent.location}" to a known location.{"\n"}Try a recognized building name (e.g. "Lawson", "WALC", "Stewart").
-              </Text>
-            </View>
-          ) : (
-            <>
-              {loadingParking ? (
-                <View style={styles.loadingRow}>
-                  <ActivityIndicator size="small" color={COLOR_MAP.meeting} />
-                  <Text style={[styles.loadingText, { color: subColor }]}>Loading parking info…</Text>
+            {!selectedEvent.location ? (
+              <View style={detailStyles.edgeCaseBox}>
+                <Ionicons name="location-outline" size={28} color={textMuted} />
+                <Text style={[detailStyles.edgeCaseText, { color: textMuted }]}>
+                  No location set for this event.{"\n"}Add a location to see nearby parking.
+                </Text>
+              </View>
+            ) : !eventCoords ? (
+              <View style={detailStyles.edgeCaseBox}>
+                <Ionicons name="alert-circle-outline" size={28} color="#f59e0b" />
+                <Text style={[detailStyles.edgeCaseText, { color: textMuted }]}>
+                  Could not resolve "{selectedEvent.location}" to a known location.{"\n"}Try a
+                  recognized building name like Lawson, WALC, or Stewart.
+                </Text>
+              </View>
+            ) : (
+              <>
+                {locationError ? (
+                  <View
+                    style={[
+                      detailStyles.locationWarning,
+                      { backgroundColor: isDark ? "#2a2d31" : "#fff7ed" },
+                    ]}
+                  >
+                    <Ionicons name="warning-outline" size={16} color="#f59e0b" />
+                    <Text style={[detailStyles.locationWarningText, { color: textMuted }]}>
+                      {locationError}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {originType ? (
+                  <View
+                    style={[
+                      detailStyles.originInfoRow,
+                      { backgroundColor: isDark ? "#2a2d31" : "#f8fafc" },
+                    ]}
+                  >
+                    <Ionicons
+                      name={originType === "saved" ? "bookmark-outline" : "locate-outline"}
+                      size={16}
+                      color={textMuted}
+                    />
+                    <Text style={[detailStyles.originInfoText, { color: textMuted }]}>
+                      Distances are based on your{" "}
+                      {originType === "saved" ? "saved starting location" : "current device location"}.
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={detailStyles.sortRow}>
+                  <Text style={[detailStyles.sortLabel, { color: textMuted }]}>Sort by</Text>
+
+                  <TouchableOpacity
+                    style={[
+                      detailStyles.sortChip,
+                      {
+                        borderColor:
+                          sortMode === "distance" ? COLOR_MAP.meeting : borderTone,
+                        backgroundColor:
+                          sortMode === "distance" ? `${COLOR_MAP.meeting}12` : "transparent",
+                      },
+                    ]}
+                    onPress={() => setSortMode("distance")}
+                  >
+                    <Ionicons
+                      name="walk-outline"
+                      size={14}
+                      color={sortMode === "distance" ? COLOR_MAP.meeting : textMuted}
+                    />
+                    <Text
+                      style={[
+                        detailStyles.sortChipText,
+                        {
+                          color:
+                            sortMode === "distance" ? COLOR_MAP.meeting : theme.text,
+                        },
+                      ]}
+                    >
+                      Distance
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      detailStyles.sortChip,
+                      {
+                        borderColor:
+                          sortMode === "availability" ? COLOR_MAP.meeting : borderTone,
+                        backgroundColor:
+                          sortMode === "availability" ? `${COLOR_MAP.meeting}12` : "transparent",
+                      },
+                    ]}
+                    onPress={() => setSortMode("availability")}
+                  >
+                    <Ionicons
+                      name="stats-chart-outline"
+                      size={14}
+                      color={sortMode === "availability" ? COLOR_MAP.meeting : textMuted}
+                    />
+                    <Text
+                      style={[
+                        detailStyles.sortChipText,
+                        {
+                          color:
+                            sortMode === "availability" ? COLOR_MAP.meeting : theme.text,
+                        },
+                      ]}
+                    >
+                      Availability
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              ) : (
-                <>
-                  {/* Parking list */}
-                  {sortedParking.length > 0 ? (
-                    sortedParking.map((p) => (
+
+                {loadingParking ? (
+                  <View style={detailStyles.loadingRow}>
+                    <ActivityIndicator size="small" color={COLOR_MAP.meeting} />
+                    <Text style={[detailStyles.loadingText, { color: textMuted }]}>
+                      Loading parking info…
+                    </Text>
+                  </View>
+                ) : sortedParking.length > 0 ? (
+                  <>
+                    {sortedParking.map((p) => (
                       <ParkingCard
                         key={p.code}
                         parking={p}
                         theme={theme}
+                        userCoords={userCoords}
                         isExpanded={expandedCode === p.code}
-                        onToggleExpand={() => setExpandedCode(expandedCode === p.code ? null : p.code)}
+                        onToggleExpand={() =>
+                          setExpandedCode(expandedCode === p.code ? null : p.code)
+                        }
                       />
-                    ))
-                  ) : (
-                    <View style={styles.edgeCaseBox}>
-                      <Ionicons name="alert-circle-outline" size={28} color="#ef4444" />
-                      <Text style={[styles.edgeCaseText, { color: "#ef4444" }]}>No parking locations available.</Text>
-                    </View>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </View>
-      </ScrollView>
+                    ))}
+
+                    {eventCoords ? (
+                      <TouchableOpacity
+                        style={[
+                          detailStyles.navigateToEventBtn,
+                          { borderColor: borderTone },
+                        ]}
+                        onPress={() =>
+                          openDirections(
+                            eventCoords.lat,
+                            eventCoords.lng,
+                            userCoords?.lat,
+                            userCoords?.lng
+                          )
+                        }
+                      >
+                        <Ionicons
+                          name="map-outline"
+                          size={18}
+                          color={COLOR_MAP.meeting}
+                        />
+                        <Text
+                          style={[
+                            detailStyles.navigateToEventText,
+                            { color: COLOR_MAP.meeting },
+                          ]}
+                        >
+                          Navigate to Event Location
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </>
+                ) : (
+                  <View style={detailStyles.edgeCaseBox}>
+                    <Ionicons name="alert-circle-outline" size={28} color={dangerTone} />
+                    <Text style={[detailStyles.edgeCaseText, { color: dangerTone }]}>
+                      No parking locations available.
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+
+          {isDeviceEvent ? (
+            <Text style={[detailStyles.hint, { color: textMuted }]}>
+              Event can only be deleted from your device calendar.
+            </Text>
+          ) : !isSampleEvent ? (
+            <TouchableOpacity
+              style={[detailStyles.deleteBtn, { borderColor: dangerTone }]}
+              onPress={() => deleteEvent(selectedEvent)}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={16}
+                color={dangerTone}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[detailStyles.deleteBtnText, { color: dangerTone }]}>
+                Delete Event
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      </SafeAreaView>
     );
   }
-  
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Calendar
@@ -865,17 +1120,20 @@ export default function CalendarEvents(): React.JSX.Element {
           selectedDayBackgroundColor: COLOR_MAP.meeting,
           selectedDayTextColor: "#fff",
           todayTextColor: COLOR_MAP.meeting,
-          arrowColor: COLOR_MAP.meeting,//theme.text,
-        }}  
+          arrowColor: COLOR_MAP.meeting,
+        }}
       />
 
-      <Text style={[styles.header, { color: theme.text }]}>
-        {selectedDate}
-      </Text>
+      <Text style={[styles.header, { color: theme.text }]}>{selectedDate}</Text>
 
       {eventsForDate.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={[styles.emptyText, { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" }]}>
+          <Text
+            style={[
+              styles.emptyText,
+              { color: theme.textMuted ?? (theme.mode === "dark" ? "#9ca3af" : "#6b7280") },
+            ]}
+          >
             No events for this date
           </Text>
         </View>
@@ -889,34 +1147,57 @@ export default function CalendarEvents(): React.JSX.Element {
             const hasReminder = REMINDER_OPTIONS.some(
               (o) => !!activeReminders[getReminderKey(item.id, o.minutes)]
             );
+
             return (
               <TouchableOpacity onPress={() => setSelectedEvent(item)}>
-              <View
-                style={[
-                  styles.card,
-                  { borderColor, backgroundColor: theme.mode === "dark" ? "#202225" : "#fff" },
-                ]}
-              >
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text style={[styles.title, { color: theme.text, flex: 1 }]}>{item.title}</Text>
+                <View
+                  style={[
+                    styles.card,
+                    {
+                      borderColor,
+                      backgroundColor: theme.mode === "dark" ? "#202225" : "#fff",
+                    },
+                  ]}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={[styles.title, { color: theme.text, flex: 1 }]}>
+                      {item.title}
+                    </Text>
                     {hasReminder && (
                       <Ionicons name="notifications" size={16} color="#22c55e" />
                     )}
                   </View>
-                <Text style={[styles.time, { color: theme.mode === "dark" ? "#cfd2d6" : "#6b7280" }]}>
-                  {item.time}
-                </Text>
-                {item.location && (
+
                   <Text
                     style={[
-                      styles.location,
-                      { color: theme.mode === "dark" ? "#9ca3af" : "#6b7280" },
+                      styles.time,
+                      { color: theme.mode === "dark" ? "#cfd2d6" : "#6b7280" },
                     ]}
                   >
-                    {item.location}
+                    {item.time}
                   </Text>
-                )}
-              </View>
+
+                  {item.location && (
+                    <Text
+                      style={[
+                        styles.location,
+                        {
+                          color:
+                            theme.textMuted ??
+                            (theme.mode === "dark" ? "#9ca3af" : "#6b7280"),
+                        },
+                      ]}
+                    >
+                      {item.location}
+                    </Text>
+                  )}
+                </View>
               </TouchableOpacity>
             );
           }}
@@ -946,107 +1227,193 @@ const styles = StyleSheet.create({
   location: { marginTop: 2 },
   empty: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: { fontSize: 16 },
-  backBtn: { marginBottom: 16 },
-  backText: { fontSize: 18, fontWeight: "600" },
-  detailCard: {
-    padding: 20,
-    borderRadius: 14,
-    borderWidth: 2,
-    marginBottom: 16,
-  },
-  detailTitle: { fontSize: 26, fontWeight: "700", marginBottom: 20 },
-  detailRow: { marginBottom: 14 },
-  detailLabel: { fontSize: 14, marginBottom: 2 },
-  detailValue: { fontSize: 18 },
-  deleteBtn: {
-    marginTop: 16,
-    backgroundColor: "#f87171",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  deleteBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  hint: { marginTop: 16, fontSize: 14, textAlign: "center" },
+});
 
-  reminderSection: {
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  reminderHeader: {
+const detailStyles = StyleSheet.create({
+  root: { flex: 1 },
+  header: {
+    height: 56,
+    paddingHorizontal: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
+  },
+  headerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700" },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 },
+
+  card: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 12,
   },
-  reminderTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+  categoryBadge: {
+    alignSelf: "flex-start",
+    borderWidth: 1.5,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginBottom: 10,
   },
-  reminderGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  reminderChip: {
+  categoryText: { fontSize: 12, fontWeight: "700" },
+  eventTitle: { fontSize: 22, fontWeight: "800", marginBottom: 14 },
+
+  infoRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  infoIcon: { marginRight: 10 },
+  infoText: { fontSize: 15, flex: 1 },
+
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: "700" },
+
+  chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 999,
     borderWidth: 1.5,
   },
-  reminderChipText: {
-    fontSize: 13,
-  },
-  activeRemindersSummary: {
+  chipText: { fontSize: 13 },
+
+  reminderSummary: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 12,
     paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(128, 128, 128, 0.2)",
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  activeRemindersText: {
-    fontSize: 13,
+  reminderSummaryText: { fontSize: 13 },
+
+  sortRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+    flexWrap: "wrap",
   },
-  parkingSection: { marginTop: 24, padding: 16, borderRadius: 14, borderWidth: 1 },
-  parkingHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
-  parkingSectionTitle: { fontSize: 18, fontWeight: "700" },
-  sortRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" },
   sortLabel: { fontSize: 13, fontWeight: "500" },
-  sortChip: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1.5 },
+  sortChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1.5,
+  },
   sortChipText: { fontSize: 13, fontWeight: "600" },
 
-  parkingItemCard: { borderRadius: 12, borderWidth: 1.5, padding: 14, marginBottom: 10 },
-  parkingItemHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  parkingItemCard: {
+    borderRadius: 12,
+    borderWidth: 1.5,
+    padding: 14,
+    marginBottom: 10,
+  },
+  parkingItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
   parkingName: { fontSize: 16, fontWeight: "600", marginBottom: 2 },
   parkingAddress: { fontSize: 13, marginBottom: 4 },
-  parkingMetaRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 6 },
+  parkingMetaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 6,
+  },
   parkingMetaChip: { flexDirection: "row", alignItems: "center", gap: 4 },
   parkingMetaText: { fontSize: 13 },
-  availBadge: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999 },
+  availBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+  },
   availDot: { width: 7, height: 7, borderRadius: 4 },
   availText: { fontSize: 12, fontWeight: "700" },
-  chevronRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 8 },
+  chevronRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    marginTop: 8,
+  },
   chevronHint: { fontSize: 12 },
   directionsContainer: { marginTop: 4 },
   directionsDivider: { borderTopWidth: 1, marginBottom: 12 },
-  directionBtn: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, marginBottom: 8 },
+  directionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
   dirBtnTitle: { fontSize: 15, fontWeight: "600" },
   dirBtnSub: { fontSize: 12, marginTop: 2 },
 
-  edgeCaseBox: { alignItems: "center", justifyContent: "center", paddingVertical: 24, gap: 10 },
+  edgeCaseBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+    gap: 10,
+  },
   edgeCaseText: { fontSize: 14, textAlign: "center", lineHeight: 20 },
-  locationWarning: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 8, marginBottom: 12 },
+  locationWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
   locationWarningText: { fontSize: 12, flex: 1 },
-  originInfoRow: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 8, marginBottom: 12 },
+  originInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
   originInfoText: { fontSize: 12, flex: 1 },
-  loadingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12, paddingVertical: 16, justifyContent: "center" },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 16,
+    justifyContent: "center",
+  },
   loadingText: { fontSize: 13 },
-  navigateToEventBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, marginTop: 8, borderTopWidth: 1 },
+
+  navigateToEventBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 8,
+    borderTopWidth: 1,
+  },
   navigateToEventText: { fontSize: 15, fontWeight: "600" },
 
+  deleteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  deleteBtnText: { fontSize: 15, fontWeight: "700" },
+  hint: { fontSize: 13, textAlign: "center", marginTop: 8, marginBottom: 8 },
 });

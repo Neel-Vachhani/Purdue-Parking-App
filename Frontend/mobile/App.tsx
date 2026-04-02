@@ -1,5 +1,5 @@
 import * as React from "react";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Linking from "expo-linking";
 import * as Device from "expo-device";
@@ -8,6 +8,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {LocationProvider} from './app/utils/LocationContext';
 import { StatusBar } from "expo-status-bar";
 import {setupNotificationHandler, runAllNotificationChecks,} from "./notificationTest";
+import { configureNotifications } from "./app/utils/notifications";
 
 import ThemeProvider, { ThemeContext } from "./theme/ThemeProvider";
 import ThemedView from "./components/ThemedView";

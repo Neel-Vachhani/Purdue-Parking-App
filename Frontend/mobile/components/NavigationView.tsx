@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import GooglePlacesTextInput from "react-native-google-places-textinput";
+import MapView, { Marker } from "react-native-maps";
 import ThemedView from "./ThemedView";
 import GarageDetail, { Garage } from "./DetailedGarage";
 import { ThemeContext } from "../theme/ThemeProvider";
@@ -21,6 +22,8 @@ import { Coordinate, geocodeAddress } from "../utils/travelTime";
 import { INITIAL_GARAGE_LOOKUP } from "../data/initialGarageAvailability";
 import { loadParkingLocations } from "../screens/Parking/parkingLocationsData";
 import { getGoogleMapsApiKey } from "../config/env";
+import { INITIAL_REGION } from "../constants/map";
+import { DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "../constants/mapStyle";
 
 type RoutePointKind = "stop" | "destination";
 type NavigationStage = "editing" | "selecting" | "completed";
@@ -221,6 +224,7 @@ const NavigationView = () => {
   const theme = React.useContext(ThemeContext);
   const googleMapsApiKey = getGoogleMapsApiKey();
   const coordinateCacheRef = React.useRef<Record<string, Coordinate>>({});
+  const navMapRef = React.useRef<MapView>(null);
 
   const locationRestriction = React.useMemo(
     () => ({
@@ -235,7 +239,7 @@ const NavigationView = () => {
   const autocompleteStyles = React.useMemo(
     () => ({
       container: {
-        width: "100%",
+        width: "100%" as const,
       },
       input: {
         minHeight: 44,
@@ -355,6 +359,49 @@ const NavigationView = () => {
       isMounted = false;
     };
   }, []);
+
+  // Pan map to the current route point whenever the active point changes
+  React.useEffect(() => {
+    if (stage !== "selecting" && stage !== "completed") return;
+    const coord = routePoints[currentPointIndex]?.coordinates;
+    if (!coord) return;
+    navMapRef.current?.animateToRegion(
+      { ...coord, latitudeDelta: 0.015, longitudeDelta: 0.015 },
+      700
+    );
+  }, [stage, currentPointIndex]);
+
+  // Pan to the selected garage whenever the user picks one
+  React.useEffect(() => {
+    const code = currentPoint?.selectedGarageCode;
+    if (!code) return;
+    const def = GARAGE_DEFINITIONS.find((d) => d.code === code);
+    if (!def) return;
+    navMapRef.current?.animateToRegion(
+      { latitude: def.lat, longitude: def.lng, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+      600
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPoint?.selectedGarageCode]);
+
+  // After the full route is confirmed, fit all selected garages into view
+  React.useEffect(() => {
+    if (stage !== "completed") return;
+    const coords = routePoints
+      .map((point) => {
+        const def = GARAGE_DEFINITIONS.find((d) => d.code === point.selectedGarageCode);
+        return def ? { latitude: def.lat, longitude: def.lng } : null;
+      })
+      .filter((c): c is { latitude: number; longitude: number } => c !== null);
+    if (coords.length === 0) return;
+    // Small delay lets the MapView finish its layout before fitting
+    setTimeout(() => {
+      navMapRef.current?.fitToCoordinates(coords, {
+        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        animated: true,
+      });
+    }, 400);
+  }, [stage]);
 
   const toGarageModel = React.useCallback(
     (garageCode: string, distanceMeters: number): Garage | null => {
@@ -548,10 +595,8 @@ const NavigationView = () => {
                 ...point,
                 selectedGarageCode: garage.code,
                 selectedGarageName: garage.name,
-                coordinates:
-                  garage.latitude !== undefined && garage.longitude !== undefined
-                    ? { latitude: garage.latitude, longitude: garage.longitude }
-                    : point.coordinates,
+                // Do NOT overwrite coordinates – keep the original destination
+                // location so the flag pin stays on the searched address.
               }
             : point
         )
@@ -1066,7 +1111,103 @@ const NavigationView = () => {
           </View>
         </View>
       ) : (
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container}>
+        <View style={{ flex: 1 }}>
+          {/* ── Navigation map ──────────────────────────────────────────── */}
+          <View style={navMapStyles.mapContainer}>
+            <MapView
+              ref={navMapRef}
+              style={StyleSheet.absoluteFill}
+              initialRegion={INITIAL_REGION}
+              mapType={theme.mode === "dark" ? "mutedStandard" : "standard"}
+              customMapStyle={theme.mode === "dark" ? DARK_MAP_STYLE : LIGHT_MAP_STYLE}
+              showsUserLocation
+              showsCompass={false}
+              pitchEnabled={false}
+              moveOnMarkerPress={false}
+            >
+              {/* Stop + destination pins */}
+              {routePoints.map((point, idx) => {
+                if (!point.coordinates) return null;
+                const isCurrent = idx === currentPointIndex && stage === "selecting";
+                return (
+                  <Marker
+                    key={`rp-${point.id}`}
+                    coordinate={point.coordinates}
+                    tracksViewChanges={false}
+                  >
+                    <View
+                      style={[
+                        navMapStyles.routePin,
+                        {
+                          backgroundColor: isCurrent ? theme.primary : theme.surface,
+                          borderColor: theme.primary,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={point.kind === "destination" ? "flag" : "location"}
+                        size={12}
+                        color={isCurrent ? "#0E0F11" : theme.primary}
+                      />
+                    </View>
+                  </Marker>
+                );
+              })}
+
+              {/* Candidate garage pins – tap to select (selecting stage) */}
+              {stage === "selecting" &&
+                candidateGarages.map((candidate) => {
+                  const { garage } = candidate;
+                  if (!garage.latitude || !garage.longitude) return null;
+                  const isSelected = currentPoint?.selectedGarageCode === garage.code;
+                  return (
+                    <Marker
+                      key={`cg-${garage.code}`}
+                      coordinate={{ latitude: garage.latitude, longitude: garage.longitude }}
+                      tracksViewChanges={isSelected}
+                      onPress={() => selectGarageForCurrentPoint(garage)}
+                    >
+                      <View
+                        style={[
+                          navMapStyles.garagePin,
+                          isSelected && navMapStyles.garagePinSelected,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            navMapStyles.garagePinText,
+                            isSelected && navMapStyles.garagePinTextSelected,
+                          ]}
+                        >
+                          P
+                        </Text>
+                      </View>
+                    </Marker>
+                  );
+                })}
+
+              {/* Confirmed garage pins (completed stage) */}
+              {stage === "completed" &&
+                routePoints.map((point) => {
+                  const def = GARAGE_DEFINITIONS.find((d) => d.code === point.selectedGarageCode);
+                  if (!def) return null;
+                  return (
+                    <Marker
+                      key={`sg-${point.id}`}
+                      coordinate={{ latitude: def.lat, longitude: def.lng }}
+                      tracksViewChanges={false}
+                    >
+                      <View style={navMapStyles.garagePinSelected}>
+                        <Text style={navMapStyles.garagePinTextSelected}>P</Text>
+                      </View>
+                    </Marker>
+                  );
+                })}
+            </MapView>
+          </View>
+
+          {/* ── Scrollable route content below the map ─────────────────── */}
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container}>
           <Text style={styles.header}>Navigation Planner</Text>
           <Text style={styles.subheader}>
             Add stops and a destination, then pick the best garage for each step.
@@ -1078,7 +1219,7 @@ const NavigationView = () => {
               <Text style={styles.progressLabel}>Route Progress</Text>
               {routePoints.map((point, index) => {
                 const isCurrent = index === currentPointIndex;
-                const isDone = index < currentPointIndex || stage === "completed";
+                const isDone = index < currentPointIndex;
                 const statusText = isCurrent
                   ? "Selecting garage"
                   : isDone
@@ -1229,7 +1370,8 @@ const NavigationView = () => {
             </Pressable>
             </>
           )}
-        </ScrollView>
+          </ScrollView>
+        </View>
       )}
 
       {detailGarage && (
@@ -1248,5 +1390,64 @@ const NavigationView = () => {
     </ThemedView>
   );
 };
+
+const navMapStyles = StyleSheet.create({
+  mapContainer: {
+    height: 260,
+    overflow: "hidden",
+  },
+  // Stop / destination pin – circle with icon
+  routePin: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
+  },
+  // Unselected garage candidate
+  garagePin: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#B5975A",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 2,
+  },
+  // Selected / confirmed garage
+  garagePinSelected: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#CFB991",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  garagePinText: {
+    color: "#0E0F11",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  garagePinTextSelected: {
+    color: "#0E0F11",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+});
 
 export default NavigationView;
