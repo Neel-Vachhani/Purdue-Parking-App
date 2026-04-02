@@ -22,7 +22,7 @@ const getTestAvailabilityForCode = (
 ): { current: number; total: number } => {
   switch (code.toUpperCase()) {
     case "PGH":
-      return { current: 3, total: 480 };
+      return { current: 0, total: 480 };
     case "PGG":
       return { current: 3, total: 650 };
     case "PGU":

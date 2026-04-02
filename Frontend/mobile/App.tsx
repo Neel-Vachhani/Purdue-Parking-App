@@ -38,34 +38,58 @@ export default function App() {
     } 
   }, [isAuthed]);
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const hasLaunched = await AsyncStorage.getItem("hasLaunched");
-        if (hasLaunched !== "true") {
-          await AsyncStorage.setItem("hasLaunched", "true");
-          if (Device.isDevice) {
-            const { status: cur } = await Notifications.getPermissionsAsync();
-            let finalStatus = cur;
-            if (cur !== "granted") {
-              const { status } = await Notifications.requestPermissionsAsync();
-              finalStatus = status;
-            }
-            if (finalStatus === "granted") {
-              const token = (await Notifications.getExpoPushTokenAsync()).data;
-              setExpoPushToken(token);
-            }
+React.useEffect(() => {
+  (async () => {
+    await configureNotifications();
+    try {
+      // Android notification channel (do this early)
+      if (Platform.OS === "android") {
+        await Notifications.setNotificationChannelAsync("default", {
+          name: "default",
+          importance: Notifications.AndroidImportance.DEFAULT,
+        });
+      }
+
+      const storedTab = await AsyncStorage.getItem(LAST_TAB_STORAGE_KEY);
+      if (storedTab && TAB_KEYS.includes(storedTab as TabKey)) {
+        setTab(storedTab as TabKey);
+      }
+
+      // First-launch gating for permission prompt
+      const hasLaunched = await AsyncStorage.getItem("hasLaunched");
+      const shouldPrompt = hasLaunched !== "true";
+
+      if (shouldPrompt) {
+        await AsyncStorage.setItem("hasLaunched", "true");
+        if (Device.isDevice) {
+          const { status: cur } = await Notifications.getPermissionsAsync();
+          let finalStatus = cur;
+
+          if (cur !== "granted") {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+          }
+
+          if (finalStatus === "granted") {
+            const token = (await Notifications.getExpoPushTokenAsync()).data;
+            setExpoPushToken(token);
           }
         }
-        const storedTab = await AsyncStorage.getItem(LAST_TAB_STORAGE_KEY);
-        if (storedTab && TAB_KEYS.includes(storedTab as TabKey)) {
-          setTab(storedTab as TabKey);
+      } else {
+        // Not first launch: if permission is already granted, make sure token is set.
+        if (Device.isDevice) {
+          const { status } = await Notifications.getPermissionsAsync();
+          if (status === "granted") {
+            const token = (await Notifications.getExpoPushTokenAsync()).data;
+            setExpoPushToken(token);
+          }
         }
-      } finally {
-        setBooting(false);
       }
-    })();
-  }, []);
+    } finally {
+      setBooting(false);
+    }
+  })();
+}, []);
 
   React.useEffect(() => {
     AsyncStorage.setItem(LAST_TAB_STORAGE_KEY, tab).catch(() => {});

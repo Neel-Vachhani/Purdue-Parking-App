@@ -1,19 +1,30 @@
-export async function postPushToken(email: string, token: string, base: string) {
-  try {
-    await fetch(`${base}/notification_token/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, token })
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
+
+// Foreground display behavior
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
+// Android channel (safe to call multiple times)
+export async function configureNotifications() {
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "default",
+      importance: Notifications.AndroidImportance.DEFAULT,
     });
-  } catch {}
+  }
 }
 
-export async function disableNotifications(email: string, base: string) {
-  try {
-    await fetch(`${base}/notification_disable/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email })
-    });
-  } catch {}
+// Fire a local notification immediately
+export async function sendLocalNotification(title: string, body: string) {
+  await Notifications.scheduleNotificationAsync({
+    content: { title, body },
+    trigger: null,
+  });
 }

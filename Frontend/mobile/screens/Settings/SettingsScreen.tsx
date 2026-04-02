@@ -19,6 +19,7 @@ import { getApiBaseUrl } from "../../config/env";
 import { geocodeAddress, Coordinate, findNearestGarageForAddress } from "../../utils/travelTime";
 import SettingsSectionCard from "../../components/SettingsSectionCard";
 import TravelPreferences from "../../components/TravelPreferences";
+import { sendLocalNotification } from "../../app/utils/notifications";
 
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -34,7 +35,7 @@ type Frequency = "realtime" | "daily" | "weekly";
 type NotifPrefs = {
   garageFull: boolean;
   permitExpiring: boolean;
-  eventClosures: boolean;
+  //eventClosures: boolean;
   priceDrop: boolean;
   //passOnSale: boolean;
   //favoriteLotAlerts: boolean;
@@ -46,7 +47,7 @@ type NotifPrefs = {
 const DEFAULT_PREFS: NotifPrefs = {
   garageFull: true,
   permitExpiring: true,
-  eventClosures: true,
+  //eventClosures: true,
   priceDrop: true,
   //passOnSale: false,
  /* favoriteLotAlerts: false,
@@ -153,7 +154,7 @@ export default function SettingsScreen({ onLogout }: Props) {
         });
         
         const enabled = res?.data?.closure_notifications_enabled ?? true;
-        setPrefs(p => ({ ...p, eventClosures: enabled }));
+        //setPrefs(p => ({ ...p, eventClosures: enabled }));
         //console.log(`Loaded closure notification preference: ${enabled}`);
       } catch (error) {
         //console.error("Failed to load closure notification preference:", error);
@@ -198,7 +199,7 @@ export default function SettingsScreen({ onLogout }: Props) {
   type BooleanPrefKey =
     | "garageFull"
     | "permitExpiring"
-    | "eventClosures"
+    //| "eventClosures"
     | "priceDrop"
     //| "passOnSale"
     //| "favoriteLotAlerts"
@@ -207,7 +208,7 @@ export default function SettingsScreen({ onLogout }: Props) {
   const BOOLEAN_PREF_KEYS: BooleanPrefKey[] = [
     "garageFull",
     "permitExpiring",
-    "eventClosures",
+    //"eventClosures",
     "priceDrop",
     //"passOnSale",
     //"favoriteLotAlerts",
@@ -232,7 +233,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       const allDisabled =
         !prefs.garageFull &&
         !prefs.permitExpiring &&
-        !prefs.eventClosures &&
+        //!prefs.eventClosures &&
         !prefs.priceDrop &&
         //!prefs.passOnSale &&
         //!prefs.favoriteLotAlerts;
@@ -316,7 +317,7 @@ export default function SettingsScreen({ onLogout }: Props) {
       });*/
       
       // Update local state
-      setToggle("eventClosures", enabled);
+      //setToggle("eventClosures", enabled);
       
       /*console.log(`Closure notifications ${enabled ? 'enabled' : 'disabled'} for ${email}`);
     } catch (error) {
@@ -1028,8 +1029,21 @@ const pickCalendar = async () => {
               <Switch value={prefs.favoriteLotClosed} onValueChange={(v) => setToggle("favoriteLotClosed", v)} />
             </Row>
             <Row label="Permit Expiring Reminders">
-              <Switch value={prefs.permitExpiring} onValueChange={(v) => setToggle("permitExpiring", v)} />
+              <Switch
+                value={prefs.permitExpiring}
+                onValueChange={async (v) => {
+                  setToggle("permitExpiring", v);
+
+                  if (v) {
+                    await sendLocalNotification(
+                      "Permit Reminders Enabled",
+                      "We will notify you before your parking permit expires."
+                    );
+                  }
+                }}
+              />
             </Row>
+
             <Row label="Event Day Closures">
               <Switch value={prefs.eventClosures} onValueChange={handleEventClosuresToggle} />
             </Row>*/

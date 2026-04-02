@@ -11,6 +11,8 @@ import StarRating from 'react-native-star-rating-widget';
 import axios from "axios";
 import { API_BASE_URL } from "../config/env";
 import * as Notifications from 'expo-notifications';
+import { useEffect, useMemo } from "react";
+import { subscribeToParkingUpdates } from "../utils/parkingEvents"; // add this util (below)
 
 //timed parking notifs - sprint 2
 Notifications.setNotificationHandler({
@@ -161,7 +163,7 @@ async function loadSession(): Promise<ParkingSession | null> {
   }
 }
 
-/** Request notification permissions (idempotent) */
+/*Request notification permissions (idempotent) */
 async function ensureNotificationPermissions(): Promise<boolean> {
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === "granted") return true;
@@ -169,7 +171,7 @@ async function ensureNotificationPermissions(): Promise<boolean> {
   return status === "granted";
 }
 
-/** Schedule a local notification `secondsBefore` seconds before `expiresAt` */
+/* Schedule a local notification `secondsBefore` seconds before `expiresAt` */
 async function scheduleExpiryNotification(
   garageName: string,
   expiresAt: Date,
@@ -573,11 +575,41 @@ export default function GarageDetail({
   const pctStr = `${Math.round(p * 100)}%`;
   const { showActionSheetWithOptions } = useActionSheet();
 
-  const [reliability, setReliability] = React.useState<number>(() => Math.floor(Math.random() * 101));
+
+  const OFFLINE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes: 100% -> 0%
+
+  const [lastUpdateMsByLot, setLastUpdateMsByLot] = React.useState<Record<string, number>>({});
+  const [nowMs, setNowMs] = React.useState<number>(Date.now());
 
   React.useEffect(() => {
-    setReliability(Math.floor(Math.random() * 101));
-  }, [garage.id]);
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  React.useEffect(() => {
+    const unsubscribe = subscribeToParkingUpdates(({ lot }) => {
+      if (!lot) return;
+      const normalizedLot = String(lot).toUpperCase();
+      setLastUpdateMsByLot((prev) => ({ ...prev, [normalizedLot]: Date.now() }));
+    });
+    return unsubscribe;
+  }, []);
+
+  const reliability = React.useMemo(() => {
+    const code = (garage.code ?? "").toUpperCase();
+
+    const fromWs = lastUpdateMsByLot[code];
+    const fromBackend = garage.lastUpdatedIso ? new Date(garage.lastUpdatedIso).getTime() : undefined;
+
+    const lastMs = fromWs ?? fromBackend;
+    if (!lastMs || Number.isNaN(lastMs)) return 0;
+
+    const ageMs = Math.max(0, nowMs - lastMs);
+    const pct = 100 * (1 - ageMs / OFFLINE_WINDOW_MS);
+    return Math.max(0, Math.min(100, Math.round(pct)));
+  }, [garage.code, garage.lastUpdatedIso, lastUpdateMsByLot, nowMs]);
+
+  
 
   
 
