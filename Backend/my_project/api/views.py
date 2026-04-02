@@ -1530,11 +1530,9 @@ def _mock_occupancy_series(minutes=60, step=10, base_available=86, jitter=5):
 @api_view(["GET"])
 def get_garage_detail(request, garage_id: int):
     """
-    Return a single garage with rich dummy data.
+    Return a single garage with amenity data sourced from the ParkingLot DB record.
     Path param: garage_id (int)
-    Example response fields include totals, levels, features, and a short occupancy series.
     """
-    # Find the garage skeleton from PARKING_LOTS
     garage = next((g for g in PARKING_LOTS if g["id"] == int(garage_id)), None)
     if not garage:
         return Response(
@@ -1542,25 +1540,37 @@ def get_garage_detail(request, garage_id: int):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # Clone the base dummy template per garage and adjust a few values to feel unique
-    details = dict(DUMMY_GARAGE_DETAILS)  # shallow copy
+    # Load real amenity data from the database when available
+    try:
+        lot = ParkingLot.objects.get(code=garage["code"])
+        db_covered = lot.covered
+        db_shaded = lot.shaded
+        db_ev_ports = lot.ev_ports
+        db_accessible_spots = lot.accessible_spots
+        db_height_clearance_m = lot.height_clearance_meters
+        db_amenities = list(lot.amenities or [])
+    except ParkingLot.DoesNotExist:
+        # Fall back to dummy defaults if the lot hasn't been seeded yet
+        db_covered = DUMMY_GARAGE_DETAILS["features"]["covered"]
+        db_shaded = DUMMY_GARAGE_DETAILS["features"]["shaded"]
+        db_ev_ports = DUMMY_GARAGE_DETAILS["amenities"]["ev_chargers"]
+        db_accessible_spots = DUMMY_GARAGE_DETAILS["amenities"]["accessible_spots"]
+        db_height_clearance_m = None
+        db_amenities = []
+
+    details = dict(DUMMY_GARAGE_DETAILS)
     levels = [dict(l) for l in DUMMY_GARAGE_DETAILS["levels"]]
 
-    # Light per-garage customization
+    # Apply per-garage address and level overrides (non-amenity data still from dummy)
     name = garage["name"]
     if "Harrison" in name:
         details["address"] = "504 Northwestern Ave, West Lafayette, IN 47906"
-        details["features"]["covered"] = True
         levels[0]["available"] = 10
         levels[-1]["available"] = 20
     elif "Grant Street" in name:
         details["address"] = "120 N Grant St, West Lafayette, IN 47906"
-        details["amenities"]["ev_chargers"] = 12
-        details["features"]["shaded"] = True
     elif "University Street" in name:
         details["address"] = "504 University St, West Lafayette, IN 47906"
-        details["restrictions"]["height_clearance_ft"] = 6.8
-        details["features"]["covered"] = False
         for l in levels:
             l["covered"] = False
     elif "Northwestern" in name:
@@ -1568,25 +1578,40 @@ def get_garage_detail(request, garage_id: int):
         details["rates"]["per_hour"] = 1.5
     elif "DS/AI" in name:
         details["address"] = "Discovery Park Lot, West Lafayette, IN 47907"
-        details["features"]["covered"] = False
-        details["features"]["shaded"] = False
-        levels = [
-            {"level": "Surface", "total": 220, "available": 64, "covered": False}
-        ]
+        levels = [{"level": "Surface", "total": 220, "available": 64, "covered": False}]
 
     total, available, occupied, pct_available = _compute_totals(levels)
 
+    height_clearance_ft = (
+        round(db_height_clearance_m * 3.28084, 1) if db_height_clearance_m else None
+    )
+
     payload = {
         "id": garage["id"],
+        "code": garage["code"],
         "name": name,
         "redis_key": garage["redis_key"],
         "address": details["address"],
         "coordinates": details["coordinates"],
         "hours": details["hours"],
         "rates": details["rates"],
-        "amenities": details["amenities"],
-        "restrictions": details["restrictions"],
-        "features": details["features"],
+        # Amenity fields — sourced from DB
+        "covered": db_covered,
+        "shaded": db_shaded,
+        "ev_ports": db_ev_ports,
+        "accessible_spots": db_accessible_spots,
+        "height_clearance_meters": db_height_clearance_m,
+        "height_clearance_ft": height_clearance_ft,
+        "amenities": db_amenities,
+        "restrictions": {
+            **details["restrictions"],
+            "height_clearance_ft": height_clearance_ft,
+        },
+        "features": {
+            **details["features"],
+            "covered": db_covered,
+            "shaded": db_shaded,
+        },
         "levels": levels,
         "totals": {
             "capacity": total,
@@ -1598,11 +1623,7 @@ def get_garage_detail(request, garage_id: int):
             "last_updated_utc": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
             "series": _mock_occupancy_series(base_available=available),
         },
-        "notices": [
-            # examples of runtime messages you might surface in the UI
-            {"type": "info", "message": "Elevator maintenance on L2 from 2 pm to 4 pm"},
-            {"type": "advice", "message": "EV chargers busiest 11 am to 2 pm"},
-        ],
+        "notices": [],
     }
 
     return Response(payload, status=status.HTTP_200_OK)
