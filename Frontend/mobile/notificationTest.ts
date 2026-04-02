@@ -68,7 +68,7 @@ async function sendLocalNotification(
       data: data ?? {},
     },
     trigger: { type:  Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, 
-              seconds: 2, 
+              seconds: 1, 
               repeats: false }, //null for immediate
   });
 
