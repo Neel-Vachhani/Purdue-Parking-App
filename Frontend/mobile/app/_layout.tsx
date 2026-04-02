@@ -16,8 +16,6 @@ export default function RootLayout() {
 
   React.useEffect(() => {
     (async () => {
-      // TEMP: uncomment to reset auth state during development
-      await SecureStore.deleteItemAsync("sessionToken");
       const token = await SecureStore.getItemAsync("sessionToken");
       const isAuthed = !!token;
       const inAuthGroup = segments[0] === "(auth)";
