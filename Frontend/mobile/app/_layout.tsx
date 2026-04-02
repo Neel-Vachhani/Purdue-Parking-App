@@ -1,6 +1,6 @@
 // app/_layout.tsx
 import React from "react";
-import { Slot, router, usePathname } from "expo-router";
+import { Slot, router, useSegments } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
@@ -12,22 +12,27 @@ WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
   const [checking, setChecking] = React.useState(true);
-  const pathname = usePathname();
+  const segments = useSegments();
 
   React.useEffect(() => {
     (async () => {
-      const google = await SecureStore.getItemAsync("googleTokens");
-      const apple  = await SecureStore.getItemAsync("appleIdentity");
-      const isAuthed = !!google || !!apple;
+      // TEMP: uncomment to reset auth state during development
+      await SecureStore.deleteItemAsync("sessionToken");
+      const token = await SecureStore.getItemAsync("sessionToken");
+      const isAuthed = !!token;
+      const inAuthGroup = segments[0] === "(auth)";
 
-      if (!isAuthed && !pathname.startsWith("/(auth)")) {
+      if (!isAuthed && !inAuthGroup) {
         router.replace("/(auth)/login");
-      } else if (isAuthed && pathname.startsWith("/(auth)")) {
+        // keep spinner until redirect completes; effect re-runs on segment change
+      } else if (isAuthed && inAuthGroup) {
         router.replace("/(tabs)/list");
+        // keep spinner until redirect completes; effect re-runs on segment change
+      } else {
+        setChecking(false);
       }
-      setChecking(false);
     })();
-  }, [pathname]);
+  }, [segments]);
 
   if (checking) {
     return (

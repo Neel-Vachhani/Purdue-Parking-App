@@ -56,11 +56,6 @@ export default function AuthScreen({ pushToken, onAuthed }: Props) {
 
   const userEmail = React.useContext(EmailContext);
   
-  // TODO remove when backend is up
-  useEffect(() => {
-  onAuthed();
-  }, []);
-
   useEffect(() => {
     userEmail.setUserEmail("This is my email");
   }, []);
