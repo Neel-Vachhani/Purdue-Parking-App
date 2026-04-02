@@ -149,16 +149,16 @@
       address: g.address, // replace with real field if you have it
       totalSpots: g.total,
       occupiedSpots: occupied,
-      covered: true,
-      shaded: true,
+      covered: g.covered,
+      shaded: g.shaded,
       rating: g.rating,
       latitude: g.lat,
       longitude: g.lng,
-      amenities: ["covered", "lighting"],
+      amenities: g.amenities,
       price: g.paid ? "Paid Lot" : "Free",
       hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
       lastUpdatedIso: new Date().toISOString(),
-      individual_rating: 0
+      individual_rating: g.individual_rating
     };
   }
 
