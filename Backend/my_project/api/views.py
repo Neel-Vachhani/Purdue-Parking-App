@@ -249,6 +249,7 @@ def upload_ics_events(request):
 
     try:
         cal = icalendar.Calendar.from_ical(ics_file.read())
+        print("Components found:", [c.name for c in cal.walk()])
     except Exception as e:
         return Response({"error": f"Invalid ICS file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -298,9 +299,9 @@ def upload_ics_events(request):
             raise ValueError("Unknown end type")
         dates = [start_date]
 
-        title = str(component.get('summary', ''))
-        description = str(component.get('description', ''))[:200]
-        location = str(component.get('location', ''))
+        title = str(component.get('summary') or '')
+        description = str(component.get('description') or '')[:200]
+        location = str(component.get('location') or '')
 
         event = CalendarEvent.objects.create(
             title=title,
@@ -329,19 +330,26 @@ def list_calendar_events(request):
     """
     Return all saved calendar events.
     """
-    events = CalendarEvent.objects.all().order_by('start_time')
-    serialized_events = [
+    try:
+        events = CalendarEvent.objects.all().order_by('start_time')
+        serialized_events = [
         {
             "id": e.id,
-            "summary": e.summary,
+            "title": e.title,
             "description": e.description,
             "location": e.location,
+            "dates": [d.isoformat() for d in e.dates] if e.dates else [],
             "start_time": e.start_time.isoformat() if e.start_time else None,
             "end_time": e.end_time.isoformat() if e.end_time else None,
         }
         for e in events
-    ]
-    return Response({"events": serialized_events})
+        ]
+        return Response({"events": serialized_events})
+    except Exception as e:
+        print(f"list_calendar_events error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({"error": str(e)}, status=500)
 
 
 @api_view(["GET"])

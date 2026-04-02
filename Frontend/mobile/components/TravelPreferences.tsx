@@ -14,7 +14,16 @@ import { findNearestGarageForAddress } from '../utils/travelTime';
 
 const API_BASE = getApiBaseUrl();
 
-const TravelPreferences = ({ expandedSections, toggleSection, savedOrigin, setSavedOrigin} : { expandedSections: Record<string, boolean>; toggleSection: ((id: "account" | "travel" | "notifications" | "about") => void); savedOrigin: string; setSavedOrigin: React.Dispatch<React.SetStateAction<string>> }) => {
+type TravelPreferencesProps = {
+  expandedSections: Record<string, boolean>;
+  toggleSection: (id: any) => void;
+  savedOrigin: string;
+  setSavedOrigin: React.Dispatch<React.SetStateAction<string>>;
+  inline?: boolean;
+};
+
+//const TravelPreferences = ({ expandedSections, toggleSection, savedOrigin, setSavedOrigin} : { expandedSections: Record<string, boolean>; toggleSection: ((id: "account" | "travel" | "notifications" | "about") => void); savedOrigin: string; setSavedOrigin: React.Dispatch<React.SetStateAction<string>> }) => {
+const TravelPreferences = ({ expandedSections, toggleSection, savedOrigin, setSavedOrigin, inline = false }: TravelPreferencesProps) => {  
   const theme = React.useContext(ThemeContext);
   const [originLoading, setOriginLoading] = React.useState(false);
   const [locationLoading, setLocationLoading] = React.useState(false);
@@ -255,14 +264,17 @@ const TravelPreferences = ({ expandedSections, toggleSection, savedOrigin, setSa
     }
   };
 
-  return (
-   <SettingsSectionCard
-          id="travel"
-          title="Travel Preferences"
-          icon="navigate-circle-outline"
-          expanded={expandedSections.travel}
-          onToggle={toggleSection}
-        >
+  //return (
+  // <SettingsSectionCard
+  //        id="travel"
+  //       title="Travel Preferences"
+  //        icon="navigate-circle-outline"
+  //        expanded={expandedSections.travel}
+  //        onToggle={toggleSection}
+  //      >
+
+  const content = (
+    <>
           <View style={{ gap: 12 }}>
             {savedOrigin ? (
               <View
@@ -442,8 +454,26 @@ const TravelPreferences = ({ expandedSections, toggleSection, savedOrigin, setSa
             />
           </View>
         </View>
-        </SettingsSectionCard>
-  )
+        </>
+  );
+
+  if (inline) {
+    return content;
+  }
+
+  /* ---- Standalone mode: wrap in a SettingsSectionCard ---- */
+  return (
+    <SettingsSectionCard
+      id="travel"
+      title="Travel Preferences"
+      icon="navigate-circle-outline"
+      expanded={expandedSections.travel}
+      onToggle={toggleSection}
+    >
+      {content}
+    </SettingsSectionCard>
+  );
+
 }
 
 export default TravelPreferences
