@@ -11,7 +11,6 @@ import StarRating from 'react-native-star-rating-widget';
 import axios from "axios";
 import { API_BASE_URL } from "../config/env";
 import * as Notifications from 'expo-notifications';
-import { useEffect, useMemo } from "react";
 import { subscribeToParkingUpdates } from "../utils/parkingEvents"; // add this util (below)
 
 //timed parking notifs - sprint 2

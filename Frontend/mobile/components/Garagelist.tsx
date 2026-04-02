@@ -86,53 +86,7 @@
     code?: string;
     available?: number;
     capacity?: number;
-  return `http://${host}:7500`;
 };
-
-// Changes the traditional garage data to the detailed format
-function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
-  const occupied = g.current;
-  let lot_ratings: {[name: string]: number} = {}
-  
-  async function getUserRatings(){
-      const API_BASE = API_BASE_URL;
-      await fetch(`${API_BASE}/user/get_user`, {
-            method: "POST",
-            headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              email: email
-            })
-          }).then((res) => res.json())
-          .then((response) => {
-            lot_ratings = response['lot_ratings']['codes']
-          });
-    }
-    getUserRatings();
-
-  return {
-    id: g.id,
-    code: g.code,
-    name: g.name,
-    address: g.address,
-    totalSpots: g.total,
-    occupiedSpots: occupied,
-    covered: g.covered,
-    shaded: g.shaded,
-    evPorts: g.evPorts,
-    accessibleSpots: g.accessibleSpots,
-    heightClearanceMeters: g.heightClearanceMeters,
-    amenities: g.amenities,
-    rating: g.rating,
-    latitude: g.lat,
-    longitude: g.lng,
-    price: g.paid ? "Paid Lot" : "Free",
-    hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
-    lastUpdatedIso: new Date().toISOString(),
-    individual_rating: 0
-  };
 
   const AVAILABILITY_ENDPOINT = "/parking/availability/";
 
@@ -1598,9 +1552,8 @@ function mapListGarageToDetail(g: Garage, email: string): GarageDetailType {
   }
 
   function getOccupancyColors(pct: number, theme: AppTheme) {
-    if (pct >= 0.85) return { fill: theme.danger };
-    if (pct >= 0.65) return { fill: theme.warning };
-    if (pct >= 0.35) return { fill: theme.info };
-    return { fill: theme.success };
+  if (pct >= 0.85) return { fill: theme.danger };
+  if (pct >= 0.65) return { fill: theme.warning };
+  if (pct >= 0.35) return { fill: theme.info };
+  return { fill: theme.success };
   }
-
