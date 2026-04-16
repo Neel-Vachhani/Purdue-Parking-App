@@ -1,11 +1,22 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
 @import "tailwindcss";
 
 :root {
   color-scheme: dark;
+  --bp-bg: #0e0f11;
+  --bp-bg-elevated: #16181c;
+  --bp-surface: #1f2126;
+  --bp-border: rgba(255, 255, 255, 0.14);
+  --bp-text: #f8f7f4;
+  --bp-text-muted: rgba(248, 247, 244, 0.78);
+  --bp-text-soft: rgba(248, 247, 244, 0.58);
+  --bp-accent: #cfb991;
+  --bp-accent-deep: #b5975a;
+  --bp-accent-ink: #17140f;
 }
 
-/* Optional but recommended */
 * {
+  box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -13,13 +24,72 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
   margin: 0;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(1100px 600px at 82% -8%, rgba(207, 185, 145, 0.22), transparent 62%),
+    radial-gradient(900px 520px at -5% 12%, rgba(181, 151, 90, 0.2), transparent 56%),
+    linear-gradient(170deg, #0b0c0e 0%, #13161a 40%, #0e0f11 100%);
+  color: var(--bp-text);
+}
+
+a {
+  color: inherit;
 }
 
 ::selection {
-  background: rgba(255, 214, 10, 0.25);
+  background: rgba(207, 185, 145, 0.36);
+  color: #0f1012;
+}
+
+.bp-heading {
+  font-family: "Space Grotesk", "Avenir Next", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.bp-mesh {
+  background:
+    radial-gradient(900px 430px at 16% 8%, rgba(207, 185, 145, 0.12), transparent 62%),
+    radial-gradient(650px 340px at 84% 28%, rgba(255, 255, 255, 0.06), transparent 68%),
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: auto, auto, 60px 60px, 60px 60px;
+  mask-image: radial-gradient(circle at center, black 42%, transparent 90%);
+  opacity: 0.62;
+}
+
+.bp-stat {
+  border: 1px solid var(--bp-border);
+  border-radius: 0.95rem;
+  background: color-mix(in oklab, var(--bp-surface) 88%, transparent);
+  padding: 0.85rem 0.95rem;
+}
+
+.bp-preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--bp-border);
+  border-radius: 0.85rem;
+  background: color-mix(in oklab, var(--bp-bg-elevated) 92%, black 8%);
+  padding: 0.7rem 0.9rem;
+  color: var(--bp-text-muted);
+  font-size: 0.91rem;
+}
+
+.bp-preview-row strong {
+  color: var(--bp-accent);
+  font-family: "Space Grotesk", "Avenir Next", sans-serif;
+  font-weight: 600;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--bp-accent);
+  outline-offset: 2px;
 }

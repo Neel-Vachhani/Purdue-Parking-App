@@ -20,10 +20,28 @@ class ParkingConsumer(AsyncWebsocketConsumer):
         logger.info("Sending to client: %s", payload)
         # Only forward if payload has lot and value
         if payload.get("lot") and ("value" in payload or "count" in payload):
-            count = payload.get("value") or payload.get("count")
+            # Preserve zero as a valid value ("or" would drop 0).
+            raw_count = payload["value"] if "value" in payload else payload.get("count")
+
+            try:
+                count = int(raw_count) if raw_count is not None else None
+            except (TypeError, ValueError):
+                count = raw_count
+
+            if count is None:
+                logger.debug("Skipping payload with null count: %s", payload)
+                return
+
+            meta = {
+                "source": payload.get("source", "redis_pubsub"),
+                "event": payload.get("event"),
+                "key": payload.get("key"),
+                "event_ts_utc": payload.get("event_ts_utc"),
+            }
+
             await self.send(text_data=json.dumps({
                 "type": "parking_update",
-                "data": {"lot": payload["lot"], "count": count}
+                "data": {"lot": payload["lot"], "count": count, "meta": meta}
             }))
         else:
             logger.debug("Skipping payload without lot/count: %s", payload)
