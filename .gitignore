@@ -43,3 +43,13 @@ venv/
 .expo/
 .expo-shared/
 node_modules
+
+# Analytics ML artifacts and proxy dataset
+# We will track selected artifacts in repo so frontend can access them.
+# If you later want to revert, re-add the wildcard ignore below.
+!Backend/my_project/analytics/artifacts/README.md
+!Backend/my_project/analytics/artifacts/.gitkeep
+!Backend/my_project/analytics/artifacts/gru.keras
+!Backend/my_project/analytics/artifacts/gru_scaler.joblib
+!Backend/my_project/analytics/artifacts/gru_meta.json
+!Backend/my_project/analytics/artifacts/aarhus_parking.csv
