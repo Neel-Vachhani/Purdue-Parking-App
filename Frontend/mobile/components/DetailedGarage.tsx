@@ -1201,11 +1201,19 @@ const handleConfirmParking = async () => {
 
 
               {/* Step 1: New button */}
-              {/* <TouchableOpacity onPress={handleConfirmParking}>
-                <Pill>
-                  <Ionicons name="car" size={14} /> Mark as Parked 
-                </Pill>
-              </TouchableOpacity> */}
+                    {onStartParking && (
+                      <Pressable
+                        style={[styles.actionBtn, styles.primary]}
+                        onPress={() => onStartParking(garage)}
+                      >
+                        <Ionicons
+                          name="car"
+                          size={18}
+                          color={theme.mode === "dark" ? "#0f172a" : "#0b0b0c"}
+                        />
+                        <Text style={styles.startTimerBtnText}>Mark as Parked</Text>
+                      </Pressable>
+                    )}
 
             </View>
 

@@ -33,6 +33,15 @@
   import { INITIAL_GARAGES, InitialGarage } from "../data/initialGarageAvailability";
   import { subscribeToParkingUpdates } from "../utils/parkingEvents";
   import { API_BASE_URL } from "../config/env";
+  import { captureParkingSnapshot } from "../utils/parkingCapture";
+  import {
+    clearParkedLocation,
+    loadParkedLocation,
+    ParkedLocation,
+    saveParkedLocation,
+  } from "../utils/parkedLocation";
+  import { findNearestGarage } from "../utils/garageSelection";
+  import { markParkingPromptShown, shouldShowParkingPrompt } from "../utils/parkingPrompt";
 
   type Garage = InitialGarage;
   export type Amenity =
@@ -244,6 +253,9 @@
     const [originCoords, setOriginCoords] = React.useState<OriginCoords>(null);
     const [originSource, setOriginSource] = React.useState<"saved" | "gps" | "none">("none");
 
+    const [parkedLocation, setParkedLocation] = React.useState<ParkedLocation | null>(null);
+    const [parkingBusy, setParkingBusy] = React.useState(false);
+
     // detail panel state
     const [selected, setSelected] = React.useState<Garage | null>(null);
     const translateX = React.useRef(new Animated.Value(SCREEN_WIDTH)).current;
@@ -348,6 +360,99 @@
   React.useEffect(() => {
     loadOrigin();
   }, [loadOrigin]);
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const stored = await loadParkedLocation();
+      if (mounted) {
+        setParkedLocation(stored);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleClearParking = React.useCallback(async () => {
+    await clearParkedLocation();
+    setParkedLocation(null);
+  }, []);
+
+  const handleStartParking = React.useCallback(
+    async (garageDetail: GarageDetailType) => {
+      if (parkingBusy) return;
+      setParkingBusy(true);
+      try {
+        const snapshot = await captureParkingSnapshot({
+          garageCode: garageDetail.code,
+          garageName: garageDetail.name,
+        });
+        await saveParkedLocation(snapshot);
+        setParkedLocation(snapshot);
+
+        const floorLabel = snapshot.floorLabel || "Surface";
+        const message = snapshot.isSurface
+          ? "Saved as a surface lot."
+          : floorLabel === "Roof"
+            ? "Saved on the roof level."
+            : `Saved on Floor ${floorLabel}.`;
+        Alert.alert("Parking saved", message);
+      } catch (err) {
+        console.error("Failed to capture parking snapshot", err);
+        Alert.alert(
+          "Unable to save parking",
+          "Check location permissions and try again."
+        );
+      } finally {
+        setParkingBusy(false);
+      }
+    },
+    [parkingBusy]
+  );
+
+  React.useEffect(() => {
+    let mounted = true;
+    if (!originCoords || parkedLocation || originSource !== "gps") {
+      return undefined;
+    }
+
+    (async () => {
+      const shouldPrompt = await shouldShowParkingPrompt();
+      if (!shouldPrompt || !mounted) return;
+
+      const nearest = findNearestGarage(
+        { latitude: originCoords.lat, longitude: originCoords.lng },
+        garages
+      );
+
+      if (!nearest || !mounted) return;
+
+      await markParkingPromptShown();
+
+      Alert.alert(
+        `Parked at ${nearest.garage.name}?`,
+        "Save your spot to find it later.",
+        [
+          { text: "Not now", style: "cancel" },
+          {
+            text: "Mark parked",
+            onPress: () => {
+              const detail = mapListGarageToDetail(
+                nearest.garage,
+                userEmail?.userEmail || ""
+              );
+              handleStartParking(detail);
+            },
+          },
+        ]
+      );
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [originCoords, originSource, garages, parkedLocation, userEmail, handleStartParking]);
 
 
     React.useEffect(() => {
@@ -928,6 +1033,57 @@
       return count;
     }, [selectedPasses, maxDistanceMiles, minAvailabilityPct]);
 
+      const parkedHeader = React.useMemo(() => {
+        if (!parkedLocation) {
+          return <View style={{ height: 8 }} />;
+        }
+
+        const parkedTime = new Date(parkedLocation.parkedAtIso).toLocaleString(
+          "en-US",
+          { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }
+        );
+        const floorLabel = parkedLocation.floorLabel || "Surface";
+        const floorText = parkedLocation.isSurface
+          ? "Surface lot"
+          : floorLabel === "Roof"
+            ? "Roof level"
+            : `Floor ${floorLabel}`;
+
+        return (
+          <View
+            style={{
+              marginHorizontal: 16,
+              marginVertical: 8,
+              padding: 16,
+              borderRadius: 14,
+              backgroundColor: theme.surface,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+          >
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ color: theme.text, fontSize: 14, fontWeight: "700" }}>
+                Parked Location
+              </Text>
+              <Pressable onPress={handleClearParking}>
+                <Text style={{ color: theme.primary, fontWeight: "700" }}>Clear</Text>
+              </Pressable>
+            </View>
+            <Text style={{ color: theme.text, fontSize: 16, fontWeight: "800", marginTop: 6 }}>
+              {parkedLocation.garageName || "Saved spot"}
+            </Text>
+            <Text style={{ color: theme.textMuted, marginTop: 4 }}>{floorText}</Text>
+            <Text style={{ color: theme.textMuted, marginTop: 2 }}>Saved {parkedTime}</Text>
+            <Pressable
+              onPress={() => setView("map")}
+              style={{ marginTop: 10, alignSelf: "flex-start" }}
+            >
+              <Text style={{ color: theme.primary, fontWeight: "700" }}>View on map</Text>
+            </Pressable>
+          </View>
+        );
+      }, [parkedLocation, theme, handleClearParking, setView]);
+
     // Function to render every garage item in non-detailed view
     const renderItem = ({ item }: { item: Garage }) => {
       const total = item.total || 1;
@@ -1464,6 +1620,7 @@
           data={visibleGarages}
           keyExtractor={(g) => g.id}
           renderItem={renderItem}
+          ListHeaderComponent={parkedHeader}
           ListEmptyComponent={renderEmptyComponent}
           onScroll={handleListScroll}
           scrollEventThrottle={16}
@@ -1542,7 +1699,11 @@
                 handleToggleFavorite({ ...selected, id, favorite: next })
               }
               onStartNavigation={() => handleOpenInMaps(selected)}
-              onStartParking={() => {}}
+              onStartParking={() =>
+                handleStartParking(
+                  mapListGarageToDetail(selected, userEmail?.userEmail || "")
+                )
+              }
               onShare={() => {}}
             />
           </Animated.View>

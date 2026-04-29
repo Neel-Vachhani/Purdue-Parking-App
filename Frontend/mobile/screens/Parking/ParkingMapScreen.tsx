@@ -12,9 +12,10 @@
 // }
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, Linking } from "react-native";
-import { Marker, Callout } from "react-native-maps";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, Linking, Alert } from "react-native";
+import { Marker, Callout, Circle } from "react-native-maps";
 import ParkingPin from "../../components/map/ParkingPin";
+import ParkedPin from "../../components/map/ParkedPin";
 import * as SecureStore from "expo-secure-store";
 import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
@@ -27,6 +28,13 @@ import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../../utils/tr
 import { PARKING_PASS_OPTIONS, ParkingPass } from "../../constants/passes";
 import GarageDetail, { Garage as GarageDetailModel } from "../../components/DetailedGarage";
 import { subscribeToParkingUpdates } from "../../utils/parkingEvents";
+import {
+  clearParkedLocation,
+  loadParkedLocation,
+  ParkedLocation,
+  saveParkedLocation,
+} from "../../utils/parkedLocation";
+import { captureParkingSnapshot } from "../../utils/parkingCapture";
         
         // Extend ParkingLocation to include travel time
 interface ParkingLocationWithTravel extends ParkingLocation {
@@ -68,6 +76,8 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
   const [selectedLocation, setSelectedLocation] = useState<ParkingLocationWithTravel | null>(null);
   // Tracks which pin is highlighted (callout visible). Cleared when the detail modal closes.
   const [selectedPinCode, setSelectedPinCode] = useState<string | null>(null);
+  const [parkedLocation, setParkedLocation] = useState<ParkedLocation | null>(null);
+  const [parkingBusy, setParkingBusy] = useState(false);
 
   const theme = useContext(ThemeContext);
   const lastMarkerPressRef = useRef<{ code: string; timestamp: number } | null>(null);
@@ -152,6 +162,43 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
     setSelectedLocation(null);
     setSelectedPinCode(null);
   }, []);
+
+  const handleClearParking = useCallback(async () => {
+    await clearParkedLocation();
+    setParkedLocation(null);
+  }, []);
+
+  const handleStartParking = useCallback(
+    async (garage: GarageDetailModel) => {
+      if (parkingBusy) return;
+      setParkingBusy(true);
+      try {
+        const snapshot = await captureParkingSnapshot({
+          garageCode: garage.code,
+          garageName: garage.name,
+        });
+        await saveParkedLocation(snapshot);
+        setParkedLocation(snapshot);
+
+        const floorLabel = snapshot.floorLabel || "Surface";
+        const message = snapshot.isSurface
+          ? "Saved as a surface lot."
+          : floorLabel === "Roof"
+            ? "Saved on the roof level."
+            : `Saved on Floor ${floorLabel}.`;
+        Alert.alert("Parking saved", message);
+      } catch (err) {
+        console.error("Failed to capture parking snapshot", err);
+        Alert.alert(
+          "Unable to save parking",
+          "Check location permissions and try again."
+        );
+      } finally {
+        setParkingBusy(false);
+      }
+    },
+    [parkingBusy]
+  );
 
   const handleToggleFavorite = useCallback((id: string, next: boolean) => {
     setLocations((prev) =>
@@ -250,6 +297,19 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const stored = await loadParkedLocation();
+      if (mounted) {
+        setParkedLocation(stored);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // Load travel times from default origin
   useEffect(() => {
     let isMounted = true;
@@ -331,6 +391,30 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
     <ThemedView style={styles.screen}>
       <View style={styles.mapWrapper}>
         <ParkingMap initialRegion={INITIAL_REGION}>
+          {parkedLocation && (
+            <>
+              <Marker
+                coordinate={{
+                  latitude: parkedLocation.latitude,
+                  longitude: parkedLocation.longitude,
+                }}
+                tracksViewChanges={false}
+              >
+                <ParkedPin label={parkedLocation.floorLabel || "Surface"} />
+              </Marker>
+              {typeof parkedLocation.horizontalAccuracyMeters === "number" && (
+                <Circle
+                  center={{
+                    latitude: parkedLocation.latitude,
+                    longitude: parkedLocation.longitude,
+                  }}
+                  radius={Math.max(5, parkedLocation.horizontalAccuracyMeters)}
+                  strokeColor="rgba(245, 158, 11, 0.6)"
+                  fillColor="rgba(245, 158, 11, 0.15)"
+                />
+              )}
+            </>
+          )}
           {filteredLocations.map((location) => {
             const isSelected = selectedPinCode === location.code;
             return (
@@ -529,6 +613,36 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
               )}
             </View>
           )}
+
+          {parkedLocation && (
+            <View
+              style={[
+                styles.parkedOverlay,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <View style={styles.parkedOverlayHeader}>
+                <Text style={[styles.parkedOverlayTitle, { color: theme.text }]}>Parked</Text>
+                <TouchableOpacity onPress={handleClearParking}>
+                  <Text style={[styles.parkedOverlayClear, { color: theme.primary }]}>Clear</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.parkedOverlayName, { color: theme.text }]}>
+                {parkedLocation.garageName || "Saved spot"}
+              </Text>
+              <Text style={[styles.parkedOverlayMeta, { color: theme.textMuted }]}>
+                {parkedLocation.isSurface
+                  ? "Surface lot"
+                  : parkedLocation.floorLabel === "Roof"
+                    ? "Roof level"
+                    : `Floor ${parkedLocation.floorLabel || "Surface"}`}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -545,7 +659,7 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
             onBack={handleCloseDetail}
             onToggleFavorite={handleToggleFavorite}
             onStartNavigation={handleStartNavigation}
-            onStartParking={() => {}}
+            onStartParking={handleStartParking}
             onShare={() => {}}
           />
         </Modal>
@@ -656,6 +770,41 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     marginTop: 12,
+    fontSize: 12,
+  },
+  parkedOverlay: {
+    marginTop: 12,
+    alignSelf: "flex-start",
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  parkedOverlayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  parkedOverlayTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  parkedOverlayClear: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  parkedOverlayName: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  parkedOverlayMeta: {
+    marginTop: 2,
     fontSize: 12,
   },
   // Callout bubble styles

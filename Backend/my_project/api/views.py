@@ -31,6 +31,8 @@ from django.utils.timezone import make_aware
 from math import radians, sin, cos, sqrt, atan2
 from rest_framework.permissions import AllowAny
 
+from .elevation_data import GARAGE_ELEVATION_PROFILES, ELEVATION_PROFILE_CODES
+
 import jwt
 from datetime import datetime, timedelta, time, date
 import icalendar
@@ -2012,7 +2014,7 @@ def nearest_garage_from_location(request):
     for lot in garages:
         # Adjust these attribute names if your model is different
         lot_lat = getattr(lot, "lat", None)
-        lot_lng = getattr(lot, "lon", None)
+        lot_lng = getattr(lot, "lng", None)
 
         if lot_lat is None or lot_lng is None:
             continue
@@ -2042,6 +2044,107 @@ def nearest_garage_from_location(request):
                 "name": getattr(nearest, "name", None),
                 "distance_m": round(nearest_dist, 2),
             },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def elevation_lookup(request):
+    """
+    Return a ground elevation estimate for a given coordinate or garage code.
+
+    Body (JSON):
+      {
+        "latitude": 40.424123,
+        "longitude": -86.914321,
+        "garage_code": "PGH"  # optional
+      }
+    """
+    lat = request.data.get("latitude")
+    lng = request.data.get("longitude")
+    garage_code = request.data.get("garage_code")
+
+    if not garage_code and (lat is None or lng is None):
+        return Response(
+            {"detail": "latitude/longitude or garage_code required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if garage_code:
+        code = str(garage_code).upper()
+        profile = GARAGE_ELEVATION_PROFILES.get(code)
+        if profile and profile.get("ground_elevation_m") is not None:
+            return Response(
+                {
+                    "found": True,
+                    "garage_code": code,
+                    "ground_elevation_m": profile["ground_elevation_m"],
+                    "floor_height_m": profile.get("floor_height_m"),
+                    "max_floors": profile.get("max_floors"),
+                    "has_roof": profile.get("has_roof"),
+                    "source": "garage_profile",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+    try:
+        user_lat = float(lat)
+        user_lng = float(lng)
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "latitude and longitude must be numeric"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def _distance_m(lat1, lon1, lat2, lon2):
+        R = 6371000.0
+        phi1 = radians(lat1)
+        phi2 = radians(lat2)
+        d_phi = radians(lat2 - lat1)
+        d_lambda = radians(lon2 - lon1)
+        a = (
+            sin(d_phi / 2) ** 2
+            + cos(phi1) * cos(phi2) * sin(d_lambda / 2) ** 2
+        )
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return R * c
+
+    nearest_code = None
+    nearest_dist = None
+
+    for code in ELEVATION_PROFILE_CODES:
+        profile = GARAGE_ELEVATION_PROFILES.get(code)
+        if not profile:
+            continue
+        g_lat = profile.get("lat")
+        g_lng = profile.get("lng")
+        if g_lat is None or g_lng is None:
+            continue
+        d = _distance_m(user_lat, user_lng, g_lat, g_lng)
+        if nearest_dist is None or d < nearest_dist:
+            nearest_dist = d
+            nearest_code = code
+
+    if not nearest_code:
+        return Response({"found": False}, status=status.HTTP_200_OK)
+
+    profile = GARAGE_ELEVATION_PROFILES.get(nearest_code)
+    if not profile or profile.get("ground_elevation_m") is None:
+        return Response({"found": False}, status=status.HTTP_200_OK)
+
+    return Response(
+        {
+            "found": True,
+            "garage_code": nearest_code,
+            "ground_elevation_m": profile["ground_elevation_m"],
+            "floor_height_m": profile.get("floor_height_m"),
+            "max_floors": profile.get("max_floors"),
+            "has_roof": profile.get("has_roof"),
+            "distance_m": round(nearest_dist or 0, 2),
+            "source": "nearest_profile",
         },
         status=status.HTTP_200_OK,
     )
