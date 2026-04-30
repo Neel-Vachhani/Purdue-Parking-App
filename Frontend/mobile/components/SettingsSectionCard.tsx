@@ -5,17 +5,18 @@ import { Ionicons } from "@expo/vector-icons";
 import ThemedText from './ThemedText';
 
 
-  type SectionId = typeof SECTION_IDS[number];
-  const SECTION_IDS = ["account", "travel", "notifications", "about"] as const;
+  //type SectionId = typeof SECTION_IDS[number];
+  //const SECTION_IDS = ["account", "travel", "notifications", "about", "calendar"] as const;
   
 
 
   type SectionCardProps = {
-    id: SectionId;
+    //id: SectionId;
+    id: string;
     title: string;
     icon: keyof typeof Ionicons.glyphMap;
     expanded: boolean;
-    onToggle: (id: SectionId) => void;
+    onToggle: (id: any) => void;
     children: React.ReactNode;
   };
 

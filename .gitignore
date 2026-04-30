@@ -53,3 +53,8 @@ node_modules
 !Backend/my_project/analytics/artifacts/gru_scaler.joblib
 !Backend/my_project/analytics/artifacts/gru_meta.json
 !Backend/my_project/analytics/artifacts/aarhus_parking.csv
+# Terraform
+.terraform
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup

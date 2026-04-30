@@ -1,4 +1,4 @@
-import { GARAGE_DEFINITIONS } from "./garageDefinitions";
+import { GARAGE_DEFINITIONS, LotAmenity } from "./garageDefinitions";
 import { ParkingPass } from "../constants/passes";
 
 export type InitialGarage = {
@@ -15,6 +15,12 @@ export type InitialGarage = {
   rating: number;
   address: string;
   individual_rating: number;
+  covered?: boolean;
+  shaded?: boolean;
+  evPorts?: number;
+  accessibleSpots?: number;
+  heightClearanceMeters?: number;
+  amenities?: LotAmenity[];
 };
 
 const getTestAvailabilityForCode = (
@@ -26,7 +32,7 @@ const getTestAvailabilityForCode = (
     case "PGG":
       return { current: 3, total: 650 };
     case "PGU":
-      return { current: 1, total: 820 };
+      return { current: 3, total: 820 };
     default:
       return { current: 150, total: 400 };
   }
@@ -49,6 +55,12 @@ export const INITIAL_GARAGES: InitialGarage[] = GARAGE_DEFINITIONS.map((definiti
     rating: definition.rating,
     address: definition.address,
     individual_rating: definition.individual_rating,
+    covered: definition.covered,
+    shaded: definition.shaded,
+    evPorts: definition.evPorts,
+    accessibleSpots: definition.accessibleSpots,
+    heightClearanceMeters: definition.heightClearanceMeters,
+    amenities: definition.amenities,
   };
 });
 

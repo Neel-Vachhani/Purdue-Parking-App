@@ -12,6 +12,15 @@ type ExtraConfig = {
 
 const extra = (Constants.expoConfig?.extra || {}) as ExtraConfig;
 
+const normalizeApiBaseUrl = (url: string): string => {
+  const trimmed = url.trim().replace(/\/+$/, "");
+  if (!trimmed) {
+    return "";
+  }
+
+  return /\/api$/i.test(trimmed) ? trimmed : `${trimmed}/api`;
+};
+
 /**
  * Get the backend API base URL.
  *
@@ -28,18 +37,18 @@ export const getApiBaseUrl = (): string => {
       : process.env.EXPO_PUBLIC_API_BASE_URL_IOS;
 
   if (fromEnv) {
-    return fromEnv;
+    return normalizeApiBaseUrl(fromEnv);
   }
 
   // 2) From app.config.js -> extra.apiBaseUrl (optional backup)
   if (extra.apiBaseUrl) {
-    return extra.apiBaseUrl;
+    return normalizeApiBaseUrl(extra.apiBaseUrl);
   }
 
   // 3) Dev fallback for local backend
   if (__DEV__) {
     if (Platform.OS === "android") {
-      return "http://10.0.2.2:7500";
+      return "http://10.0.2.2:7500/api";
     }
     return "http://localhost:7500/api";
   }

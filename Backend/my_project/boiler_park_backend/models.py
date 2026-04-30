@@ -128,6 +128,16 @@ class ParkingLot(models.Model):
     rating = models.FloatField(null=True)
     num_of_ratings = models.PositiveIntegerField()
     capacity = models.PositiveIntegerField(null=True, blank=True)
+    covered = models.BooleanField(default=False)
+    shaded = models.BooleanField(default=False)
+    ev_ports = models.PositiveIntegerField(null=True, blank=True)
+    accessible_spots = models.PositiveIntegerField(null=True, blank=True)
+    height_clearance_meters = models.FloatField(null=True, blank=True)
+    amenities = ArrayField(
+        models.CharField(max_length=50),
+        default=list,
+        blank=True,
+    )
 
 
 class CalendarEvent(models.Model):

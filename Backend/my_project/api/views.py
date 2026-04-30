@@ -31,6 +31,8 @@ from django.utils.timezone import make_aware
 from math import radians, sin, cos, sqrt, atan2
 from rest_framework.permissions import AllowAny
 
+from .elevation_data import GARAGE_ELEVATION_PROFILES, ELEVATION_PROFILE_CODES
+
 import jwt
 from datetime import datetime, timedelta, time, date
 import icalendar
@@ -249,6 +251,7 @@ def upload_ics_events(request):
 
     try:
         cal = icalendar.Calendar.from_ical(ics_file.read())
+        print("Components found:", [c.name for c in cal.walk()])
     except Exception as e:
         return Response({"error": f"Invalid ICS file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -298,9 +301,9 @@ def upload_ics_events(request):
             raise ValueError("Unknown end type")
         dates = [start_date]
 
-        title = str(component.get('summary', ''))
-        description = str(component.get('description', ''))[:200]
-        location = str(component.get('location', ''))
+        title = str(component.get('summary') or '')
+        description = str(component.get('description') or '')[:200]
+        location = str(component.get('location') or '')
 
         event = CalendarEvent.objects.create(
             title=title,
@@ -329,19 +332,26 @@ def list_calendar_events(request):
     """
     Return all saved calendar events.
     """
-    events = CalendarEvent.objects.all().order_by('start_time')
-    serialized_events = [
+    try:
+        events = CalendarEvent.objects.all().order_by('start_time')
+        serialized_events = [
         {
             "id": e.id,
-            "summary": e.summary,
+            "title": e.title,
             "description": e.description,
             "location": e.location,
+            "dates": [d.isoformat() for d in e.dates] if e.dates else [],
             "start_time": e.start_time.isoformat() if e.start_time else None,
             "end_time": e.end_time.isoformat() if e.end_time else None,
         }
         for e in events
-    ]
-    return Response({"events": serialized_events})
+        ]
+        return Response({"events": serialized_events})
+    except Exception as e:
+        print(f"list_calendar_events error: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({"error": str(e)}, status=500)
 
 
 @api_view(["GET"])
@@ -1530,11 +1540,9 @@ def _mock_occupancy_series(minutes=60, step=10, base_available=86, jitter=5):
 @api_view(["GET"])
 def get_garage_detail(request, garage_id: int):
     """
-    Return a single garage with rich dummy data.
+    Return a single garage with amenity data sourced from the ParkingLot DB record.
     Path param: garage_id (int)
-    Example response fields include totals, levels, features, and a short occupancy series.
     """
-    # Find the garage skeleton from PARKING_LOTS
     garage = next((g for g in PARKING_LOTS if g["id"] == int(garage_id)), None)
     if not garage:
         return Response(
@@ -1542,25 +1550,37 @@ def get_garage_detail(request, garage_id: int):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # Clone the base dummy template per garage and adjust a few values to feel unique
-    details = dict(DUMMY_GARAGE_DETAILS)  # shallow copy
+    # Load real amenity data from the database when available
+    try:
+        lot = ParkingLot.objects.get(code=garage["code"])
+        db_covered = lot.covered
+        db_shaded = lot.shaded
+        db_ev_ports = lot.ev_ports
+        db_accessible_spots = lot.accessible_spots
+        db_height_clearance_m = lot.height_clearance_meters
+        db_amenities = list(lot.amenities or [])
+    except ParkingLot.DoesNotExist:
+        # Fall back to dummy defaults if the lot hasn't been seeded yet
+        db_covered = DUMMY_GARAGE_DETAILS["features"]["covered"]
+        db_shaded = DUMMY_GARAGE_DETAILS["features"]["shaded"]
+        db_ev_ports = DUMMY_GARAGE_DETAILS["amenities"]["ev_chargers"]
+        db_accessible_spots = DUMMY_GARAGE_DETAILS["amenities"]["accessible_spots"]
+        db_height_clearance_m = None
+        db_amenities = []
+
+    details = dict(DUMMY_GARAGE_DETAILS)
     levels = [dict(l) for l in DUMMY_GARAGE_DETAILS["levels"]]
 
-    # Light per-garage customization
+    # Apply per-garage address and level overrides (non-amenity data still from dummy)
     name = garage["name"]
     if "Harrison" in name:
         details["address"] = "504 Northwestern Ave, West Lafayette, IN 47906"
-        details["features"]["covered"] = True
         levels[0]["available"] = 10
         levels[-1]["available"] = 20
     elif "Grant Street" in name:
         details["address"] = "120 N Grant St, West Lafayette, IN 47906"
-        details["amenities"]["ev_chargers"] = 12
-        details["features"]["shaded"] = True
     elif "University Street" in name:
         details["address"] = "504 University St, West Lafayette, IN 47906"
-        details["restrictions"]["height_clearance_ft"] = 6.8
-        details["features"]["covered"] = False
         for l in levels:
             l["covered"] = False
     elif "Northwestern" in name:
@@ -1568,25 +1588,40 @@ def get_garage_detail(request, garage_id: int):
         details["rates"]["per_hour"] = 1.5
     elif "DS/AI" in name:
         details["address"] = "Discovery Park Lot, West Lafayette, IN 47907"
-        details["features"]["covered"] = False
-        details["features"]["shaded"] = False
-        levels = [
-            {"level": "Surface", "total": 220, "available": 64, "covered": False}
-        ]
+        levels = [{"level": "Surface", "total": 220, "available": 64, "covered": False}]
 
     total, available, occupied, pct_available = _compute_totals(levels)
 
+    height_clearance_ft = (
+        round(db_height_clearance_m * 3.28084, 1) if db_height_clearance_m else None
+    )
+
     payload = {
         "id": garage["id"],
+        "code": garage["code"],
         "name": name,
         "redis_key": garage["redis_key"],
         "address": details["address"],
         "coordinates": details["coordinates"],
         "hours": details["hours"],
         "rates": details["rates"],
-        "amenities": details["amenities"],
-        "restrictions": details["restrictions"],
-        "features": details["features"],
+        # Amenity fields — sourced from DB
+        "covered": db_covered,
+        "shaded": db_shaded,
+        "ev_ports": db_ev_ports,
+        "accessible_spots": db_accessible_spots,
+        "height_clearance_meters": db_height_clearance_m,
+        "height_clearance_ft": height_clearance_ft,
+        "amenities": db_amenities,
+        "restrictions": {
+            **details["restrictions"],
+            "height_clearance_ft": height_clearance_ft,
+        },
+        "features": {
+            **details["features"],
+            "covered": db_covered,
+            "shaded": db_shaded,
+        },
         "levels": levels,
         "totals": {
             "capacity": total,
@@ -1598,11 +1633,7 @@ def get_garage_detail(request, garage_id: int):
             "last_updated_utc": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
             "series": _mock_occupancy_series(base_available=available),
         },
-        "notices": [
-            # examples of runtime messages you might surface in the UI
-            {"type": "info", "message": "Elevator maintenance on L2 from 2 pm to 4 pm"},
-            {"type": "advice", "message": "EV chargers busiest 11 am to 2 pm"},
-        ],
+        "notices": [],
     }
 
     return Response(payload, status=status.HTTP_200_OK)
@@ -1983,7 +2014,7 @@ def nearest_garage_from_location(request):
     for lot in garages:
         # Adjust these attribute names if your model is different
         lot_lat = getattr(lot, "lat", None)
-        lot_lng = getattr(lot, "lon", None)
+        lot_lng = getattr(lot, "lng", None)
 
         if lot_lat is None or lot_lng is None:
             continue
@@ -2013,6 +2044,107 @@ def nearest_garage_from_location(request):
                 "name": getattr(nearest, "name", None),
                 "distance_m": round(nearest_dist, 2),
             },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def elevation_lookup(request):
+    """
+    Return a ground elevation estimate for a given coordinate or garage code.
+
+    Body (JSON):
+      {
+        "latitude": 40.424123,
+        "longitude": -86.914321,
+        "garage_code": "PGH"  # optional
+      }
+    """
+    lat = request.data.get("latitude")
+    lng = request.data.get("longitude")
+    garage_code = request.data.get("garage_code")
+
+    if not garage_code and (lat is None or lng is None):
+        return Response(
+            {"detail": "latitude/longitude or garage_code required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if garage_code:
+        code = str(garage_code).upper()
+        profile = GARAGE_ELEVATION_PROFILES.get(code)
+        if profile and profile.get("ground_elevation_m") is not None:
+            return Response(
+                {
+                    "found": True,
+                    "garage_code": code,
+                    "ground_elevation_m": profile["ground_elevation_m"],
+                    "floor_height_m": profile.get("floor_height_m"),
+                    "max_floors": profile.get("max_floors"),
+                    "has_roof": profile.get("has_roof"),
+                    "source": "garage_profile",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+    try:
+        user_lat = float(lat)
+        user_lng = float(lng)
+    except (TypeError, ValueError):
+        return Response(
+            {"detail": "latitude and longitude must be numeric"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def _distance_m(lat1, lon1, lat2, lon2):
+        R = 6371000.0
+        phi1 = radians(lat1)
+        phi2 = radians(lat2)
+        d_phi = radians(lat2 - lat1)
+        d_lambda = radians(lon2 - lon1)
+        a = (
+            sin(d_phi / 2) ** 2
+            + cos(phi1) * cos(phi2) * sin(d_lambda / 2) ** 2
+        )
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return R * c
+
+    nearest_code = None
+    nearest_dist = None
+
+    for code in ELEVATION_PROFILE_CODES:
+        profile = GARAGE_ELEVATION_PROFILES.get(code)
+        if not profile:
+            continue
+        g_lat = profile.get("lat")
+        g_lng = profile.get("lng")
+        if g_lat is None or g_lng is None:
+            continue
+        d = _distance_m(user_lat, user_lng, g_lat, g_lng)
+        if nearest_dist is None or d < nearest_dist:
+            nearest_dist = d
+            nearest_code = code
+
+    if not nearest_code:
+        return Response({"found": False}, status=status.HTTP_200_OK)
+
+    profile = GARAGE_ELEVATION_PROFILES.get(nearest_code)
+    if not profile or profile.get("ground_elevation_m") is None:
+        return Response({"found": False}, status=status.HTTP_200_OK)
+
+    return Response(
+        {
+            "found": True,
+            "garage_code": nearest_code,
+            "ground_elevation_m": profile["ground_elevation_m"],
+            "floor_height_m": profile.get("floor_height_m"),
+            "max_floors": profile.get("max_floors"),
+            "has_roof": profile.get("has_roof"),
+            "distance_m": round(nearest_dist or 0, 2),
+            "source": "nearest_profile",
         },
         status=status.HTTP_200_OK,
     )

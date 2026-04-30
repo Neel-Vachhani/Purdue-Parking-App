@@ -10,8 +10,10 @@ const listeners = new Set<ParkingUpdateListener>();
 export function emitParkingUpdate(payload: ParkingUpdatePayload) {
   listeners.forEach((listener) => listener(payload));
 }
-
 export function subscribeToParkingUpdates(listener: ParkingUpdateListener) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
+

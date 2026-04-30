@@ -12,8 +12,10 @@
 // }
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, Linking } from "react-native";
-import { Marker, Callout } from "react-native-maps";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform, Linking, Alert } from "react-native";
+import { Marker, Callout, Circle } from "react-native-maps";
+import ParkingPin from "../../components/map/ParkingPin";
+import ParkedPin from "../../components/map/ParkedPin";
 import * as SecureStore from "expo-secure-store";
 import ThemedView from "../../components/ThemedView";
 import ParkingMap from "../../components/map/ParkingMap";
@@ -26,6 +28,13 @@ import { getTravelTimeFromDefaultOrigin, TravelTimeResult } from "../../utils/tr
 import { PARKING_PASS_OPTIONS, ParkingPass } from "../../constants/passes";
 import GarageDetail, { Garage as GarageDetailModel } from "../../components/DetailedGarage";
 import { subscribeToParkingUpdates } from "../../utils/parkingEvents";
+import {
+  clearParkedLocation,
+  loadParkedLocation,
+  ParkedLocation,
+  saveParkedLocation,
+} from "../../utils/parkedLocation";
+import { captureParkingSnapshot } from "../../utils/parkingCapture";
         
         // Extend ParkingLocation to include travel time
 interface ParkingLocationWithTravel extends ParkingLocation {
@@ -65,6 +74,10 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<ParkingLocationWithTravel | null>(null);
+  // Tracks which pin is highlighted (callout visible). Cleared when the detail modal closes.
+  const [selectedPinCode, setSelectedPinCode] = useState<string | null>(null);
+  const [parkedLocation, setParkedLocation] = useState<ParkedLocation | null>(null);
+  const [parkingBusy, setParkingBusy] = useState(false);
 
   const theme = useContext(ThemeContext);
   const lastMarkerPressRef = useRef<{ code: string; timestamp: number } | null>(null);
@@ -85,18 +98,18 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
         longitude: location.coordinate.longitude,
         totalSpots: total,
         occupiedSpots: occupied,
-        covered: true,
-        shaded: true,
-        amenities: ["covered", "lighting"],
+        covered: baseline?.covered,
+        shaded: baseline?.shaded,
+        evPorts: baseline?.evPorts,
+        accessibleSpots: baseline?.accessibleSpots,
+        heightClearanceMeters: baseline?.heightClearanceMeters,
+        amenities: baseline?.amenities,
         price: baseline?.paid ? "Paid Lot" : "Free",
         hours: [{ days: "Mon–Sun", open: "00:00", close: "24/7" }],
         lastUpdatedIso: new Date().toISOString(),
         rating: baseline?.rating ?? 0,
         individual_rating: baseline?.individual_rating ?? 0,
         heroImageUrl: undefined,
-        heightClearanceMeters: undefined,
-        evPorts: undefined,
-        accessibleSpots: undefined,
         distanceMeters: location.travelTime
           ? Math.round(location.travelTime.distance * 1609.344)
           : undefined,
@@ -119,6 +132,9 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
     (location: ParkingLocationWithTravel) => {
       const now = Date.now();
       const previous = lastMarkerPressRef.current;
+
+      // Always highlight the tapped pin immediately
+      setSelectedPinCode(location.code);
 
       if (
         previous &&
@@ -144,7 +160,45 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
 
   const handleCloseDetail = useCallback(() => {
     setSelectedLocation(null);
+    setSelectedPinCode(null);
   }, []);
+
+  const handleClearParking = useCallback(async () => {
+    await clearParkedLocation();
+    setParkedLocation(null);
+  }, []);
+
+  const handleStartParking = useCallback(
+    async (garage: GarageDetailModel) => {
+      if (parkingBusy) return;
+      setParkingBusy(true);
+      try {
+        const snapshot = await captureParkingSnapshot({
+          garageCode: garage.code,
+          garageName: garage.name,
+        });
+        await saveParkedLocation(snapshot);
+        setParkedLocation(snapshot);
+
+        const floorLabel = snapshot.floorLabel || "Surface";
+        const message = snapshot.isSurface
+          ? "Saved as a surface lot."
+          : floorLabel === "Roof"
+            ? "Saved on the roof level."
+            : `Saved on Floor ${floorLabel}.`;
+        Alert.alert("Parking saved", message);
+      } catch (err) {
+        console.error("Failed to capture parking snapshot", err);
+        Alert.alert(
+          "Unable to save parking",
+          "Check location permissions and try again."
+        );
+      } finally {
+        setParkingBusy(false);
+      }
+    },
+    [parkingBusy]
+  );
 
   const handleToggleFavorite = useCallback((id: string, next: boolean) => {
     setLocations((prev) =>
@@ -243,6 +297,19 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const stored = await loadParkedLocation();
+      if (mounted) {
+        setParkedLocation(stored);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // Load travel times from default origin
   useEffect(() => {
     let isMounted = true;
@@ -324,50 +391,88 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
     <ThemedView style={styles.screen}>
       <View style={styles.mapWrapper}>
         <ParkingMap initialRegion={INITIAL_REGION}>
-          {filteredLocations.map((location) => (
-            <Marker
-              key={location.id}
-              coordinate={location.coordinate}
-              onPress={() => handleMarkerPress(location)}
-            >
-              <Callout tooltip={false} onPress={() => handleCalloutPress(location)}>
-                <View style={{ padding: 6, maxWidth: 220 }}>
-                  <Text style={{ fontWeight: "600" }}>{location.title}</Text>
-                  <Text style={{ marginTop: 4 }}>
-                    {(() => {
-                      const available =
-                        typeof location.available === "number"
-                          ? location.available
-                          : undefined;
-                      const capacity =
-                        typeof location.capacity === "number"
-                          ? location.capacity
-                          : undefined;
-
-                      if (available !== undefined && capacity !== undefined) {
-                        return `Available: ${available} / ${capacity}`;
-                      }
-
-                      if (available !== undefined) {
-                        return `Available: ${available}`;
-                      }
-
-                      if (capacity !== undefined) {
-                        return `Capacity: ${capacity}`;
-                      }
-
-                      return "Occupancy data unavailable";
-                    })()}
-                  </Text>
-                  {location.travelTime && (
-                    <Text style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
-                      {location.travelTime.formattedDuration} ({location.travelTime.formattedDistance})
+          {parkedLocation && (
+            <>
+              <Marker
+                coordinate={{
+                  latitude: parkedLocation.latitude,
+                  longitude: parkedLocation.longitude,
+                }}
+                tracksViewChanges={false}
+              >
+                <ParkedPin label={parkedLocation.floorLabel || "Surface"} />
+              </Marker>
+              {typeof parkedLocation.horizontalAccuracyMeters === "number" && (
+                <Circle
+                  center={{
+                    latitude: parkedLocation.latitude,
+                    longitude: parkedLocation.longitude,
+                  }}
+                  radius={Math.max(5, parkedLocation.horizontalAccuracyMeters)}
+                  strokeColor="rgba(245, 158, 11, 0.6)"
+                  fillColor="rgba(245, 158, 11, 0.15)"
+                />
+              )}
+            </>
+          )}
+          {filteredLocations.map((location) => {
+            const isSelected = selectedPinCode === location.code;
+            return (
+              <Marker
+                key={location.id}
+                coordinate={location.coordinate}
+                onPress={() => handleMarkerPress(location)}
+                // Re-render the native marker view only when its selected state
+                // changes. This avoids unnecessary GPU work on every parent render.
+                tracksViewChanges={isSelected}
+              >
+                <ParkingPin
+                  isSelected={isSelected}
+                  available={location.available}
+                  capacity={location.capacity}
+                  isDark={theme.mode === "dark"}
+                />
+                <Callout tooltip={false} onPress={() => handleCalloutPress(location)}>
+                  <View style={styles.callout}>
+                    <Text style={[styles.calloutTitle, { color: theme.text }]}>
+                      {location.title}
                     </Text>
-                  )}
-                </View>
-              </Callout>
-            </Marker>
-          ))}
+                    <Text style={[styles.calloutBody, { color: theme.textMuted }]}>
+                      {(() => {
+                        const available =
+                          typeof location.available === "number"
+                            ? location.available
+                            : undefined;
+                        const capacity =
+                          typeof location.capacity === "number"
+                            ? location.capacity
+                            : undefined;
+
+                        if (available !== undefined && capacity !== undefined) {
+                          return `Available: ${available} / ${capacity}`;
+                        }
+                        if (available !== undefined) {
+                          return `Available: ${available}`;
+                        }
+                        if (capacity !== undefined) {
+                          return `Capacity: ${capacity}`;
+                        }
+                        return "Occupancy data unavailable";
+                      })()}
+                    </Text>
+                    {location.travelTime && (
+                      <Text style={styles.calloutTravel}>
+                        {location.travelTime.formattedDurationCar} ({location.travelTime.formattedDistance})
+                      </Text>
+                    )}
+                    <Text style={[styles.calloutHint, { color: theme.primary }]}>
+                      Tap again for details →
+                    </Text>
+                  </View>
+                </Callout>
+              </Marker>
+            );
+          })}
         </ParkingMap>
 
         <View pointerEvents="box-none" style={styles.overlayContainer}>
@@ -508,6 +613,36 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
               )}
             </View>
           )}
+
+          {parkedLocation && (
+            <View
+              style={[
+                styles.parkedOverlay,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.border,
+                  shadowColor: theme.shadow,
+                },
+              ]}
+            >
+              <View style={styles.parkedOverlayHeader}>
+                <Text style={[styles.parkedOverlayTitle, { color: theme.text }]}>Parked</Text>
+                <TouchableOpacity onPress={handleClearParking}>
+                  <Text style={[styles.parkedOverlayClear, { color: theme.primary }]}>Clear</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.parkedOverlayName, { color: theme.text }]}>
+                {parkedLocation.garageName || "Saved spot"}
+              </Text>
+              <Text style={[styles.parkedOverlayMeta, { color: theme.textMuted }]}>
+                {parkedLocation.isSurface
+                  ? "Surface lot"
+                  : parkedLocation.floorLabel === "Roof"
+                    ? "Roof level"
+                    : `Floor ${parkedLocation.floorLabel || "Surface"}`}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -524,7 +659,7 @@ export default function ParkingMapScreen({view, setView} : {view: string, setVie
             onBack={handleCloseDetail}
             onToggleFavorite={handleToggleFavorite}
             onStartNavigation={handleStartNavigation}
-            onStartParking={() => {}}
+            onStartParking={handleStartParking}
             onShare={() => {}}
           />
         </Modal>
@@ -636,5 +771,64 @@ const styles = StyleSheet.create({
   emptyState: {
     marginTop: 12,
     fontSize: 12,
+  },
+  parkedOverlay: {
+    marginTop: 12,
+    alignSelf: "flex-start",
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  parkedOverlayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  parkedOverlayTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  parkedOverlayClear: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  parkedOverlayName: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  parkedOverlayMeta: {
+    marginTop: 2,
+    fontSize: 12,
+  },
+  // Callout bubble styles
+  callout: {
+    padding: 8,
+    maxWidth: 220,
+    minWidth: 140,
+  },
+  calloutTitle: {
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  calloutBody: {
+    marginTop: 4,
+    fontSize: 12,
+  },
+  calloutTravel: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#6b7280",
+  },
+  calloutHint: {
+    marginTop: 6,
+    fontSize: 11,
+    fontWeight: "600",
   },
 });

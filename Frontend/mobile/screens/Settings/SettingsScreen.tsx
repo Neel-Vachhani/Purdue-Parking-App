@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+import * as ExpoCalendar from "expo-calendar";
 
 import { ThemeContext } from "../../theme/ThemeProvider";
 import ThemedView from "../../components/ThemedView";
@@ -18,6 +19,8 @@ import { getApiBaseUrl } from "../../config/env";
 import { geocodeAddress, Coordinate, findNearestGarageForAddress } from "../../utils/travelTime";
 import SettingsSectionCard from "../../components/SettingsSectionCard";
 import TravelPreferences from "../../components/TravelPreferences";
+import { sendLocalNotification } from "../../app/utils/notifications";
+
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -32,37 +35,54 @@ type Frequency = "realtime" | "daily" | "weekly";
 type NotifPrefs = {
   garageFull: boolean;
   permitExpiring: boolean;
-  eventClosures: boolean;
+  //eventClosures: boolean;
   priceDrop: boolean;
-  passOnSale: boolean;
-  favoriteLotAlerts: boolean;
-  favoriteLotThreshold: number;
-  frequency: Frequency;
+  //passOnSale: boolean;
+  //favoriteLotAlerts: boolean;
+  //favoriteLotThreshold: number;
+  //frequency: Frequency;
+  favoriteLotClosed: boolean;
 };
 
 const DEFAULT_PREFS: NotifPrefs = {
   garageFull: true,
   permitExpiring: true,
-  eventClosures: true,
-  priceDrop: false,
-  passOnSale: false,
-  favoriteLotAlerts: false,
+  //eventClosures: true,
+  priceDrop: true,
+  //passOnSale: false,
+ /* favoriteLotAlerts: false,
   favoriteLotThreshold: 25,
-  frequency: "realtime",
+  frequency: "realtime",*/
+  favoriteLotClosed: true,
 };
+
+async function getPrefs(): Promise<NotifPrefs> {
+  try {
+    const raw = await AsyncStorage.getItem("notification_prefs");
+    return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS;
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
 
 const API_BASE = `${getApiBaseUrl().replace(/\/$/, "")}`;
 
-const SECTION_STATE_KEY = "settings_section_state_v1";
-const SECTION_IDS = ["account", "travel", "notifications", "about"] as const;
+const SECTION_STATE_KEY = "settings_section_state_v2";
+//const SECTION_IDS = ["account", "travel", "notifications", "about", "calendar"] as const;
+const SECTION_IDS = ["preferences", "authentication", "information"] as const;
+
 type SectionId = typeof SECTION_IDS[number];
 type SummaryTone = "neutral" | "success" | "warning";
 
 const DEFAULT_SECTION_STATE: Record<SectionId, boolean> = {
-  account: true,
-  travel: true,
-  notifications: true,
-  about: false,
+  //account: true,
+  preferences: true,
+  authentication: true,
+  information: false,
+  //travel: true,
+  //notifications: true,
+  //about: false,
+  //calendar: false,
 };
 
 
@@ -134,10 +154,10 @@ export default function SettingsScreen({ onLogout }: Props) {
         });
         
         const enabled = res?.data?.closure_notifications_enabled ?? true;
-        setPrefs(p => ({ ...p, eventClosures: enabled }));
-        console.log(`Loaded closure notification preference: ${enabled}`);
+        //setPrefs(p => ({ ...p, eventClosures: enabled }));
+        //console.log(`Loaded closure notification preference: ${enabled}`);
       } catch (error) {
-        console.error("Failed to load closure notification preference:", error);
+        //console.error("Failed to load closure notification preference:", error);
         // Default to enabled if we can't load
       }
     }
@@ -163,9 +183,9 @@ export default function SettingsScreen({ onLogout }: Props) {
         
         const hasToken = res?.data?.opted_in ?? false;
         setPrefs(p => ({ ...p, passOnSale: hasToken }));
-        console.log(`Loaded push notification status: ${hasToken ? 'enabled (has token)' : 'disabled (no token)'}`);
+        //console.log(`Loaded push notification status: ${hasToken ? 'enabled (has token)' : 'disabled (no token)'}`);
       } catch (error) {
-        console.error("Failed to load push notification status:", error);
+        //console.error("Failed to load push notification status:", error);
         // Default to disabled if we can't load
         setPrefs(p => ({ ...p, passOnSale: false }));
       }
@@ -179,18 +199,20 @@ export default function SettingsScreen({ onLogout }: Props) {
   type BooleanPrefKey =
     | "garageFull"
     | "permitExpiring"
-    | "eventClosures"
+    //| "eventClosures"
     | "priceDrop"
-    | "passOnSale"
-    | "favoriteLotAlerts";
+    //| "passOnSale"
+    //| "favoriteLotAlerts"
+    | "favoriteLotClosed";
 
   const BOOLEAN_PREF_KEYS: BooleanPrefKey[] = [
     "garageFull",
     "permitExpiring",
-    "eventClosures",
+    //"eventClosures",
     "priceDrop",
-    "passOnSale",
-    "favoriteLotAlerts",
+    //"passOnSale",
+    //"favoriteLotAlerts",
+    "favoriteLotClosed",
   ];
 
   const setToggle = (key: BooleanPrefKey, val: boolean) =>
@@ -211,10 +233,11 @@ export default function SettingsScreen({ onLogout }: Props) {
       const allDisabled =
         !prefs.garageFull &&
         !prefs.permitExpiring &&
-        !prefs.eventClosures &&
+        //!prefs.eventClosures &&
         !prefs.priceDrop &&
-        !prefs.passOnSale &&
-        !prefs.favoriteLotAlerts;
+        //!prefs.passOnSale &&
+        //!prefs.favoriteLotAlerts;
+        !prefs.favoriteLotClosed;
       if (allDisabled) {
         const userJson = await SecureStore.getItemAsync("user");
         const user = userJson ? JSON.parse(userJson) : null;
@@ -277,35 +300,35 @@ export default function SettingsScreen({ onLogout }: Props) {
 
   // -------- Lot Closure Notifications Toggle Handler (User Story #11) --------
   const handleEventClosuresToggle = async (enabled: boolean) => {
-    const userJson = await SecureStore.getItemAsync("user");
-    const user = userJson ? JSON.parse(userJson) : null;
-    const email = user?.email;
+    //const userJson = await SecureStore.getItemAsync("user");
+    //const user = userJson ? JSON.parse(userJson) : null;
+    //const email = user?.email;
 
-    if (!email) {
+    /*if (!email) {
       Alert.alert("Not logged in", "Please log in to enable notifications.");
       return;
     }
 
-    try {
+    /*try {
       // Update backend preference
       await axios.post(`${API_BASE}/closure-notifications/`, {
         email,
         enabled
-      });
+      });*/
       
       // Update local state
-      setToggle("eventClosures", enabled);
+      //setToggle("eventClosures", enabled);
       
-      console.log(`Closure notifications ${enabled ? 'enabled' : 'disabled'} for ${email}`);
+      /*console.log(`Closure notifications ${enabled ? 'enabled' : 'disabled'} for ${email}`);
     } catch (error) {
       console.error("Failed to update closure notification preference:", error);
       Alert.alert("Error", "Failed to update notification preference. Please try again.");
-    }
+    }*/
   };
 
   // -------- Parking Pass Sale Notifications Toggle Handler --------
-  const handlePassOnSaleToggle = async (enabled: boolean) => {
-    const userJson = await SecureStore.getItemAsync("user");
+  //const handlePassOnSaleToggle = async (enabled: boolean) => {
+    /*const userJson = await SecureStore.getItemAsync("user");
     const user = userJson ? JSON.parse(userJson) : null;
     const email = user?.email;
 
@@ -355,13 +378,13 @@ export default function SettingsScreen({ onLogout }: Props) {
         // Trigger test notification
         const testResponse = await axios.post(`${API_BASE}/notification_test/`, {
           email
-        });
+        });*/
 
         // Update state
-        setPrefs(p => ({ ...p, passOnSale: true }));
+        //setPrefs(p => ({ ...p, passOnSale: true }));
         
         // Save to AsyncStorage
-        const newPrefs = { ...prefs, passOnSale: true };
+        /*const newPrefs = { ...prefs, passOnSale: true };
         await AsyncStorage.setItem("notification_prefs", JSON.stringify(newPrefs));
 
         Alert.alert(
@@ -405,12 +428,15 @@ export default function SettingsScreen({ onLogout }: Props) {
           `Could not disable notifications: ${errorMsg}`
         );
       }
-    }
-  };
+    }*/
+  //};
 
   // -------- Calendar upload (unchanged) --------
-  const pickCalendar = async () => {
+  /*const pickCalendar = async () => {
     try {
+      const url = `${API_BASE}/calendar/upload-ics/`;
+      console.log("Uploading to:", url);
+
       const res = await DocumentPicker.getDocumentAsync({
         type: ["text/calendar", ".ics"],
         multiple: false,
@@ -432,19 +458,92 @@ export default function SettingsScreen({ onLogout }: Props) {
         return;
       }
 
-      const response = await fetch(file.uri);
-      const icsText = await response.text();
-      const jsonData = icsToJson(icsText);
-      console.log(jsonData);
 
-      // NOTE: if this is local dev and you're on Android emulator, use 10.0.2.2 instead of localhost
-      await axios.post(`${API_BASE}/test/`, jsonData);
+      //updated
+      const form= new FormData();
+      form.append("file", {uri: file.uri, name:file.name, type: "text/calender", } as any);
 
-      // Convert JSON to ClassEvent[]
+      await axios.post(`${API_BASE}/calendar/upload-ics/`, form, {headers: { "Content-Type": "multipart/form-data" },});
 
+      //console.log("Response:", res.data);
       Alert.alert("Calendar selected", `${file.name} uploaded.`);
     } catch (e: any) {
+      console.log("Error status:", e?.response?.status);
+      console.log("Error data:", e?.response?.data);
+      console.log("Error message:", e?.message);
       Alert.alert("Picker error", e?.message ?? "Unknown error");
+    }
+  };*/
+
+  //updated ics upload 
+  
+function parseICSDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  const clean = dateStr.replace("Z", "");
+  const formatted = `${clean.slice(0, 4)}-${clean.slice(4, 6)}-${clean.slice(6, 8)}T${clean.slice(9, 11)}:${clean.slice(11, 13)}:${clean.slice(13, 15)}`;
+  return new Date(formatted);
+}
+
+const pickCalendar = async () => {
+  try {
+    const res = await DocumentPicker.getDocumentAsync({
+      type: "*/*",
+      multiple: false,
+      copyToCacheDirectory: true,
+    });
+    if (res.canceled) return;
+    const file = res.assets?.[0];
+    if (!file) return;
+
+    const okExt = file.name?.toLowerCase().endsWith(".ics");
+    const okMime =
+      file.mimeType === "text/calendar" ||
+      file.mimeType === "application/ics" ||
+      file.mimeType === "application/x-ics";
+    if (!okExt && !okMime) {
+      Alert.alert("Invalid file", "Please select a .ics calendar file.");
+      return;
+    }
+
+    const response = await fetch(file.uri);
+    const icsText = await response.text();
+    const jsonData = icsToJson(icsText);
+
+    const mapped = jsonData.map((ev: any, i: number) => {
+      const start = parseICSDate(ev.startDate);
+      const end = parseICSDate(ev.endDate);
+      return {
+        id: `ics-${i}`,
+        title: ev.summary || "Untitled",
+        date: start.toISOString().slice(0, 10),
+        time: `${start.toTimeString().slice(0, 5)} - ${end.toTimeString().slice(0, 5)}`,
+        location: ev.location || undefined,
+        category: "other",
+      };
+    });
+
+    await AsyncStorage.setItem("calendar_events", JSON.stringify(mapped));
+    Alert.alert("Calendar selected", `${mapped.length} event(s) imported.`);
+  } catch (e: any) {
+    Alert.alert("Picker error", e?.message ?? "Unknown error");
+  }
+};
+
+  const toggleDeviceCalendar = async () => {
+    const current = await AsyncStorage.getItem("device_calendar_enabled");
+    const isEnabled = current === "true";
+
+    if (!isEnabled) {
+      const { status } = await ExpoCalendar.requestCalendarPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission denied", "Calendar access is required.");
+        return;
+      }
+      await AsyncStorage.setItem("device_calendar_enabled", "true");
+      Alert.alert("Connected", "Your device calendars will appear in the Calendar tab.");
+    } else {
+      await AsyncStorage.setItem("device_calendar_enabled", "false");
+      Alert.alert("Disconnected", "Device calendar events will no longer appear.");
     }
   };
 
@@ -521,7 +620,18 @@ export default function SettingsScreen({ onLogout }: Props) {
       </View>
     );
   };
-  
+
+  const Divider = () => (
+    <View
+      style={{
+        height: 1,
+        backgroundColor: isDark
+          ? "rgba(255,255,255,0.08)"
+          : "rgba(0,0,0,0.08)",
+        marginVertical: 4,
+      }}
+    />
+  );
 
   // Old code kept just in case it is needed.
   // <View style={{
@@ -632,6 +742,225 @@ export default function SettingsScreen({ onLogout }: Props) {
         contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
         showsVerticalScrollIndicator
       >
+        {/* header */}
+        <View>
+          <ThemedText style={{ fontSize: 24, fontWeight: "700" }}>
+            Settings
+          </ThemedText>
+        </View>
+
+        {/* summary chips */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {summaryItems.map((item, idx) => (
+            <View key={idx} style={{ flex: 1, minWidth: "45%" }}>
+              <SummaryChip
+                label={item.label}
+                value={item.value}
+                tone={item.tone}
+              />
+            </View>
+          ))}
+        </View>
+
+        {/* preferences section */}
+        <SettingsSectionCard
+          id="preferences"
+          title="Preferences"
+          icon="options-outline"
+          expanded={expandedSections.preferences}
+          onToggle={toggleSection}
+        >
+          <View style={{ gap: 12 }}>
+            {/* display */}
+            <ThemedText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                opacity: 0.5,
+              }}
+            >
+              Display
+            </ThemedText>
+
+            <Row label="Dark Mode">
+              <Switch
+                value={isDark}
+                onValueChange={theme.toggle}
+                trackColor={{ false: "#9CA3AF", true: theme.primary }}
+                thumbColor={isDark ? "#111827" : "#FFFFFF"}
+              />
+            </Row>
+
+            <Divider />
+
+            {/* travel */}
+            <ThemedText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                opacity: 0.5,
+              }}
+            >
+              Travel
+            </ThemedText>
+
+            <TravelPreferences
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+              savedOrigin={savedOrigin}
+              setSavedOrigin={setSavedOrigin}
+              inline
+            />
+
+            <Divider />
+
+            {/* -- Notifications -- */}
+            <ThemedText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                opacity: 0.5,
+              }}
+            >
+              Notifications
+            </ThemedText>
+
+            <Row label="Garage Full Alerts">
+              <Switch
+                value={prefs.garageFull}
+                onValueChange={(v) => setToggle("garageFull", v)}
+              />
+            </Row>
+            <Row label="Favorite Lot Closed">
+              <Switch
+                value={prefs.favoriteLotClosed}
+                onValueChange={(v) => setToggle("favoriteLotClosed", v)}
+              />
+            </Row>
+            <Row label="Permit Expiring Reminders">
+              <Switch
+                value={prefs.permitExpiring}
+                onValueChange={(v) => setToggle("permitExpiring", v)}
+              />
+            </Row>
+            <Row label="Price Drop Notifications">
+              <Switch
+                value={prefs.priceDrop}
+                onValueChange={(v) => setToggle("priceDrop", v)}
+              />
+            </Row>
+
+            <Button
+              title={saving ? "Saving..." : "Save Preferences"}
+              onPress={savePrefs}
+              disabled={saving}
+            />
+
+            <Divider />
+
+            {/* calendars*/}
+            <ThemedText
+              style={{
+                fontSize: 13,
+                fontWeight: "700",
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                opacity: 0.5,
+              }}
+            >
+              Calendars
+            </ThemedText>
+
+            <Button title="Upload calendar (.ics)" onPress={pickCalendar} />
+            <Button
+              title="Import device calendar"
+              onPress={toggleDeviceCalendar}
+            />
+          </View>
+        </SettingsSectionCard>
+
+        {/* authentication section */}
+        <SettingsSectionCard
+          id="authentication"
+          title="Authentication"
+          icon="lock-closed-outline"
+          expanded={expandedSections.authentication}
+          onToggle={toggleSection}
+        >
+          <View style={{ gap: 12 }}>
+            {userEmail ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: 10,
+                  borderRadius: 10,
+                  backgroundColor: theme.sectionBgMuted,
+                }}
+              >
+                <Ionicons name="mail" size={16} color={theme.primaryText} />
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={{ fontSize: 11, opacity: 0.6 }}>
+                    Signed in as
+                  </ThemedText>
+                  <ThemedText
+                    numberOfLines={1}
+                    ellipsizeMode="middle"
+                    style={{ fontSize: 13, fontWeight: "600", marginTop: 2 }}
+                  >
+                    {userEmail}
+                  </ThemedText>
+                </View>
+              </View>
+            ) : (
+              <ThemedText style={{ fontSize: 14, opacity: 0.6 }}>
+                Not signed in
+              </ThemedText>
+            )}
+
+            <Button
+              title="Log Out"
+              color="#e53935"
+              onPress={handleLogout}
+            />
+          </View>
+        </SettingsSectionCard>
+
+        {/* information section */}
+        <SettingsSectionCard
+          id="information"
+          title="Information"
+          icon="information-circle-outline"
+          expanded={expandedSections.information}
+          onToggle={toggleSection}
+        >
+          <View style={{ gap: 12 }}>
+            <Row label="App Version">
+              <ThemedText style={{ fontSize: 14, opacity: 0.7 }}>
+                {appVersion}
+              </ThemedText>
+            </Row>
+          </View>
+        </SettingsSectionCard>
+      </ScrollView>
+    </ThemedView>
+  );
+}
+
+  /*return (
+    <ThemedView style={{ flex: 1 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+        showsVerticalScrollIndicator
+      >
         <View>
           <ThemedText style={{ fontSize: 24, fontWeight: "700" }}>Settings</ThemedText>
         </View>
@@ -696,20 +1025,36 @@ export default function SettingsScreen({ onLogout }: Props) {
             <Row label="Garage Full Alerts">
               <Switch value={prefs.garageFull} onValueChange={(v) => setToggle("garageFull", v)} />
             </Row>
+            <Row label="Favorite Lot Closed">
+              <Switch value={prefs.favoriteLotClosed} onValueChange={(v) => setToggle("favoriteLotClosed", v)} />
+            </Row>
             <Row label="Permit Expiring Reminders">
-              <Switch value={prefs.permitExpiring} onValueChange={(v) => setToggle("permitExpiring", v)} />
-            </Row>
-            <Row label="Event Day Closures">
-              <Switch value={prefs.eventClosures} onValueChange={handleEventClosuresToggle} />
-            </Row>
-            <Row label="Price Drop Notifications">
-              <Switch value={prefs.priceDrop} onValueChange={(v) => setToggle("priceDrop", v)} />
-            </Row>
-            <Row label="Parking Pass Sale Notifications">
-              <Switch value={prefs.passOnSale} onValueChange={handlePassOnSaleToggle} />
+              <Switch
+                value={prefs.permitExpiring}
+                onValueChange={async (v) => {
+                  setToggle("permitExpiring", v);
+
+                  if (v) {
+                    await sendLocalNotification(
+                      "Permit Reminders Enabled",
+                      "We will notify you before your parking permit expires."
+                    );
+                  }
+                }}
+              />
             </Row>
 
-            <View
+            <Row label="Event Day Closures">
+              <Switch value={prefs.eventClosures} onValueChange={handleEventClosuresToggle} />
+            </Row>*/
+            /*<Row label="Price Drop Notifications">
+              <Switch value={prefs.priceDrop} onValueChange={(v) => setToggle("priceDrop", v)} />
+            </Row>
+            {/*<Row label="Parking Pass Sale Notifications">
+              <Switch value={prefs.passOnSale} onValueChange={handlePassOnSaleToggle} />
+            </Row>*/
+
+            /*<View
               style={{
                 paddingVertical: 12,
                 borderTopWidth: 1,
@@ -723,72 +1068,81 @@ export default function SettingsScreen({ onLogout }: Props) {
                   value={prefs.favoriteLotAlerts}
                   onValueChange={(v) => setToggle("favoriteLotAlerts", v)}
                 />
-              </Row>
-              <ThemedText style={{ fontSize: 13, opacity: 0.7 }}>
-                Notify me when a favorited lot drops below my selected availability threshold.
-              </ThemedText>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                {[10, 20, 25, 30, 40, 50].map((option) => {
-                  const active = prefs.favoriteLotThreshold === option;
-                  const disabled = !prefs.favoriteLotAlerts;
-                  return (
-                    <TouchableOpacity
-                      key={option}
-                      onPress={() => !disabled && setFavoriteLotThreshold(option)}
-                      disabled={disabled}
-                      style={{
-                        paddingVertical: 6,
-                        paddingHorizontal: 10,
-                        borderRadius: 999,
-                        borderWidth: 1.5,
-                        borderColor: active ? theme.primary : theme.border,
-                        backgroundColor: active ? theme.primary + "22" : "transparent",
-                        opacity: disabled ? 0.35 : 1,
-                      }}
-                    >
-                      <ThemedText style={{ fontWeight: "600", fontSize: 13 }}>{option}%</ThemedText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              {prefs.favoriteLotAlerts ? (
-                <ThemedText style={{ fontSize: 13, opacity: 0.75 }}>
-                  Alerts trigger when any favorited lot is below {prefs.favoriteLotThreshold}% available.
+                </Row>
+                <ThemedText style={{ fontSize: 13, opacity: 0.7 }}>
+                  Notify me when a favorited lot drops below my selected availability threshold.
                 </ThemedText>
-              ) : null}
-            </View>
-
-            <View>
-              <ThemedText style={{ marginBottom: 8, opacity: 0.85 }}>Delivery Frequency</ThemedText>
-              <View style={{ flexDirection: "row" }}>
-                <Pill label="Realtime" active={prefs.frequency === "realtime"} onPress={() => setFrequency("realtime")} />
-                <Pill label="Daily" active={prefs.frequency === "daily"} onPress={() => setFrequency("daily")} />
-                <Pill label="Weekly" active={prefs.frequency === "weekly"} onPress={() => setFrequency("weekly")} />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {[10, 20, 25, 30, 40, 50].map((option) => {
+                    const active = prefs.favoriteLotThreshold === option;
+                    const disabled = !prefs.favoriteLotAlerts;
+                    return (
+                      <TouchableOpacity
+                        key={option}
+                        onPress={() => !disabled && setFavoriteLotThreshold(option)}
+                        disabled={disabled}
+                        style={{
+                          paddingVertical: 6,
+                          paddingHorizontal: 10,
+                          borderRadius: 999,
+                          borderWidth: 1.5,
+                          borderColor: active ? theme.primary : theme.border,
+                          backgroundColor: active ? theme.primary + "22" : "transparent",
+                          opacity: disabled ? 0.35 : 1,
+                        }}
+                      >
+                        <ThemedText style={{ fontWeight: "600", fontSize: 13 }}>{option}%</ThemedText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {prefs.favoriteLotAlerts ? (
+                  <ThemedText style={{ fontSize: 13, opacity: 0.75 }}>
+                    Alerts trigger when any favorited lot is below {prefs.favoriteLotThreshold}% available.
+                  </ThemedText>
+                ) : null}
               </View>
+
+              <View>
+                <ThemedText style={{ marginBottom: 8, opacity: 0.85 }}>Delivery Frequency</ThemedText>
+                <View style={{ flexDirection: "row" }}>
+                  <Pill label="Realtime" active={prefs.frequency === "realtime"} onPress={() => setFrequency("realtime")} />
+                  <Pill label="Daily" active={prefs.frequency === "daily"} onPress={() => setFrequency("daily")} />
+                  <Pill label="Weekly" active={prefs.frequency === "weekly"} onPress={() => setFrequency("weekly")} />
+                </View>
+              </View>*/
+
+              /*<Button title={saving ? "Saving..." : "Save Preferences"} onPress={savePrefs} disabled={saving} />
             </View>
+          </SettingsSectionCard>
+          
+          <SettingsSectionCard
+            id="calendar"
+            title="Calendars"
+            icon="calendar-clear-outline"
+            expanded={expandedSections.calendar}
+            onToggle={toggleSection}
+          >
+            <View style={{ gap: 12 }}>
+              <Button title="Upload calendar (.ics)" onPress={pickCalendar} />
+              <Button title="Import device calendar" onPress={toggleDeviceCalendar} />
+            </View>
+          </SettingsSectionCard>
 
-            <Button title={saving ? "Saving..." : "Save Preferences"} onPress={savePrefs} disabled={saving} />
-          </View>
-        </SettingsSectionCard>
-
-        <SettingsSectionCard
-          id="about"
-          title="About & Support"
-          icon="information-circle-outline"
-          expanded={expandedSections.about}
-          onToggle={toggleSection}
-        >
-          <View style={{ gap: 12 }}>
-            <ThemedText style={{ fontSize: 13, opacity: 0.7 }}>
-              Version {appVersion}
-            </ThemedText>
-
-            <Button title="Upload calendar (.ics)" onPress={pickCalendar} />
-
-            <Button title="Log Out" color="#e53935" onPress={handleLogout} />
-          </View>
-        </SettingsSectionCard>
-      </ScrollView>
-    </ThemedView>
-  );
-}
+          <SettingsSectionCard
+            id="about"
+            title="About & Support"
+            icon="information-circle-outline"
+            expanded={expandedSections.about}
+            onToggle={toggleSection}
+          >
+            <View style={{ gap: 12 }}>
+              <ThemedText style={{ fontSize: 13, opacity: 0.7 }}>
+                Version {appVersion}
+              </ThemedText>
+              <Button title="Log Out" color="#e53935" onPress={handleLogout} />
+            </View>
+          </SettingsSectionCard>
+        </ScrollView>
+      </ThemedView>
+    );*/

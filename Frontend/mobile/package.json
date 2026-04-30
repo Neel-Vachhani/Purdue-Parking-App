@@ -3,12 +3,13 @@
     "@expo/react-native-action-sheet": "^4.1.1",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "^2.2.0",
-    "@react-native-picker/picker": "^2.11.4",
+    "@react-native-picker/picker": "2.11.1",
     "axios": "^1.12.2",
-    "expo": "^54.0.0",
+    "expo": "^54.0.22",
     "expo-apple-authentication": "^8.0.7",
     "expo-auth-session": "^7.0.8",
     "expo-build-properties": "^1.0.9",
+    "expo-calendar": "~15.0.8",
     "expo-constants": "~18.0.10",
     "expo-dev-client": "~6.0.16",
     "expo-device": "^8.0.9",
@@ -21,7 +22,7 @@
     "expo-router": "^6.0.11",
     "expo-secure-store": "^15.0.7",
     "expo-status-bar": "~3.0.8",
-    "expo-web-browser": "^15.0.8",
+    "expo-web-browser": "~15.0.9",
     "ics-to-json": "^2.0.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -33,6 +34,7 @@
     "react-native-get-location": "^6.0.0",
     "react-native-google-places-autocomplete": "^2.5.7",
     "react-native-google-places-textinput": "^0.9.1",
+    "react-native-map-clustering": "^4.0.0",
     "react-native-map-link": "^3.10.0",
     "react-native-maps": "1.20.1",
     "react-native-safe-area-context": "~5.6.0",
@@ -41,9 +43,17 @@
     "react-native-svg": "15.12.1"
   },
   "devDependencies": {
+    "@expo/cli": "^54.0.15",
+    "@expo/metro-config": "^54.0.6",
     "@types/react": "~19.1.0",
     "typescript": "~5.9.2"
   },
   "private": true,
-  "overrides": {}
+  "overrides": {},
+  "name": "mobile",
+  "version": "1.0.0",
+  "scripts": {
+    "android": "expo run:android",
+    "ios": "expo run:ios"
+  }
 }
