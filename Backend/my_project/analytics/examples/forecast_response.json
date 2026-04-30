@@ -1,0 +1,23 @@
+{
+  "recent_actuals": [
+    {"timestamp":"2026-04-29T09:00:00Z","available":120,"occupied":198,"occupancy_pct":0.62},
+    {"timestamp":"2026-04-29T09:30:00Z","available":110,"occupied":208,"occupancy_pct":0.65}
+  ],
+  "baseline_forecast": null,
+  "gru_forecast": [
+    {"timestamp":"2026-04-29T10:00:00Z","available":95,"occupancy_pct":0.73,"lower":0.68,"upper":0.78},
+    {"timestamp":"2026-04-29T10:30:00Z","available":80,"occupancy_pct":0.79,"lower":0.74,"upper":0.84}
+  ],
+  "derived": {
+    "current_occupancy_pct": 0.65,
+    "rate_of_change_per_hour": 7.1,
+    "time_to_capacity_min": 90,
+    "expected_peak": {"timestamp":"2026-04-29T11:00:00Z","occupancy_pct":0.92},
+    "utilization_trend": "increasing",
+    "confidence": 0.82
+  },
+  "insights": [
+    {"code":"filling_fast","severity":"high","message":"Occupancy rising rapidly; ~7%/hr."},
+    {"code":"near_capacity","severity":"medium","message":"Approaching full within ~90 minutes."}
+  ]
+}
