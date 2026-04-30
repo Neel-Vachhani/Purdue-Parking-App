@@ -1,6 +1,6 @@
 import React, { useContext, useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking, Modal, TextInput, Alert, AppState } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { View, Text, ScrollView, StyleSheet, Pressable, Image, Platform, TouchableOpacity, Linking, Modal, TextInput, Alert, AppState, ActivityIndicator} from "react-native";
+import { SafeAreaView, useSafeAreaInsets,} from "react-native-safe-area-context";
 import { ThemeContext, AppTheme } from "../theme/ThemeProvider";
 import { Ionicons, MaterialCommunityIcons } from "./ThemedIcons";
 import EmptyState from "./EmptyState";
@@ -12,6 +12,8 @@ import axios from "axios";
 import { API_BASE_URL } from "../config/env";
 import * as Notifications from 'expo-notifications';
 import { subscribeToParkingUpdates } from "../utils/parkingEvents"; // add this util (below)
+import { useForecast } from "../utils/useForecast"; 
+import ForecastChart from "./ForecastChart"; 
 
 //timed parking notifs - sprint 2
 Notifications.setNotificationHandler({
@@ -141,7 +143,6 @@ function formatCountdown(totalSeconds: number): string {
   return `${m}m ${pad(s)}s`;
 }
 
-/** SecureStore key for persisting active parking session */
 const SESSION_STORE_KEY = "active_parking_session";
 
 async function saveSession(session: ParkingSession | null) {
@@ -524,6 +525,45 @@ const makeStyles = (theme: AppTheme) => StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  predictionCard: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 12,
+  },
+  predictionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  predictionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  predictionLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  predictionValue: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  predictionInsight: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  predictionBarOuter: {
+    width: "100%",
+    height: 6,
+    borderRadius: 999,
+    overflow: "hidden",
+    marginTop: 10,
+  },
+  predictionBarFill: {
+    height: 6,
+    borderRadius: 999,
+  },
 });
 
 const Pill = ({ children }: { children: React.ReactNode }) => {
@@ -579,6 +619,8 @@ export default function GarageDetail({
 
   const [lastUpdateMsByLot, setLastUpdateMsByLot] = React.useState<Record<string, number>>({});
   const [nowMs, setNowMs] = React.useState<number>(Date.now());
+
+  const { data: forecast, loading: forecastLoading } = useForecast(garage.code);
 
   React.useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
@@ -1100,6 +1142,8 @@ const handleConfirmParking = async () => {
     };
   }, [garage.id, garage.code]);
 
+  const forecastTrackColor = theme.mode === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+
   return (
     <SafeAreaView
       style={[styles.root, { paddingTop: headerInset }]}
@@ -1259,6 +1303,20 @@ const handleConfirmParking = async () => {
           </Text>
           {garage.lastUpdatedIso && (
             <Text style={styles.updated}>Updated {formatTime(garage.lastUpdatedIso)}</Text>
+          )}
+          {forecastLoading && (
+            <View style={[styles.predictionCard, { backgroundColor: forecastTrackColor }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center", paddingVertical: 4 }}>
+                <ActivityIndicator size="small" color={theme.primary} />
+                <Text style={{ color: theme.textMuted ?? theme.text, fontSize: 12 }}>
+                  Loading forecast…
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {!forecastLoading && forecast && (
+            <ForecastChart forecast={forecast} />
           )}
           <View style={styles.accuracySummary}>
             <View style={styles.accuracySummaryHeader}>

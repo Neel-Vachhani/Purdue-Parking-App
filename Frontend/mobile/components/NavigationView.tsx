@@ -24,6 +24,8 @@ import { loadParkingLocations } from "../screens/Parking/parkingLocationsData";
 import { getGoogleMapsApiKey } from "../config/env";
 import { INITIAL_REGION } from "../constants/map";
 import { DARK_MAP_STYLE, LIGHT_MAP_STYLE } from "../constants/mapStyle";
+import { useBulkForecasts } from "../utils/useForecast";
+import * as Location from "expo-location";
 
 type RoutePointKind = "stop" | "destination";
 type NavigationStage = "editing" | "selecting" | "completed";
@@ -52,6 +54,8 @@ type AvailabilityByCode = Record<
 >;
 
 const MAX_CANDIDATES_PER_STEP = 5;
+const DRIVING_FACTOR = 1.4;
+const AVG_SPEED_MPH = 20
 
 const toRadians = (value: number): number => (value * Math.PI) / 180;
 
@@ -81,6 +85,26 @@ const formatMiles = (distanceMeters: number): string => {
   }
   return `${miles.toFixed(1)} mi`;
 };
+
+function estimateETAMinutes(distanceMeters: number): number {
+  const drivingMiles = (distanceMeters * DRIVING_FACTOR) / 1609.344;
+  return Math.max(1, Math.round((drivingMiles / AVG_SPEED_MPH) * 60));
+}
+
+function formatETA(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function formatArrivalTime(etaMinutes: number): string {
+  const arrival = new Date(Date.now() + etaMinutes * 60 * 1000);
+  const h = arrival.getHours();
+  const m = arrival.getMinutes();
+  const ampm = h >= 12 ? "PM" : "AM";
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
 
 const extractAddressFromPlace = (place: any): string => {
   return (
@@ -309,8 +333,58 @@ const NavigationView = () => {
       )
   );
 
+  const [filterFullAtETA, setFilterFullAtETA] = React.useState(false);
+  const [showFilterMenu, setShowFilterMenu] = React.useState(false);
+
+  const [userLocation, setUserLocation] = React.useState<Coordinate | null>(null);
+
+  const getUserToGarageDistance = React.useCallback((garage: Garage): number | null => {
+  if (!userLocation || garage.latitude == null || garage.longitude == null) return null;
+  return haversineMeters(userLocation.latitude, userLocation.longitude, garage.latitude, garage.longitude);
+}, [userLocation]);
+
+React.useEffect(() => {
+  let mounted = true;
+  (async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (mounted) setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+    } catch (e) {
+      console.warn("[Nav] Could not get location:", e);
+    }
+  })();
+  return () => { mounted = false; };
+}, []);
+
   const currentPoint =
     stage === "selecting" ? routePoints[currentPointIndex] ?? null : null;
+
+  const candidateCodes = React.useMemo(
+    () => candidateGarages.map((c) => c.garage.code ?? "").filter(Boolean),
+    [candidateGarages]
+  );
+  console.log("[DEBUG] candidateCodes:", candidateCodes);
+  const { getForecast, loading: forecastLoading } = useBulkForecasts(candidateCodes);
+  console.log("[DEBUG] forecastLoading:", forecastLoading);
+
+ const filteredCandidates = React.useMemo(() => {
+    if (!filterFullAtETA) return candidateGarages;
+    return candidateGarages.filter((c) => {
+      const fc = getForecast(c.garage.code ?? "");
+      if (!fc) return true; 
+      const dist = getUserToGarageDistance(c.garage);
+      if (!dist) return true;
+      const etaMin = estimateETAMinutes(dist);
+      const arrivalMs = Date.now() + etaMin * 60 * 1000;
+      const step = findStepAtTime(fc.forecast, arrivalMs);
+      if (!step) return true;
+      return step.occupancy_pct < 0.95;
+    });
+  }, [candidateGarages, filterFullAtETA, getForecast, getUserToGarageDistance]);
+
+  const filteredOutCount = candidateGarages.length - filteredCandidates.length;
 
   const cacheCoordinateForAddress = React.useCallback((address: string, coordinates: Coordinate) => {
     const key = normalizeAddressKey(address);
@@ -770,12 +844,24 @@ const NavigationView = () => {
     [openDirectionsUrl]
   );
 
+  const getArrivalForecast = React.useCallback((garage: Garage) => {
+    const fc = getForecast(garage.code ?? "");
+    if (!fc) return null;
+    const dist = getUserToGarageDistance(garage);
+    if (!dist) return null;
+    const etaMin = estimateETAMinutes(dist);
+    const arrivalMs = Date.now() + etaMin * 60 * 1000;
+    const step = findStepAtTime(fc.forecast, arrivalMs);
+    return { etaMin, step, source: fc.source, derived: fc.derived };
+  }, [getForecast]);
+
   const styles = React.useMemo(
     () =>
       StyleSheet.create({
         screen: {
           flex: 1,
         },
+        headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
         container: {
           paddingHorizontal: 16,
           paddingTop: 16,
@@ -989,6 +1075,17 @@ const NavigationView = () => {
           color: theme.textMuted,
           fontSize: 12,
         },
+        etaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+      etaText: { fontSize: 11, fontWeight: "600" },
+      predRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+      predText: { fontSize: 11, fontWeight: "600" },
+      filterBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1.5 },
+      filterBtnText: { fontSize: 12, fontWeight: "700" },
+      filterPanel: { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, borderRadius: 12, padding: 12, gap: 10, marginBottom: 4 },
+      filterToggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+      filterToggleLabel: { flex: 1, fontSize: 13, fontWeight: "600", color: theme.text },
+      filterNotice: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: theme.mode === "dark" ? "#2a2d31" : "#fff7ed" },
+      filterNoticeText: { fontSize: 12, color: "#f59e0b", fontWeight: "600", flex: 1 },
       }),
     [theme]
   );
@@ -1208,10 +1305,41 @@ const NavigationView = () => {
 
           {/* ── Scrollable route content below the map ─────────────────── */}
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container}>
-          <Text style={styles.header}>Navigation Planner</Text>
+          <View style={styles.headerRow}>
+              <Text style={styles.header}>Navigation Planner</Text>
+              {stage === "selecting" && (
+                <Pressable style={[styles.filterBtn, {
+                  borderColor: filterFullAtETA ? theme.primary : theme.border,
+                  backgroundColor: filterFullAtETA ? `${theme.primary}15` : "transparent",
+                }]} onPress={() => setShowFilterMenu((p) => !p)}>
+                  <Ionicons name="filter" size={14} color={filterFullAtETA ? theme.primary : theme.textMuted} />
+                  <Text style={[styles.filterBtnText, { color: filterFullAtETA ? theme.primary : theme.text }]}>Filter</Text>
+                  {filterFullAtETA && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.primary }} />}
+                </Pressable>
+              )}
+            </View>
+          
           <Text style={styles.subheader}>
             Add stops and a destination, then pick the best garage for each step.
           </Text>
+
+          {showFilterMenu && stage === "selecting" && (
+              <View style={styles.filterPanel}>
+                <View style={styles.filterToggleRow}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.filterToggleLabel}>Hide garages likely full at ETA</Text>
+                    <Text style={{ fontSize: 11, color: theme.textMuted }}>Excludes garages predicted ≥95% full when you arrive</Text>
+                  </View>
+                  <Pressable onPress={() => setFilterFullAtETA((p) => !p)}
+                    style={{ width: 44, height: 26, borderRadius: 13, justifyContent: "center", paddingHorizontal: 2,
+                      backgroundColor: filterFullAtETA ? theme.primary : (theme.mode === "dark" ? "#374151" : "#d1d5db") }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff",
+                      alignSelf: filterFullAtETA ? "flex-end" : "flex-start",
+                      shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 2 }} />
+                  </Pressable>
+                </View>
+              </View>
+            )}
 
           {stage === "selecting" && currentPoint && (
             <>
@@ -1225,12 +1353,22 @@ const NavigationView = () => {
                   : isDone
                   ? "Confirmed"
                   : "Pending";
-
+                const selectedCode = point.selectedGarageCode;
+                const selectedCandidate = selectedCode ? candidateGarages.find((c) => c.garage.code === selectedCode) : null;
+                const etaMin = selectedCandidate ? estimateETAMinutes(selectedCandidate.distanceMeters) : null;
                 return (
                   <View key={point.id} style={styles.progressRow}>
                     <View style={styles.progressLeft}>
                       <Text style={styles.progressLabel}>{point.label}</Text>
                       <Text style={styles.progressAddress}>{point.address}</Text>
+                      {etaMin != null && (isCurrent || isDone) && (
+                            <View style={styles.etaRow}>
+                              <Ionicons name="time-outline" size={12} color="#4aa3ff" />
+                              <Text style={[styles.etaText, { color: "#4aa3ff" }]}>
+                                ETA: {formatETA(etaMin)} (arrive {formatArrivalTime(etaMin)})
+                              </Text>
+                            </View>
+                      )}
                     </View>
                     <Text
                       style={[
@@ -1268,10 +1406,26 @@ const NavigationView = () => {
 
               {!loadingCandidates && !candidateError && (
                 <View style={styles.candidateList}>
-                  {candidateGarages.map((candidate, index) => {
+                  {filterFullAtETA && filteredOutCount > 0 && (
+                        <View style={styles.filterNotice}>
+                          <Ionicons name="eye-off-outline" size={14} color="#f59e0b" />
+                          <Text style={styles.filterNoticeText}>{filteredOutCount} garage{filteredOutCount > 1 ? "s" : ""} hidden (predicted full at your ETA)</Text>
+                        </View>
+                      )}
+
+                  {filteredCandidates.map((candidate, index) => {
                     const selected =
                       candidate.garage.code !== undefined &&
                       currentPoint.selectedGarageCode === candidate.garage.code;
+                    const arrival = getArrivalForecast(candidate.garage);
+                    const arrivalPct = arrival?.step ? Math.round(arrival.step.occupancy_pct * 100) : null;
+                    const arrivalAvail = arrival?.step ? Math.round(arrival.step.available) : null;
+                    const predColor = arrivalPct != null
+                        ? (arrivalPct >= 95 ? "#ef4444" : arrivalPct >= 75 ? "#f59e0b" : "#22c55e")
+                        : theme.textMuted;
+                    const availLabel = arrivalAvail != null
+                        ? (arrivalAvail <= 0 ? "Likely full" : `~${arrivalAvail} spots`)
+                        : null;  
 
                     return (
                       <View key={`${candidate.garage.id}-${index}`} style={styles.candidateCard}>
@@ -1284,8 +1438,36 @@ const NavigationView = () => {
                           <Text style={styles.candidateMeta}>
                             {index === 0 ? "Closest" : `#${index + 1} closest`} - {formatMiles(candidate.distanceMeters)}
                           </Text>
-                        </Pressable>
+                          {arrival && (
+                                <>
+                                  <View style={styles.etaRow}>
+                                    <Ionicons name="time-outline" size={12} color="#4aa3ff" />
+                                    <Text style={[styles.etaText, { color: "#4aa3ff" }]}>
+                                      ETA: {formatETA(arrival.etaMin)} (arrive {formatArrivalTime(arrival.etaMin)})
+                                    </Text>
+                                  </View>
+                                  {availLabel && (
+                                    <View style={styles.predRow}>
+                                      <Ionicons name="analytics-outline" size={12} color={predColor} />
+                                      <Text style={[styles.predText, { color: predColor }]}>At arrival: {availLabel}</Text>
+                                    </View>
+                                  )}
+                                  {arrival.derived.time_to_capacity_min != null && (
+                                    <View style={styles.predRow}>
+                                      <Ionicons name="alert-circle-outline" size={12} color="#f59e0b" />
+                                      <Text style={[styles.predText, { color: "#f59e0b" }]}>Fills up in ~{arrival.derived.time_to_capacity_min} min</Text>
+                                    </View>
+                                  )}
+                                </>
+                              )}
+                              {!arrival && forecastLoading && (
+                                <View style={styles.etaRow}>
+                                  <ActivityIndicator size={10} color={theme.textMuted} />
+                                  <Text style={[styles.etaText, { color: theme.textMuted }]}>Loading forecast…</Text>
+                                </View>
+                              )}
 
+                        </Pressable>
                         <View style={styles.candidateActions}>
                           <Pressable
                             style={[
@@ -1390,6 +1572,17 @@ const NavigationView = () => {
     </ThemedView>
   );
 };
+
+function findStepAtTime(steps: Array<{ timestamp: string; available: number; occupancy_pct: number }>, targetMs: number) {
+  if (!steps.length) return null;
+  let closest = steps[0];
+  let closestDiff = Math.abs(new Date(steps[0].timestamp).getTime() - targetMs);
+  for (let i = 1; i < steps.length; i++) {
+    const diff = Math.abs(new Date(steps[i].timestamp).getTime() - targetMs);
+    if (diff < closestDiff) { closest = steps[i]; closestDiff = diff; }
+  }
+  return closest;
+}
 
 const navMapStyles = StyleSheet.create({
   mapContainer: {

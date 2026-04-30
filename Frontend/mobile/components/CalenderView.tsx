@@ -23,6 +23,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { INITIAL_GARAGES } from "../data/initialGarageAvailability";
 import { GARAGE_DEFINITIONS } from "../data/garageDefinitions";
 import { geocodeAddress, getCurrentLocation } from "../utils/travelTime";
+import { useBulkForecasts } from "../utils/useForecast";
 
 type Category = "meeting" | "deadline" | "personal" | "other";
 
@@ -277,12 +278,14 @@ function ParkingCard({
   isExpanded,
   onToggleExpand,
   userCoords,
+  predictedAvail,
 }: {
   parking: ParkingResult;
   theme: any;
   isExpanded: boolean;
   onToggleExpand: () => void;
   userCoords: { lat: number; lng: number } | null;
+  predictedAvail?: number | null;
 }) {
   const isDark = theme.mode === "dark";
   const subColor = theme.textMuted ?? (isDark ? "#9ca3af" : "#6b7280");
@@ -329,6 +332,15 @@ function ParkingCard({
             </View>
           )}
         </View>
+
+        {predictedAvail != null && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+          <Ionicons name="analytics-outline" size={12} color="#a78bfa" />
+          <Text style={{ fontSize: 11, color: "#a78bfa", fontWeight: "600" }}>
+            Predicted: ~{Math.round(predictedAvail)} spots
+          </Text>
+          </View>
+      )}
 
         <View style={detailStyles.parkingMetaRow}>
           <View style={detailStyles.parkingMetaChip}>
@@ -419,6 +431,9 @@ export default function CalendarEvents(): React.JSX.Element {
   const [locationError, setLocationError] = React.useState<string | null>(null);
   const [loadingParking, setLoadingParking] = React.useState(false);
   const [eventCoords, setEventCoords] = React.useState<{ lat: number; lng: number } | null>(null);
+  const parkingCodes = React.useMemo( () => parkingResults.map((p) => p.code).filter(Boolean),
+  [parkingResults]);
+  const { getForecast, loading: forecastLoading } = useBulkForecasts(parkingCodes);
 
   React.useEffect(() => {
     (async () => {
@@ -553,19 +568,21 @@ export default function CalendarEvents(): React.JSX.Element {
   }, [selectedEvent?.id, selectedEvent?.location]);
 
   const sortedParking = React.useMemo(() => {
-    const copy = [...parkingResults];
-    if (sortMode === "distance") {
-      copy.sort((a, b) => a.walkToEvent_m - b.walkToEvent_m);
-    } else {
-      copy.sort((a, b) => {
-        const aAvail = a.available ?? -1;
-        const bAvail = b.available ?? -1;
-        if (bAvail !== aAvail) return bAvail - aAvail;
-        return a.walkToEvent_m - b.walkToEvent_m;
-      });
-    }
-    return copy;
-  }, [parkingResults, sortMode]);
+  const copy = [...parkingResults];
+  if (sortMode === "distance") {
+    copy.sort((a, b) => a.walkToEvent_m - b.walkToEvent_m);
+  } else {
+    copy.sort((a, b) => {
+      const fcA = getForecast(a.code);
+      const fcB = getForecast(b.code);
+      const aAvail = fcA?.forecast?.[0]?.available ?? a.available ?? -1;
+      const bAvail = fcB?.forecast?.[0]?.available ?? b.available ?? -1;
+      if (bAvail !== aAvail) return bAvail - aAvail;
+      return a.walkToEvent_m - b.walkToEvent_m;
+    });
+  }
+  return copy;
+}, [parkingResults, sortMode, getForecast]);
 
   const allEvents = [...SAMPLE, ...importedEvents];
   const eventsForDate = allEvents.filter((e) => e.date === selectedDate);
@@ -1010,7 +1027,7 @@ export default function CalendarEvents(): React.JSX.Element {
                         },
                       ]}
                     >
-                      Availability
+                      Predicted Availability
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1024,7 +1041,10 @@ export default function CalendarEvents(): React.JSX.Element {
                   </View>
                 ) : sortedParking.length > 0 ? (
                   <>
-                    {sortedParking.map((p) => (
+                    {sortedParking.map((p) => {
+                      const fc = getForecast(p.code);
+                      const predictedAvail = fc?.forecast?.[0]?.available ?? null;
+                      return (
                       <ParkingCard
                         key={p.code}
                         parking={p}
@@ -1034,8 +1054,10 @@ export default function CalendarEvents(): React.JSX.Element {
                         onToggleExpand={() =>
                           setExpandedCode(expandedCode === p.code ? null : p.code)
                         }
+                        predictedAvail={predictedAvail}
                       />
-                    ))}
+                    );
+    })}
 
                     {eventCoords ? (
                       <TouchableOpacity
