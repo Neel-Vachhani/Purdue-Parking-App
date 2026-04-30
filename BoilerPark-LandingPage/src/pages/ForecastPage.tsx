@@ -705,7 +705,7 @@ export default function ForecastPage() {
           <div className="mb-6">
             <span className="inline-flex items-center gap-2 rounded-full border border-[var(--bp-border)] bg-[var(--bp-surface)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--bp-accent)]">
               <MapPin className="h-3.5 w-3.5" />
-              Demand Forecasting · US-13
+              Demand Forecasting
             </span>
             <h2 className="bp-heading mt-3 text-2xl font-semibold sm:text-3xl">
               Parking Demand by Lot, Day &amp; Time
@@ -864,7 +864,7 @@ export default function ForecastPage() {
           <div className="mb-6">
             <span className="inline-flex items-center gap-2 rounded-full border border-[var(--bp-border)] bg-[var(--bp-surface)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--bp-accent)]">
               <DollarSign className="h-3.5 w-3.5" />
-              Revenue Projections · US-14
+              Revenue Projections
             </span>
             <h2 className="bp-heading mt-3 text-2xl font-semibold sm:text-3xl">
               Daily &amp; Weekly Revenue Forecasting
@@ -939,7 +939,7 @@ export default function ForecastPage() {
           <div className="mb-6">
             <span className="inline-flex items-center gap-2 rounded-full border border-[var(--bp-border)] bg-[var(--bp-surface)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--bp-accent)]">
               <Calendar className="h-3.5 w-3.5" />
-              Event Impact Preview · US-15
+              Event Impact Preview
             </span>
             <h2 className="bp-heading mt-3 text-2xl font-semibold sm:text-3xl">
               Demand &amp; Congestion Simulator
