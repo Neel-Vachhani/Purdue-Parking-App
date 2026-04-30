@@ -583,6 +583,12 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-2">
             <Link
+              to="/forecast"
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--bp-border)] bg-[var(--bp-surface)] px-3 py-2 text-sm font-semibold text-[var(--bp-text)] transition hover:border-[var(--bp-accent)]"
+            >
+              Forecast
+            </Link>
+            <Link
               to="/"
               className="inline-flex items-center gap-2 rounded-xl border border-[var(--bp-border)] bg-[var(--bp-surface)] px-3 py-2 text-sm font-semibold text-[var(--bp-text)] transition hover:border-[var(--bp-accent)]"
             >
