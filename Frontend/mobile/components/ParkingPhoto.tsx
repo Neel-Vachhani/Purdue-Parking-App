@@ -190,7 +190,7 @@ export default function ParkingPhoto({ onBack }: { onBack: () => void }) {
       style={{
         flexDirection: "row",
         alignItems: "center",
-        paddingTop: insets.top + 0,
+        paddingTop: insets.top + 4,
         paddingBottom: 18,
         paddingHorizontal: 16,
         backgroundColor: headerBg,
