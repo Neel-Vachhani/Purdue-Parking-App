@@ -75,6 +75,12 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-2">
             <Link
+              to="/forecast"
+              className="rounded-xl border border-[var(--bp-border)] bg-[var(--bp-surface)] px-4 py-2 text-sm font-semibold text-[var(--bp-text)] transition hover:border-[var(--bp-accent)] hover:text-[var(--bp-accent)]"
+            >
+              Forecast
+            </Link>
+            <Link
               to="/dashboard"
               className="rounded-xl border border-[var(--bp-border)] bg-[var(--bp-surface)] px-4 py-2 text-sm font-semibold text-[var(--bp-text)] transition hover:border-[var(--bp-accent)] hover:text-[var(--bp-accent)]"
             >
