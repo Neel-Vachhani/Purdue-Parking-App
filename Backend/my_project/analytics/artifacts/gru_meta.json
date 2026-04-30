@@ -1,0 +1,29 @@
+{
+  "window_bins": 24,
+  "window_minutes": 120,
+  "horizons_minutes": [
+    5,
+    10,
+    15,
+    30,
+    60
+  ],
+  "step_minutes": 5,
+  "freq": "5min",
+  "trained_on": "denmark_parking_aarhus",
+  "garages": [
+    "BRUUNS",
+    "BUSGADEHUSET",
+    "KALKVAERKSVEJ",
+    "MAGASIN",
+    "NORREPORT",
+    "SALLING",
+    "SCANDCENTER",
+    "SKOLEBAKKEN"
+  ],
+  "model_type": "GRU",
+  "input_features": 17,
+  "gru_units": 32,
+  "test_mae": 0.03988867998123169,
+  "test_rmse": 0.05585059900636009
+}
