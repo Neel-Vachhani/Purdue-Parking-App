@@ -1,6 +1,7 @@
   // components/GarageList.tsx
   import Constants from "expo-constants";
-  import * as React from "react";
+  import * as React from "react"; 
+  import { useState } from "react";
   import {
     Platform,
     View,
@@ -42,6 +43,7 @@
   } from "../utils/parkedLocation";
   import { findNearestGarage } from "../utils/garageSelection";
   import { markParkingPromptShown, shouldShowParkingPrompt } from "../utils/parkingPrompt";
+  import ParkingPhoto from "./ParkingPhoto";  
 
   type Garage = InitialGarage;
   export type Amenity =
@@ -246,6 +248,7 @@
     const { showActionSheetWithOptions } = useActionSheet();
     const [origin, setOrigin] = React.useState("");
     const [location, setLocation] = React.useState("");
+    const [showParkingScreen, setShowParkingScreen] = useState(false);
     
     //proximity + availability filter states
     const [maxDistanceMiles, setMaxDistanceMiles] = React.useState<number | null>(null);
@@ -1326,19 +1329,34 @@
             <Text style={{ color: theme.text, fontSize: 34, fontWeight: "700", flex: 1 }}>
               Parking Lots
             </Text>
+
             <TouchableOpacity
-            onPress={() => {setView("map")}}
-            style={{
-              padding: 10,
-              borderRadius: 50,
-              backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
-              shadowColor: "#000",
-              shadowOpacity: 0.25,
-              shadowRadius: 4,
-            }}
-          >
-            <Ionicons name="map-outline" size={26} color={theme.primary} />
-          </TouchableOpacity>
+              onPress={() => setShowParkingScreen(true)}
+              style={{
+                padding: 10,
+                borderRadius: 50,
+                backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+                shadowColor: "#000",
+                shadowOpacity: 0.25,
+                shadowRadius: 4,
+              }}
+            >
+              <Ionicons name="camera-outline" size={26} color={theme.primary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {setView("map")}}
+              style={{
+                padding: 10,
+                borderRadius: 50,
+                backgroundColor: theme.mode === "dark" ? "#1e1f23" : "#f3f4f6",
+                shadowColor: "#000",
+                shadowOpacity: 0.25,
+                shadowRadius: 4,
+              }}
+            >
+              <Ionicons name="map-outline" size={26} color={theme.primary} />
+            </TouchableOpacity> 
             
           </View>
 
@@ -1707,6 +1725,21 @@
               onShare={() => {}}
             />
           </Animated.View>
+        )}
+        {showParkingScreen && (
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: theme.bg,
+              zIndex: 10,
+            }}
+          >
+            <ParkingPhoto onBack={() => setShowParkingScreen(false)} />
+          </View>
         )}
       </View>
     );
