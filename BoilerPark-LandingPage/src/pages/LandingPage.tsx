@@ -183,9 +183,62 @@ export default function LandingPage() {
           </motion.div>
         </section>
 
+        <section id="about" className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-80px" }}
+          >
+            <motion.div variants={fadeUp} className="mb-10">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--bp-accent)]">
+                About Us
+              </p>
+              <h3 className="bp-heading mt-3 text-3xl font-semibold">
+                Built by Purdue students, for Purdue students
+              </h3>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-(--bp-text-muted)">
+                Anyone who has driven to Purdue knows the frustration — circling lots, guessing
+                which garage has space, and arriving late because the current parking system gives
+                you no real information. We decided to fix that. BoilerPark started as a class
+                project between students who were tired of the guessing game, and grew into a
+                full team committed to making every campus commute a little less stressful.
+              </p>
+            </motion.div>
+
+            <motion.div variants={fadeUp}>
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+                {[
+                  { name: "Utkarsh Majithia",    linkedin: "https://www.linkedin.com/in/utkarsh-majithia-a37392195/" },
+                  { name: "Neel Vachhani",        linkedin: "https://www.linkedin.com/in/neel-vachhani/" },
+                  { name: "Pranay Nandkeolyar",   linkedin: "https://www.linkedin.com/in/pranay-nandkeolyar/" },
+                  { name: "Anthony McCrovitz",    linkedin: "https://www.linkedin.com/in/amccrovitz20/" },
+                  { name: "Logan Portscheller",   linkedin: "https://www.linkedin.com/in/logan-portscheller/" },
+                  { name: "George Samra",         linkedin: "https://www.linkedin.com/in/georgesamra/" },
+                  { name: "Roohee Urs",           linkedin: "https://www.linkedin.com/in/roohee-u-2090b9279/" },
+                  { name: "Sparsh Sumani",        linkedin: "https://www.linkedin.com/in/sparshsumani/" },
+                ].map(({ name, linkedin }) => (
+                  <a
+                    key={name}
+                    href={linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 rounded-2xl border border-(--bp-border) bg-(--bp-surface) px-4 py-3 transition hover:border-(--bp-accent) hover:bg-[color-mix(in_oklab,var(--bp-accent)_6%,var(--bp-surface))]"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-(--bp-border) bg-(--bp-bg-elevated) text-xs font-semibold text-(--bp-text-soft)">
+                      {name.split(" ").map((n) => n[0]).join("")}
+                    </div>
+                    <span className="text-sm font-medium text-(--bp-text)">{name}</span>
+                  </a>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        </section>
+
         <section id="highlights" className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
           <div className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--bp-accent)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--bp-accent)">
               Highlights
             </p>
             <h3 className="bp-heading mt-3 text-3xl font-semibold">Designed for quick campus decisions</h3>
@@ -204,13 +257,13 @@ export default function LandingPage() {
                 <motion.article
                   key={feature.title}
                   variants={fadeUp}
-                  className="rounded-2xl border border-[var(--bp-border)] bg-[var(--bp-surface)] p-5"
+                  className="rounded-2xl border border-(--bp-border) bg-(--bp-surface) p-5"
                 >
-                  <div className="inline-flex rounded-xl border border-[var(--bp-border)] bg-[var(--bp-bg-elevated)] p-2 text-[var(--bp-accent)]">
+                  <div className="inline-flex rounded-xl border border-(--bp-border) bg-(--bp-bg-elevated) p-2 text-(--bp-accent)">
                     <Icon className="h-5 w-5" />
                   </div>
                   <h4 className="bp-heading mt-4 text-xl font-semibold">{feature.title}</h4>
-                  <p className="mt-2 text-sm leading-6 text-[var(--bp-text-muted)]">
+                  <p className="mt-2 text-sm leading-6 text-(--bp-text-muted)">
                     {feature.description}
                   </p>
                 </motion.article>
@@ -218,17 +271,17 @@ export default function LandingPage() {
             })}
           </motion.div>
 
-          <div className="mt-12 rounded-3xl border border-[var(--bp-border)] bg-[var(--bp-surface)] p-7">
+          <div className="mt-12 rounded-3xl border border-(--bp-border) bg-(--bp-surface) p-7">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--bp-accent)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--bp-accent)">
                   Ready Now
                 </p>
                 <h4 className="bp-heading mt-2 text-2xl font-semibold">Go directly to availability</h4>
               </div>
               <Link
                 to="/dashboard"
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--bp-accent)] px-5 py-3 text-sm font-semibold text-[var(--bp-accent-ink)] transition hover:brightness-105"
+                className="inline-flex items-center gap-2 rounded-xl bg-(--bp-accent) px-5 py-3 text-sm font-semibold text-(--bp-accent-ink) transition hover:brightness-105"
               >
                 <Zap className="h-4 w-4" />
                 Launch Dashboard
