@@ -1,0 +1,64 @@
+name: BoilerPark VM CI/CD
+on:
+  push:
+    branches:
+      - main
+    # Only trigger if files in these specific folders are changed
+    paths:
+      - 'Backend/**'
+      - 'BoilerPark-LandingPage/**'
+    workflow_dispatch:
+
+jobs:
+  sync-and-execute:
+    runs-on: self-hosted
+    steps:
+      # 1. Standard checkout for the runner's internal work directory
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      # 2. Identify exactly which folders were modified in this push
+      - name: Get Changed Files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files_yaml: |
+            backend:
+              - Backend/**
+            frontend:
+              - BoilerPark-LandingPage/**
+
+      # 3. BACKEND LOGIC: Sync code and run backend commands
+      - name: Sync and Run Backend
+        if: steps.changed-files.outputs.backend_any_changed == 'true'
+        run: |
+          echo "Changes detected in backend. Syncing live folder..."
+          # Replace the path below with the ACTUAL absolute path to your repo
+          cd /home/neelvachhani/Purdue-Parking-App
+          git pull origin main
+          
+          # Add your specific backend commands below
+          echo "Restarting backend services..."
+          sudo systemctl restart django-app.service
+          sudo systemctl restart daphne.service
+          # e.g., python3 main.py or systemctl restart backend-api
+
+      # 4. FRONTEND LOGIC: Sync code and run frontend commands
+      - name: Sync and Run Frontend
+        if: steps.changed-files.outputs.frontend_any_changed == 'true'
+        run: |
+          echo "Changes detected in frontend. Syncing live folder..."
+          # Replace the path below with the ACTUAL absolute path to your repo
+          cd /home/neelvachhani/Purdue-Parking-App
+          git pull origin main
+          
+          # Add your specific frontend commands below
+          echo "Rebuilding frontend..."
+          cd /home/neelvachhani/Purdue-Parking-App/BoilerPark-LandingPage
+          npm ci --no-audit --no-fund
+          npm run build
+          sudo rm -rf /var/www/boilerpark/*
+          sudo mv /home/neelvachhani/Purdue-Parking-App/BoilerPark-LandingPage/dist/* /var/www/boilerpark/
+          # e.g., npm install && npm run build
