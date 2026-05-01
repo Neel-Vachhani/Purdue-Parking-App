@@ -47,7 +47,7 @@ jobs:
           cd /home/neelvachhani/Purdue-Parking-App
           git pull origin main
           cd /home/neelvachhani/Purdue-Parking-App/BoilerPark-LandingPage
-          npm ci --no-audit --no-fund
+          npm install
           npm run build
           sudo rm -rf /var/www/boilerpark/*
           sudo mv dist/* /var/www/boilerpark/
