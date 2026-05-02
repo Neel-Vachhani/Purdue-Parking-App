@@ -411,6 +411,9 @@ export default function DashboardPage() {
 
       socket.onopen = () => {
         if (disposed) {
+          // Cleanup ran while we were still connecting. Close now that it's
+          // OPEN — avoids the "closed before connection established" warning.
+          socket?.close();
           return;
         }
 
@@ -485,8 +488,19 @@ export default function DashboardPage() {
         window.clearTimeout(reconnectTimer);
       }
 
-      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-        socket.close();
+      if (socket) {
+        // Null everything except onopen. If the socket is still CONNECTING,
+        // onopen will fire, see disposed=true, and close it from OPEN state —
+        // which avoids the browser warning. Nulling onclose/onerror/onmessage
+        // prevents any state updates or reconnect attempts after disposal.
+        socket.onclose = null;
+        socket.onerror = null;
+        socket.onmessage = null;
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.onopen = null;
+          socket.close();
+        }
+        // CONNECTING → onopen handles the close; CLOSED/CLOSING → nothing to do.
       }
     };
   }, []);
