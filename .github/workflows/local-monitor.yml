@@ -40,8 +40,8 @@ jobs:
         if: steps.changed-files.outputs.frontend_any_changed == 'true' || github.event_name == 'workflow_dispatch'
         # Added these so your build doesn't crash
         env:
-          API_BASE_URL_DEV: "http://localhost:5000"
-          API_BASE_URL_PROD: "https://api.boilerpark.com"
+          API_BASE_URL_DEV: "http://localhost:7500/api"
+          API_BASE_URL_PROD: "https://35.193.66.238.nip.io/api"
         run: |
           echo "Syncing Frontend..."
           cd /home/neelvachhani/Purdue-Parking-App
